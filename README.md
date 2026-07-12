@@ -6,7 +6,7 @@ authoritative **`robots.txt`** at the origin root
 crawlers read it from.
 
 That one file sets the crawl policy for **every** project page served under
-this domain (exploitrank, jobscope, jobscope-dashboard, …):
+this domain (exploitrank, malscope-dashboard, jobscope, jobscope-dashboard, …):
 keep them out of search engines, web archives, and AI/LLM scrapers.
 
 `robots.txt` only binds well-behaved crawlers — it is not a security control.
