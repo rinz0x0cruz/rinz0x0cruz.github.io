@@ -1,5 +1,5 @@
 # rinz0x0cruz.github.io — root crawl policy for ALL project pages
-# (exploitrank, learnscope, jobscope, jobscope-dashboard, …).
+# (exploitrank, jobscope, jobscope-dashboard, …).
 #
 # Crawlers only read robots.txt from the ORIGIN ROOT, i.e.
 #   https://rinz0x0cruz.github.io/robots.txt
