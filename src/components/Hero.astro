@@ -1,0 +1,212 @@
+---
+import Emblem from './Emblem.astro';
+import { site } from '@/data/site';
+import { neofetch } from '@/data/skills';
+
+const palette = ['#f7768e', '#ff9e64', '#e0af68', '#7dcfff', '#7aa2f7', '#bb9af7', '#9d7cd8', '#c0caf5'];
+---
+
+<section id="top" class="hero">
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <p class="prompt mono"><span class="muted">rinzler@grid:~$</span> whoami</p>
+      <h1>{site.name}</h1>
+      <p class="role mono">
+        {site.role}<span class="handle"> · @{site.handle}</span>
+      </p>
+      <p class="lead">
+        I triage CVEs, reverse-engineer malware, and build small, sharp tools that
+        make threat intel legible.
+      </p>
+
+      <div class="cta">
+        <a class="btn btn-primary" href="#work">View work</a>
+        <a class="btn" href={site.resumeRequest}>Request résumé</a>
+        <button class="btn" type="button" data-open-terminal>./terminal</button>
+      </div>
+
+      {
+        site.availableForWork && (
+          <p class="avail mono">
+            <span class="dot" aria-hidden="true" />
+            {site.availabilityNote}
+          </p>
+        )
+      }
+    </div>
+
+    <div class="hero-card">
+      <div class="win" role="img" aria-label="neofetch card: Mohit Sharma, Security Researcher">
+        <div class="win-bar">
+          <span class="tl r" aria-hidden="true"></span>
+          <span class="tl y" aria-hidden="true"></span>
+          <span class="tl c" aria-hidden="true"></span>
+          <span class="win-title mono">rinzler@grid: ~</span>
+        </div>
+        <div class="win-body">
+          <div class="emblem-wrap">
+            <Emblem size={196} id="hero-emblem" />
+          </div>
+          <div class="neo mono">
+            <p class="neo-head">
+              <span class="k">rinzler</span><span class="muted">@</span><span class="p">grid</span>
+            </p>
+            <p class="neo-sep muted">────────────────────────</p>
+            {
+              neofetch.map((row) => (
+                <p class="neo-row">
+                  <span class="k">{row.key}</span>
+                  <span class="v">{row.value}</span>
+                </p>
+              ))
+            }
+            <div class="palette" aria-hidden="true">
+              {palette.map((c) => <span style={`background:${c}`} />)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-top: clamp(48px, 9vw, 96px);
+    padding-bottom: clamp(40px, 7vw, 80px);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: clamp(28px, 5vw, 64px);
+    align-items: center;
+  }
+
+  .prompt {
+    font-size: 0.9rem;
+    color: var(--cyan);
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: clamp(2.6rem, 6vw, 4rem);
+    letter-spacing: -0.03em;
+    background: linear-gradient(120deg, #c0caf5 20%, #7aa2f7 55%, #bb9af7 90%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .role {
+    font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+    color: var(--fg);
+    margin-top: 8px;
+    font-weight: 500;
+  }
+  .role .handle { color: var(--muted); }
+  .lead {
+    margin-top: 20px;
+    max-width: 46ch;
+    font-size: 1.08rem;
+    color: var(--fg-dim);
+  }
+
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 30px;
+  }
+  .cta .btn { font-size: 0.95rem; }
+
+  .avail {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 26px;
+    font-size: 0.85rem;
+    color: var(--fg-dim);
+  }
+  .avail .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 0 0 rgba(125, 207, 255, 0.55);
+    animation: pulse 2.4s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(125, 207, 255, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(125, 207, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(125, 207, 255, 0); }
+  }
+
+  /* neofetch window card */
+  .win {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .win-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .tl { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .tl.r { background: #f7768e; }
+  .tl.y { background: #e0af68; }
+  .tl.c { background: #7dcfff; }
+  .win-title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .win-body {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 22px 24px 26px;
+  }
+  .emblem-wrap { flex-shrink: 0; }
+  .neo { font-size: 0.86rem; min-width: 0; }
+  .neo-head { font-weight: 700; }
+  .neo-head .k { color: var(--blue); }
+  .neo-head .p { color: var(--purple); }
+  .neo-sep { margin: 4px 0 8px; letter-spacing: -1px; overflow: hidden; }
+  .neo-row {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 10px;
+    padding: 1.5px 0;
+  }
+  .neo-row .k { color: var(--blue); font-weight: 700; }
+  .neo-row .v { color: var(--fg); overflow-wrap: anywhere; }
+  .palette {
+    display: flex;
+    gap: 5px;
+    margin-top: 12px;
+  }
+  .palette span {
+    width: 20px;
+    height: 13px;
+    border-radius: 3px;
+  }
+
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .hero-card { order: -1; max-width: 520px; }
+  }
+  @media (max-width: 600px) {
+    .win-body { flex-direction: column; align-items: center; text-align: center; gap: 16px; }
+    .neo { width: 100%; }
+    .neo-row { justify-items: start; text-align: left; }
+  }
+</style>

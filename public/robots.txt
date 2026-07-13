@@ -1,0 +1,85 @@
+# rinz0x0cruz.github.io — crawl policy
+#
+# The PORTFOLIO (this site's own pages) is OPEN to search engines so recruiters
+# and clients can find it. The personal tool dashboards served under this same
+# domain (exploitrank, jobscope, malscope-dashboard, …) stay OUT of search
+# engines and web archives, and AI / LLM / dataset crawlers are blocked
+# everywhere on the domain.
+#
+# NOTE: robots.txt only binds well-behaved crawlers. It is NOT a security
+# control and does not stop curl, headless browsers, or hostile scrapers.
+
+# --- General crawlers: portfolio allowed, tool subpaths blocked ---
+User-agent: *
+Disallow: /exploitrank/
+Disallow: /malscope/
+Disallow: /malscope-dashboard/
+Disallow: /jobscope/
+Disallow: /jobscope-dashboard/
+Disallow: /skillforge/
+Disallow: /quorum/
+Disallow: /claudebudget/
+Disallow: /agent-api/
+
+# --- Explicit AI / LLM / dataset crawlers: blocked across the whole domain ---
+User-agent: GPTBot
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: GoogleOther
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Perplexity-User
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: ImagesiftBot
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+Sitemap: https://rinz0x0cruz.github.io/sitemap-index.xml

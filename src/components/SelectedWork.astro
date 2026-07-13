@@ -1,0 +1,45 @@
+---
+import ProjectCard from './ProjectCard.astro';
+import { featuredProjects, moreProjects } from '@/data/projects';
+---
+
+<section id="work" class="section work">
+  <div class="container">
+    <p class="section-label">ls -la work/</p>
+
+    <div class="featured-grid">
+      {featuredProjects.map((p) => <ProjectCard project={p} variant="featured" />)}
+    </div>
+
+    {
+      moreProjects.length > 0 && (
+        <>
+          <p class="more-label mono">// more projects</p>
+          <div class="more-grid">
+            {moreProjects.map((p) => (
+              <ProjectCard project={p} variant="compact" />
+            ))}
+          </div>
+        </>
+      )
+    }
+  </div>
+</section>
+
+<style>
+  .featured-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+  }
+  .more-label {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin: 40px 0 18px;
+  }
+  .more-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 18px;
+  }
+</style>

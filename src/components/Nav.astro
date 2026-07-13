@@ -1,0 +1,147 @@
+---
+import { site } from '@/data/site';
+
+const links = [
+  { href: '#about', label: 'about' },
+  { href: '#work', label: 'work' },
+  { href: '#writeups', label: 'writeups' },
+  { href: '#contact', label: 'contact' },
+];
+---
+
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="brand mono" href="#top">
+      <span class="user">rinzler</span><span class="at">@</span><span class="host">grid</span><span class="muted">:~$</span>
+    </a>
+
+    <nav class="nav-links" aria-label="Primary">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+      <a class="btn cv" href={site.resumeRequest}>résumé</a>
+      <button class="btn btn-primary term" type="button" data-open-terminal>./terminal</button>
+    </nav>
+
+    <details class="nav-mobile">
+      <summary aria-label="Toggle menu">
+        <span class="bars" aria-hidden="true"></span>
+      </summary>
+      <div class="nav-mobile-panel">
+        {links.map((l) => <a href={l.href}>{l.label}</a>)}
+        <a href={site.resumeRequest}>résumé</a>
+        <button type="button" data-open-terminal>./terminal</button>
+      </div>
+    </details>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: var(--nav-h);
+    background: rgba(26, 27, 38, 0.72);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .nav-inner {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--fg);
+    white-space: nowrap;
+  }
+  .brand .user { color: var(--blue); }
+  .brand .at { color: var(--muted); }
+  .brand .host { color: var(--purple); }
+  .brand:hover { color: var(--fg); }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+  .nav-links > a:not(.btn) {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--fg-dim);
+    position: relative;
+  }
+  .nav-links > a:not(.btn)::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -6px;
+    width: 0;
+    height: 2px;
+    background: var(--cyan);
+    transition: width 0.2s var(--ease);
+  }
+  .nav-links > a:not(.btn):hover { color: var(--cyan); }
+  .nav-links > a:not(.btn):hover::after { width: 100%; }
+  .nav-links .btn { padding: 8px 14px; font-size: 0.85rem; }
+
+  /* mobile menu (no-JS, uses <details>) */
+  .nav-mobile { display: none; position: relative; }
+  .nav-mobile summary {
+    list-style: none;
+    cursor: pointer;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .nav-mobile summary::-webkit-details-marker { display: none; }
+  .bars, .bars::before, .bars::after {
+    content: '';
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: var(--fg);
+    position: relative;
+  }
+  .bars::before { position: absolute; top: -6px; }
+  .bars::after { position: absolute; top: 6px; }
+  .nav-mobile-panel {
+    position: absolute;
+    right: 0;
+    top: 52px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    min-width: 180px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+  }
+  .nav-mobile-panel a,
+  .nav-mobile-panel button {
+    font-family: var(--font-mono);
+    font-size: 0.92rem;
+    color: var(--fg-dim);
+    background: none;
+    border: 0;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .nav-mobile-panel a:hover,
+  .nav-mobile-panel button:hover { background: var(--bg-elev); color: var(--cyan); }
+
+  @media (max-width: 760px) {
+    .nav-links { display: none; }
+    .nav-mobile { display: block; }
+  }
+</style>

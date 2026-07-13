@@ -1,0 +1,116 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Nav from '@/components/Nav.astro';
+import Footer from '@/components/Footer.astro';
+import Terminal from '@/components/Terminal.astro';
+import { formatDate, isoDate } from '@/utils/format';
+
+const writeups = (await getCollection('writeups'))
+  .filter((w) => !w.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+---
+
+<BaseLayout
+  title="Writeups"
+  description="Notes on vulnerability management, detection engineering, and malware analysis — and the tools I build around them."
+>
+  <Nav />
+  <main id="main" class="section">
+    <div class="container">
+      <p class="section-label">ls -la writeups/</p>
+      <h1 class="page-title">Writeups</h1>
+      <p class="page-sub">
+        Notes on exploitability, detections, and malware analysis — and the tools I
+        build around them.
+      </p>
+
+      <ul class="wlist">
+        {
+          writeups.map((w) => (
+            <li>
+              <a href={`/writeups/${w.id}`}>
+                <time class="mono" datetime={isoDate(w.data.date)}>
+                  {formatDate(w.data.date)}
+                </time>
+                <div class="body">
+                  <h2>{w.data.title}</h2>
+                  <p>{w.data.summary}</p>
+                  <ul class="tags mono">
+                    {w.data.tags.map((t) => (
+                      <li>#{t}</li>
+                    ))}
+                  </ul>
+                </div>
+                <span class="arrow" aria-hidden="true">→</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </main>
+  <Footer />
+  <Terminal />
+</BaseLayout>
+
+<style>
+  .page-title {
+    font-size: clamp(2.2rem, 5vw, 3rem);
+    margin-bottom: 10px;
+  }
+  .page-sub {
+    color: var(--fg-dim);
+    max-width: 60ch;
+    margin-bottom: 40px;
+  }
+  .wlist {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .wlist > li > a {
+    display: grid;
+    grid-template-columns: 130px 1fr auto;
+    gap: 20px;
+    align-items: start;
+    padding: 22px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--fg);
+    transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+  }
+  .wlist > li > a:hover {
+    border-color: var(--blue);
+    transform: translateY(-2px);
+  }
+  .wlist time {
+    font-size: 0.82rem;
+    color: var(--muted);
+    padding-top: 4px;
+  }
+  .body h2 {
+    font-size: 1.2rem;
+    margin-bottom: 6px;
+  }
+  .wlist a:hover .body h2 { color: var(--cyan); }
+  .body p {
+    color: var(--fg-dim);
+    font-size: 0.92rem;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .tags li { font-size: 0.72rem; color: var(--purple); }
+  .arrow { color: var(--blue); font-size: 1.1rem; }
+  .wlist a:hover .arrow { color: var(--cyan); }
+
+  @media (max-width: 640px) {
+    .wlist > li > a { grid-template-columns: 1fr; gap: 8px; }
+    .arrow { display: none; }
+  }
+</style>

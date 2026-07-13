@@ -1,0 +1,59 @@
+---
+import { skillGroups } from '@/data/skills';
+---
+
+<section id="skills" class="section skills">
+  <div class="container">
+    <p class="section-label">cat skills.txt</p>
+    <div class="sgrid">
+      {
+        skillGroups.map((g) => (
+          <div class="sgroup">
+            <h3 class="mono">{g.label}</h3>
+            <ul>
+              {g.items.map((i) => (
+                <li>{i}</li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .sgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px;
+  }
+  .sgroup {
+    padding: 20px 22px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .sgroup h3 {
+    font-size: 0.95rem;
+    color: var(--cyan);
+    margin-bottom: 14px;
+  }
+  .sgroup h3::before {
+    content: '> ';
+    color: var(--purple);
+  }
+  .sgroup ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .sgroup li {
+    font-size: 0.82rem;
+    padding: 4px 10px;
+    border-radius: 7px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-soft);
+    color: var(--fg-dim);
+  }
+</style>

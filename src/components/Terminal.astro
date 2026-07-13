@@ -1,0 +1,467 @@
+---
+import { getCollection } from 'astro:content';
+import { isoDate } from '@/utils/format';
+
+const writeups = (await getCollection('writeups'))
+  .filter((w) => !w.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
+  .map((w) => ({
+    title: w.data.title,
+    slug: w.id,
+    summary: w.data.summary,
+    date: isoDate(w.data.date),
+  }));
+---
+
+<div id="terminal-overlay" class="overlay" hidden>
+  <div class="term-win" role="dialog" aria-modal="true" aria-label="Interactive terminal">
+    <div class="term-bar">
+      <span class="tl r" aria-hidden="true"></span>
+      <span class="tl y" aria-hidden="true"></span>
+      <span class="tl c" aria-hidden="true"></span>
+      <span class="term-title mono">rinzler@grid: ~ — visitor session</span>
+      <button class="term-close" type="button" data-close-terminal aria-label="Close terminal">&#x2715;</button>
+    </div>
+    <div class="term-screen" id="term-screen">
+      <div id="term-output" class="term-output" aria-live="polite"></div>
+      <form id="term-form" class="term-line" autocomplete="off">
+        <label for="term-input" class="prompt mono">visitor@grid:~$</label>
+        <input
+          id="term-input"
+          class="term-input mono"
+          type="text"
+          aria-label="Terminal command input"
+          autocapitalize="off"
+          autocorrect="off"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </form>
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="term-writeups" set:html={JSON.stringify(writeups)}></script>
+
+<style is:global>
+  html.term-open { overflow: hidden; }
+</style>
+
+<style>
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    place-items: center;
+    padding: clamp(12px, 4vw, 40px);
+    background: rgba(10, 11, 18, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: fade 0.18s var(--ease);
+  }
+  .overlay[hidden] { display: none; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+  .term-win {
+    width: min(860px, 100%);
+    height: min(78vh, 660px);
+    display: flex;
+    flex-direction: column;
+    background: #16171f;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .tl { width: 12px; height: 12px; border-radius: 50%; }
+  .tl.r { background: #f7768e; }
+  .tl.y { background: #e0af68; }
+  .tl.c { background: #7dcfff; }
+  .term-title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .term-close {
+    margin-left: auto;
+    z-index: 1;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+  }
+  .term-close:hover { color: var(--red); background: rgba(247, 118, 142, 0.12); }
+
+  .term-screen {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 20px 20px;
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--fg);
+  }
+  .term-output :global(.line) { white-space: pre-wrap; word-break: break-word; }
+  .term-output :global(.cmd) { color: var(--cyan); }
+  .term-output :global(.key) { color: var(--blue); font-weight: 700; }
+  .term-output :global(.muted) { color: var(--muted); }
+  .term-output :global(.err) { color: var(--red); }
+  .term-output :global(.ok) { color: var(--cyan); }
+  .term-output :global(.head) { color: var(--purple); font-weight: 700; }
+  .term-output :global(a) { color: var(--cyan); text-decoration: underline; text-underline-offset: 2px; }
+  .term-output :global(.echo) { color: var(--fg-dim); }
+  .term-output :global(.echo .p) { color: var(--purple); }
+  .term-output :global(.emblem-ascii) {
+    margin: 2px 0 6px;
+    background: linear-gradient(180deg, #7dcfff, #7aa2f7 50%, #bb9af7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-size: 0.72rem;
+    line-height: 1.05;
+  }
+  .term-output :global(.grid2) {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 2px 14px;
+  }
+  .term-output :global(.block) { margin: 4px 0 10px; }
+
+  .term-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .prompt { color: var(--blue); font-weight: 700; flex-shrink: 0; }
+  .term-input {
+    flex: 1;
+    background: none;
+    border: 0;
+    outline: none;
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    caret-color: var(--cyan);
+  }
+
+  @media (max-width: 560px) {
+    .term-win { height: 86vh; }
+    .term-screen { font-size: 0.8rem; }
+  }
+</style>
+
+<script>
+  import { site } from '../data/site';
+  import { projects } from '../data/projects';
+  import { skillGroups, neofetch } from '../data/skills';
+
+  type Writeup = { title: string; slug: string; summary: string; date: string };
+
+  const emblem = [
+    '      ████████      ',
+    '   ██████████████   ',
+    '  ████░░░░░░░░████  ',
+    ' ███░░░░░░░░░░░░░███ ',
+    '███░░░░░████░░░░░███',
+    '███░░░░██████░░░░███',
+    '███░░░░░████░░░░░███',
+    ' ███░░░░░░░░░░░░███ ',
+    '  ████░░░░░░░░████  ',
+    '   ██████████████   ',
+    '      ████████      ',
+  ];
+
+  const commands = [
+    ['help', 'this list'],
+    ['whoami', 'who is this'],
+    ['about', 'the longer story'],
+    ['neofetch', 'system card'],
+    ['projects', 'list selected work'],
+    ['cat <project>', 'details for a project'],
+    ['writeups', 'list writeups'],
+    ['skills', 'toolbox'],
+    ['resume', 'how to request the résumé'],
+    ['contact', 'how to reach me'],
+    ['clear', 'clear the screen'],
+    ['gui', 'exit to the site'],
+  ];
+
+  const esc = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
+    );
+
+  let opened = false;
+  let history: string[] = [];
+  let histIndex = 0;
+  let lastFocus: HTMLElement | null = null;
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+
+  function screen() { return $('term-screen'); }
+  function output() { return $('term-output'); }
+
+  function print(html: string) {
+    const out = output();
+    if (!out) return;
+    const div = document.createElement('div');
+    div.className = 'line';
+    div.innerHTML = html;
+    out.appendChild(div);
+    const s = screen();
+    if (s) s.scrollTop = s.scrollHeight;
+  }
+
+  function echo(input: string) {
+    print(`<span class="echo"><span class="p">visitor@grid</span>:~$</span> ${esc(input)}`);
+  }
+
+  function getWriteups(): Writeup[] {
+    try {
+      return JSON.parse($('term-writeups')?.textContent || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  const cmds: Record<string, (args: string[]) => void> = {
+    help() {
+      print('<span class="head">available commands</span>');
+      const rows = commands
+        .map(([c, d]) => `<span class="cmd">${esc(c).padEnd(16)}</span><span class="muted">${esc(d)}</span>`)
+        .join('\n');
+      print(`<span class="line">${rows}</span>`);
+    },
+    whoami() {
+      print(`<span class="key">${esc(site.name)}</span> · ${esc(site.role)} <span class="muted">(@${esc(site.handle)})</span>`);
+      print('I build tools that hunt threats.');
+    },
+    about() {
+      site.bio.forEach((p) => print(esc(p)));
+    },
+    neofetch() {
+      print(`<pre class="emblem-ascii">${emblem.join('\n')}</pre>`);
+      print(`<span class="key">rinzler</span>@<span class="head">grid</span>`);
+      const rows = neofetch
+        .map((r) => `<span class="key">${esc(r.key)}</span><span>${esc(r.value)}</span>`)
+        .join('');
+      print(`<div class="grid2 block">${rows}</div>`);
+    },
+    projects() {
+      projects.forEach((p) =>
+        print(`<span class="cmd">${esc(p.name)}</span> <span class="muted">— ${esc(p.tagline)}</span>`)
+      );
+      print('<span class="muted">run</span> <span class="cmd">cat &lt;project&gt;</span> <span class="muted">for details.</span>');
+    },
+    cat(args) {
+      if (!args.length) {
+        print('<span class="err">usage:</span> cat &lt;project&gt;');
+        return;
+      }
+      const name = args.join(' ').toLowerCase();
+      const p = projects.find((x) => x.name.toLowerCase() === name);
+      if (!p) {
+        print(`<span class="err">no such project:</span> ${esc(args.join(' '))}`);
+        return;
+      }
+      print(`<span class="head">${esc(p.name)}</span> — <span class="ok">${esc(p.tagline)}</span>`);
+      print(esc(p.description));
+      p.highlights.forEach((h) => print(`  <span class="muted">▹</span> ${esc(h)}`));
+      const links: string[] = [];
+      if (p.links.live) links.push(`<a href="${esc(p.links.live)}" target="_blank" rel="noopener">live</a>`);
+      if (p.links.repo) links.push(`<a href="${esc(p.links.repo)}" target="_blank" rel="noopener">code</a>`);
+      if (links.length) print(`<span class="muted">links:</span> ${links.join(' · ')}`);
+    },
+    writeups() {
+      const w = getWriteups();
+      if (!w.length) {
+        print('<span class="muted">no writeups yet.</span>');
+        return;
+      }
+      w.forEach((x) =>
+        print(`<span class="muted">${esc(x.date)}</span>  <a href="/writeups/${esc(x.slug)}">${esc(x.title)}</a>`)
+      );
+    },
+    skills() {
+      skillGroups.forEach((g) => {
+        print(`<span class="key">${esc(g.label)}</span>`);
+        print(`  <span class="muted">${esc(g.items.join(' · '))}</span>`);
+      });
+    },
+    resume() {
+      print('<span class="muted">Résumé available on request.</span>');
+      print(`<span class="key">email</span>  <a href="${esc(site.resumeRequest)}">${esc(site.email)}</a>`);
+    },
+    contact() {
+      print(`<span class="key">email</span>  <a href="mailto:${esc(site.email)}">${esc(site.email)}</a>`);
+      site.socials
+        .filter((s) => s.icon !== 'email')
+        .forEach((s) =>
+          print(`<span class="key">${esc(s.name.toLowerCase())}</span>  <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.handle)}</a>`)
+        );
+    },
+    clear() {
+      const out = output();
+      if (out) out.innerHTML = '';
+    },
+    gui() { close(); },
+    exit() { close(); },
+    banner() { banner(); },
+    sudo() {
+      print("<span class=\"muted\">visitor is not in the sudoers file. this incident will be reported. 🙂</span>");
+    },
+  };
+
+  function run(raw: string) {
+    const input = raw.trim();
+    echo(input);
+    if (!input) return;
+    history.push(input);
+    histIndex = history.length;
+    const parts = input.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const args = parts.slice(1);
+    const fn = cmds[cmd];
+    if (fn) {
+      fn(args);
+    } else {
+      print(`<span class="err">command not found:</span> ${esc(parts[0])} <span class="muted">— try</span> <span class="cmd">help</span>`);
+    }
+  }
+
+  function banner() {
+    print('<span class="head">rinzler@grid</span> <span class="muted">— visitor session</span>');
+    print(`type <span class="cmd">help</span> for commands · <span class="cmd">gui</span> to return to the site`);
+  }
+
+  function open(opener?: HTMLElement) {
+    const overlay = $('terminal-overlay');
+    if (!overlay) return;
+    lastFocus = opener || (document.activeElement as HTMLElement) || null;
+    overlay.hidden = false;
+    document.documentElement.classList.add('term-open');
+    if (!opened) {
+      opened = true;
+      banner();
+    }
+    const input = $<HTMLInputElement>('term-input');
+    setTimeout(() => input?.focus(), 30);
+  }
+
+  function close() {
+    const overlay = $('terminal-overlay');
+    if (!overlay || overlay.hidden) return;
+    overlay.hidden = true;
+    document.documentElement.classList.remove('term-open');
+    lastFocus?.focus?.();
+  }
+
+  function isOpen() {
+    const overlay = $('terminal-overlay');
+    return overlay ? !overlay.hidden : false;
+  }
+
+  // One-time, delegated listeners — survive Astro client-side navigation.
+  if (!(window as any).__termBound) {
+    (window as any).__termBound = true;
+
+    document.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      const opener = t.closest('[data-open-terminal]') as HTMLElement | null;
+      if (opener) {
+        e.preventDefault();
+        open(opener);
+        return;
+      }
+      if (t.closest('[data-close-terminal]')) {
+        close();
+        return;
+      }
+      if (t.id === 'terminal-overlay') close(); // backdrop click
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!isOpen()) return;
+      if (e.key === 'Escape') {
+        close();
+        return;
+      }
+      // focus trap between close button and input
+      if (e.key === 'Tab') {
+        const focusables = [
+          document.querySelector('[data-close-terminal]'),
+          $('term-input'),
+        ].filter(Boolean) as HTMLElement[];
+        if (focusables.length) {
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    });
+
+    document.addEventListener('submit', (e) => {
+      const form = e.target as HTMLElement;
+      if (form.id !== 'term-form') return;
+      e.preventDefault();
+      const input = $<HTMLInputElement>('term-input');
+      if (!input) return;
+      run(input.value);
+      input.value = '';
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const input = $<HTMLInputElement>('term-input');
+      if (!input || document.activeElement !== input) return;
+      if (e.key === 'ArrowUp') {
+        if (histIndex > 0) {
+          histIndex--;
+          input.value = history[histIndex] || '';
+          e.preventDefault();
+        }
+      } else if (e.key === 'ArrowDown') {
+        if (histIndex < history.length) {
+          histIndex++;
+          input.value = history[histIndex] || '';
+          e.preventDefault();
+        }
+      } else if (e.key === 'Tab') {
+        const val = input.value.trim().toLowerCase();
+        if (val && !val.includes(' ')) {
+          const names = commands.map((c) => c[0].split(' ')[0]);
+          const match = names.find((n) => n.startsWith(val));
+          if (match) {
+            input.value = match;
+            e.preventDefault();
+          }
+        }
+      }
+    });
+  }
+</script>

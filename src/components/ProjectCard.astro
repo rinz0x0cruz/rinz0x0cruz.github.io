@@ -1,0 +1,157 @@
+---
+import Icon from './Icon.astro';
+import type { Project } from '@/data/projects';
+
+interface Props {
+  project: Project;
+  variant?: 'featured' | 'compact';
+}
+const { project, variant = 'featured' } = Astro.props;
+---
+
+<article class:list={['card', variant]}>
+  <div class="card-head">
+    <h3 class="mono">{project.name}</h3>
+    <div class="links">
+      {
+        project.links.live && (
+          <a href={project.links.live} target="_blank" rel="noopener" aria-label={`${project.name} — live demo`}>
+            <Icon name="external" size={15} /> live
+          </a>
+        )
+      }
+      {
+        project.links.repo && (
+          <a href={project.links.repo} target="_blank" rel="noopener" aria-label={`${project.name} — source code`}>
+            <Icon name="github" size={15} /> code
+          </a>
+        )
+      }
+    </div>
+  </div>
+
+  <p class="tagline">{project.tagline}</p>
+  <p class="desc">{project.description}</p>
+
+  {
+    variant === 'featured' && project.highlights.length > 0 && (
+      <ul class="highlights">
+        {project.highlights.map((h) => (
+          <li>{h}</li>
+        ))}
+      </ul>
+    )
+  }
+
+  <div class="meta">
+    <ul class="tags">
+      {project.tags.map((t) => <li>{t}</li>)}
+    </ul>
+    <ul class="stack mono">
+      {project.stack.map((s) => <li>{s}</li>)}
+    </ul>
+  </div>
+</article>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 24px;
+    height: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: border-color 0.2s var(--ease), transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  }
+  .card:hover {
+    border-color: var(--blue);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-soft);
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .card-head h3 {
+    font-size: 1.15rem;
+    color: var(--fg);
+  }
+  .compact .card-head h3 { font-size: 1.02rem; }
+
+  .links {
+    display: flex;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .links a:hover { color: var(--cyan); }
+
+  .tagline { color: var(--cyan); font-size: 0.95rem; }
+  .desc { color: var(--fg-dim); font-size: 0.94rem; }
+  .compact .desc { font-size: 0.88rem; }
+
+  .highlights {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .highlights li {
+    position: relative;
+    padding-left: 20px;
+    font-size: 0.88rem;
+    color: var(--fg-dim);
+  }
+  .highlights li::before {
+    content: '▹';
+    position: absolute;
+    left: 0;
+    color: var(--purple);
+  }
+
+  .meta {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 8px;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tags li {
+    font-size: 0.72rem;
+    padding: 3px 9px;
+    border-radius: 100px;
+    background: rgba(122, 162, 247, 0.1);
+    border: 1px solid var(--border);
+    color: var(--fg-dim);
+  }
+  .stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .stack li {
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
+  .stack li::before {
+    content: '#';
+    color: var(--purple);
+    margin-right: 1px;
+  }
+</style>

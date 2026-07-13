@@ -1,0 +1,66 @@
+---
+import { site } from '@/data/site';
+---
+
+<section id="about" class="section about">
+  <div class="container">
+    <p class="section-label">cat about.md</p>
+    <div class="about-grid">
+      <div class="about-copy">
+        {site.bio.map((p) => <p>{p}</p>)}
+      </div>
+      <aside class="about-facts">
+        <p class="facts-title mono">// focus</p>
+        <ul>
+          {site.knowsAbout.map((k) => <li>{k}</li>)}
+        </ul>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<style>
+  .about-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: clamp(28px, 5vw, 60px);
+    align-items: start;
+  }
+  .about-copy p {
+    font-size: 1.1rem;
+    color: var(--fg-dim);
+  }
+  .about-copy p + p { margin-top: 1.1em; }
+
+  .about-facts {
+    border-left: 2px solid var(--border);
+    padding-left: 24px;
+  }
+  .facts-title {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 14px;
+  }
+  .about-facts ul {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .about-facts li {
+    position: relative;
+    padding-left: 22px;
+    color: var(--fg);
+    font-size: 0.98rem;
+  }
+  .about-facts li::before {
+    content: '▹';
+    position: absolute;
+    left: 0;
+    color: var(--cyan);
+  }
+
+  @media (max-width: 760px) {
+    .about-grid { grid-template-columns: 1fr; }
+    .about-facts { border-left: 0; padding-left: 0; border-top: 2px solid var(--border); padding-top: 20px; }
+  }
+</style>

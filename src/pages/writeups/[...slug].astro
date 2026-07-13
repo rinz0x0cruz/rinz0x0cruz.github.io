@@ -1,0 +1,65 @@
+---
+import { getCollection, render } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Nav from '@/components/Nav.astro';
+import Footer from '@/components/Footer.astro';
+import Terminal from '@/components/Terminal.astro';
+import { formatDate, isoDate } from '@/utils/format';
+
+export const getStaticPaths = (async () => {
+  const writeups = (await getCollection('writeups')).filter((w) => !w.data.draft);
+  return writeups.map((w) => ({
+    params: { slug: w.id },
+    props: { writeup: w },
+  }));
+}) satisfies GetStaticPaths;
+
+const { writeup } = Astro.props;
+const { Content } = await render(writeup);
+const { title, summary, date, tags } = writeup.data;
+---
+
+<BaseLayout title={title} description={summary} article publishedTime={date.toISOString()}>
+  <Nav />
+  <main id="main" class="section">
+    <article class="container article">
+      <a class="back mono" href="/writeups">&larr; all writeups</a>
+      <header class="wh">
+        <time class="mono" datetime={isoDate(date)}>{formatDate(date)}</time>
+        <h1>{title}</h1>
+        <ul class="tags mono">
+          {tags.map((t) => <li>#{t}</li>)}
+        </ul>
+      </header>
+      <div class="prose">
+        <Content />
+      </div>
+    </article>
+  </main>
+  <Footer />
+  <Terminal />
+</BaseLayout>
+
+<style>
+  .article { max-width: var(--container-narrow); }
+  .back {
+    display: inline-block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 30px;
+  }
+  .back:hover { color: var(--cyan); }
+  .wh { margin-bottom: 32px; }
+  .wh time { font-size: 0.85rem; color: var(--cyan); }
+  .wh h1 {
+    font-size: clamp(1.9rem, 5vw, 2.8rem);
+    margin: 10px 0 14px;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .tags li { font-size: 0.76rem; color: var(--purple); }
+</style>

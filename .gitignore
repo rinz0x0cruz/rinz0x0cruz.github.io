@@ -1,0 +1,21 @@
+# build output
+dist/
+
+# dependencies
+node_modules/
+
+# generated types / cache
+.astro/
+
+# environment
+.env
+.env.production
+.env.*.local
+
+# logs
+*.log
+npm-debug.log*
+
+# os / editor cruft
+.DS_Store
+Thumbs.db

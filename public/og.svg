@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Mohit Sharma — Security Researcher">
+  <defs>
+    <linearGradient id="emblem" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7dcfff"/>
+      <stop offset="50%" stop-color="#7aa2f7"/>
+      <stop offset="100%" stop-color="#bb9af7"/>
+    </linearGradient>
+    <linearGradient id="name" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#c0caf5"/>
+      <stop offset="60%" stop-color="#7aa2f7"/>
+      <stop offset="100%" stop-color="#bb9af7"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="18%" cy="12%" r="55%">
+      <stop offset="0%" stop-color="#7aa2f7" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#7aa2f7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="100%" cy="0%" r="55%">
+      <stop offset="0%" stop-color="#bb9af7" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#bb9af7" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      .mono { font-family: 'JetBrains Mono','Cascadia Code','SF Mono',Consolas,monospace; }
+      .sans { font-family: 'Inter','Segoe UI',system-ui,sans-serif; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="630" fill="#1a1b26"/>
+  <rect width="1200" height="630" fill="url(#glowA)"/>
+  <rect width="1200" height="630" fill="url(#glowB)"/>
+
+  <!-- title bar -->
+  <rect x="0" y="0" width="1200" height="58" fill="#24283b"/>
+  <circle cx="34" cy="29" r="8" fill="#f7768e"/>
+  <circle cx="62" cy="29" r="8" fill="#e0af68"/>
+  <circle cx="90" cy="29" r="8" fill="#7dcfff"/>
+  <text class="mono" x="600" y="37" text-anchor="middle" font-size="20" fill="#565f89">rinzler@grid: ~</text>
+
+  <!-- inner border -->
+  <rect x="24" y="82" width="1152" height="524" rx="18" fill="none" stroke="#3b4261" stroke-width="1.5"/>
+
+  <!-- identity disc emblem (vector) -->
+  <g transform="translate(250,344)" filter="none">
+    <circle r="120" fill="none" stroke="url(#emblem)" stroke-width="20"/>
+    <circle r="74" fill="none" stroke="url(#emblem)" stroke-width="7" opacity="0.75"/>
+    <circle r="34" fill="url(#emblem)"/>
+  </g>
+
+  <!-- text block -->
+  <text class="mono" x="440" y="214" font-size="24" fill="#565f89">rinzler@grid:~$ whoami</text>
+  <text class="sans" x="438" y="312" font-size="86" font-weight="700" fill="url(#name)">Mohit Sharma</text>
+  <text class="mono" x="440" y="372" font-size="34" fill="#7aa2f7">Security Researcher <tspan fill="#565f89">· @rinz0x0cruz</tspan></text>
+  <text class="sans" x="440" y="436" font-size="28" fill="#a9b1d6">I triage CVEs, reverse-engineer malware, and build</text>
+  <text class="sans" x="440" y="474" font-size="28" fill="#a9b1d6">tools that make threat intel legible.</text>
+
+  <!-- palette + url -->
+  <g>
+    <rect x="440" y="520" width="34" height="16" rx="3" fill="#f7768e"/>
+    <rect x="482" y="520" width="34" height="16" rx="3" fill="#ff9e64"/>
+    <rect x="524" y="520" width="34" height="16" rx="3" fill="#e0af68"/>
+    <rect x="566" y="520" width="34" height="16" rx="3" fill="#7dcfff"/>
+    <rect x="608" y="520" width="34" height="16" rx="3" fill="#7aa2f7"/>
+    <rect x="650" y="520" width="34" height="16" rx="3" fill="#bb9af7"/>
+    <rect x="692" y="520" width="34" height="16" rx="3" fill="#9d7cd8"/>
+    <rect x="734" y="520" width="34" height="16" rx="3" fill="#c0caf5"/>
+  </g>
+  <text class="mono" x="1152" y="556" text-anchor="end" font-size="22" fill="#565f89">rinz0x0cruz.github.io</text>
+</svg>

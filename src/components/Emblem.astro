@@ -1,0 +1,66 @@
+---
+/**
+ * The rinzler@grid emblem — an ASCII "identity disc" (Tron nod), rendered as
+ * gradient text so it scales crisply. Reused from the GitHub profile neofetch card.
+ */
+interface Props {
+  size?: number;
+  class?: string;
+  /** Unique gradient id when more than one emblem is on a page. */
+  id?: string;
+}
+const { size = 208, class: className, id = 'emblem-grad' } = Astro.props;
+
+const rows = [
+  '      ████████      ',
+  '   ██████████████   ',
+  '  ████░░░░░░░░████  ',
+  ' ███░░░░░░░░░░░░░███ ',
+  '███░░░░░████░░░░░███',
+  '███░░░░██████░░░░███',
+  '███░░░░░████░░░░░███',
+  ' ███░░░░░░░░░░░░███ ',
+  '  ████░░░░░░░░████  ',
+  '   ██████████████   ',
+  '      ████████      ',
+];
+---
+
+<svg
+  class:list={['emblem', className]}
+  width={size}
+  height={size}
+  viewBox="40 96 252 254"
+  role="img"
+  aria-label="rinzler@grid identity disc emblem"
+>
+  <defs>
+    <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7dcfff" />
+      <stop offset="50%" stop-color="#7aa2f7" />
+      <stop offset="100%" stop-color="#bb9af7" />
+    </linearGradient>
+  </defs>
+  <text
+    class="emblem-text"
+    fill={`url(#${id})`}
+    x="52"
+    y="118"
+    xml:space="preserve">
+    {rows.map((row, i) => (
+      <tspan x="52" dy={i === 0 ? 0 : 22}>{row}</tspan>
+    ))}
+  </text>
+</svg>
+
+<style>
+  .emblem {
+    filter: drop-shadow(0 0 22px rgba(122, 162, 247, 0.25));
+  }
+  .emblem-text {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+</style>

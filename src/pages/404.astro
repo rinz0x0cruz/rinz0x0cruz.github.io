@@ -1,0 +1,35 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Nav from '@/components/Nav.astro';
+import Footer from '@/components/Footer.astro';
+import Terminal from '@/components/Terminal.astro';
+---
+
+<BaseLayout title="404 — not found" noindex>
+  <Nav />
+  <main id="main" class="section">
+    <div class="container e404">
+      <p class="prompt mono"><span class="muted">rinzler@grid:~$</span> cat .{Astro.url.pathname}</p>
+      <h1>404</h1>
+      <p class="msg mono">cat: {Astro.url.pathname}: No such file or directory</p>
+      <a class="btn btn-primary" href="/">cd ~ &nbsp;(back home)</a>
+    </div>
+  </main>
+  <Footer />
+  <Terminal />
+</BaseLayout>
+
+<style>
+  .e404 { max-width: 640px; }
+  .prompt { color: var(--cyan); font-size: 0.9rem; }
+  h1 {
+    font-size: clamp(4rem, 16vw, 8rem);
+    line-height: 1;
+    margin: 12px 0 6px;
+    background: linear-gradient(120deg, #7aa2f7, #bb9af7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .msg { color: var(--red); margin-bottom: 28px; }
+</style>

@@ -1,0 +1,40 @@
+---
+import SocialLinks from './SocialLinks.astro';
+import { site } from '@/data/site';
+---
+
+<section id="contact" class="section contact">
+  <div class="container contact-inner">
+    <p class="section-label">./contact</p>
+    <h2>Let&rsquo;s talk.</h2>
+    <p class="lead">
+      Open to security roles and consulting — vulnerability management, detection
+      engineering, threat intelligence, and malware analysis. Send a message and
+      I&rsquo;ll share my résumé and get back to you.
+    </p>
+    <div class="contact-cta">
+      <a class="btn btn-primary" href={`mailto:${site.email}`}>Email me</a>
+      <a class="btn" href={site.resumeRequest}>Request résumé</a>
+    </div>
+    <SocialLinks variant="row" />
+  </div>
+</section>
+
+<style>
+  .contact-inner { max-width: 720px; }
+  h2 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    margin-bottom: 14px;
+  }
+  .lead {
+    font-size: 1.08rem;
+    color: var(--fg-dim);
+    max-width: 56ch;
+  }
+  .contact-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 26px 0 30px;
+  }
+</style>

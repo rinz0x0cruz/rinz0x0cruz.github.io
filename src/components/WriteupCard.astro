@@ -1,0 +1,61 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { formatDate, isoDate } from '@/utils/format';
+
+interface Props {
+  writeup: CollectionEntry<'writeups'>;
+}
+const { writeup } = Astro.props;
+const { title, summary, date, tags } = writeup.data;
+---
+
+<a class="wcard" href={`/writeups/${writeup.id}`}>
+  <div class="wtop">
+    <time class="mono" datetime={isoDate(date)}>{formatDate(date)}</time>
+    <ul class="tags mono">
+      {tags.slice(0, 2).map((t) => <li>{t}</li>)}
+    </ul>
+  </div>
+  <h3>{title}</h3>
+  <p>{summary}</p>
+  <span class="read mono">read →</span>
+</a>
+
+<style>
+  .wcard {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+    padding: 22px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--fg);
+    transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+  }
+  .wcard:hover {
+    border-color: var(--blue);
+    transform: translateY(-3px);
+    color: var(--fg);
+  }
+  .wtop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .wtop time { font-size: 0.78rem; color: var(--muted); }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .tags li { font-size: 0.68rem; color: var(--purple); }
+  .tags li::before { content: '#'; opacity: 0.7; }
+  h3 { font-size: 1.12rem; }
+  .wcard:hover h3 { color: var(--cyan); }
+  p { font-size: 0.9rem; color: var(--fg-dim); }
+  .read {
+    margin-top: auto;
+    font-size: 0.82rem;
+    color: var(--blue);
+  }
+  .wcard:hover .read { color: var(--cyan); }
+</style>

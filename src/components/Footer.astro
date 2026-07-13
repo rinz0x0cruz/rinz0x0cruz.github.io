@@ -1,0 +1,41 @@
+---
+import { site } from '@/data/site';
+const year = new Date().getFullYear();
+const repo = `https://github.com/${site.handle}/${site.handle}.github.io`;
+---
+
+<footer class="footer">
+  <div class="grad" aria-hidden="true"></div>
+  <div class="container foot-inner">
+    <p class="mono">
+      © {year} {site.name} <span class="muted">· @{site.handle}</span>
+    </p>
+    <p class="mono muted">
+      built with <a href="https://astro.build" target="_blank" rel="noopener">Astro</a>
+      · <a href={repo} target="_blank" rel="noopener">source</a>
+    </p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    margin-top: 40px;
+  }
+  .grad {
+    height: 4px;
+    background: linear-gradient(90deg, #7aa2f7 0%, #7dcfff 50%, #bb9af7 100%);
+    opacity: 0.9;
+  }
+  .foot-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-top: 26px;
+    padding-bottom: 40px;
+    font-size: 0.82rem;
+  }
+  .foot-inner a { color: var(--fg-dim); }
+  .foot-inner a:hover { color: var(--cyan); }
+</style>
