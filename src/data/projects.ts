@@ -1,6 +1,8 @@
 // Curated project list, security-first. `featured` projects lead the
 // "Selected Work" grid; the rest fall into "More projects".
 
+export type ProjectStatus = 'live' | 'active' | 'research';
+
 export interface Project {
   name: string;
   tagline: string;
@@ -8,6 +10,7 @@ export interface Project {
   stack: string[];
   tags: string[];
   featured: boolean;
+  status: ProjectStatus;
   links: {
     repo?: string;
     live?: string;
@@ -24,6 +27,7 @@ export const projects: Project[] = [
     stack: ['Go'],
     tags: ['Vulnerability Management', 'Threat Intel'],
     featured: true,
+    status: 'live',
     links: {
       repo: 'https://github.com/rinz0x0cruz/exploitrank',
       live: 'https://rinz0x0cruz.github.io/exploitrank/',
@@ -42,6 +46,7 @@ export const projects: Project[] = [
     stack: ['C++', 'Qt'],
     tags: ['Offensive Security', 'Malware Simulation'],
     featured: true,
+    status: 'active',
     links: {
       repo: 'https://github.com/rinz0x0cruz/Ikhor',
     },
@@ -59,6 +64,7 @@ export const projects: Project[] = [
     stack: ['Python', 'Nuxt'],
     tags: ['Malware Analysis', 'Detection Engineering', 'Threat Intel'],
     featured: true,
+    status: 'active',
     links: {
       repo: 'https://github.com/rinz0x0cruz/malscope',
     },
@@ -77,6 +83,7 @@ export const projects: Project[] = [
     stack: ['React', 'TypeScript', 'Vite'],
     tags: ['Security Education', 'Detection Engineering'],
     featured: false,
+    status: 'active',
     links: {
       repo: 'https://github.com/rinz0x0cruz/skillforge',
     },
@@ -94,6 +101,7 @@ export const projects: Project[] = [
     stack: ['Python'],
     tags: ['AI Research', 'Tooling'],
     featured: false,
+    status: 'research',
     links: {
       repo: 'https://github.com/rinz0x0cruz/quorum',
     },
@@ -111,6 +119,7 @@ export const projects: Project[] = [
     stack: ['Python'],
     tags: ['Automation', 'Tooling'],
     featured: false,
+    status: 'active',
     links: {
       repo: 'https://github.com/rinz0x0cruz/jobscope',
     },
@@ -128,6 +137,7 @@ export const projects: Project[] = [
     stack: ['Python'],
     tags: ['Dev Tooling'],
     featured: false,
+    status: 'active',
     links: {
       repo: 'https://github.com/rinz0x0cruz/claudebudget',
     },

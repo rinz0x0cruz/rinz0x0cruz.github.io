@@ -1,0 +1,103 @@
+---
+import { projects } from '@/data/projects';
+
+const statusColor: Record<string, string> = {
+  live: 'var(--cyan)',
+  active: 'var(--blue)',
+  research: 'var(--purple)',
+};
+---
+
+<section id="work" class="section work">
+  <div class="container">
+    <p class="section-label">ls -la work/</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>project</th>
+            <th class="hide-sm">stack</th>
+            <th>status</th>
+            <th class="hide-md">focus</th>
+            <th>links</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            projects.map((p) => (
+              <tr>
+                <td class="proj">
+                  <span class="pname mono">{p.name}</span>
+                  <span class="ptag">{p.tagline}</span>
+                </td>
+                <td class="hide-sm stack mono">{p.stack.join(' · ')}</td>
+                <td>
+                  <span class="chip mono">
+                    <span class="d" style={`background:${statusColor[p.status]}`} aria-hidden="true" />
+                    {p.status}
+                  </span>
+                </td>
+                <td class="hide-md tags mono">
+                  {p.tags.map((t) => <span>{t}</span>)}
+                </td>
+                <td class="links mono">
+                  {p.links.live && (
+                    <a href={p.links.live} target="_blank" rel="noopener">live ↗</a>
+                  )}
+                  {p.links.repo && (
+                    <a href={p.links.repo} target="_blank" rel="noopener">code ↗</a>
+                  )}
+                </td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<style>
+  .table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    overflow-x: auto;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
+  th {
+    font-family: var(--font-mono);
+    text-align: left;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 15px 22px;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 16px 22px; border-bottom: 1px solid rgba(59, 66, 97, 0.5); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.15s var(--ease); }
+  tbody tr:hover td { background: rgba(122, 162, 247, 0.05); }
+
+  .proj { min-width: 220px; }
+  .pname { display: block; font-weight: 700; color: var(--fg); }
+  .ptag { color: var(--muted); font-size: 0.84rem; }
+  .stack { color: var(--muted); font-size: 0.84rem; white-space: nowrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.74rem; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--fg); text-transform: capitalize;
+  }
+  .chip .d { width: 7px; height: 7px; border-radius: 50%; }
+  .tags span { font-size: 0.72rem; color: var(--muted); margin-right: 12px; white-space: nowrap; }
+  .links a { font-size: 0.8rem; color: var(--blue); margin-right: 12px; white-space: nowrap; }
+  .links a:last-child { margin-right: 0; }
+  .links a:hover { color: var(--cyan); }
+
+  @media (max-width: 760px) { .hide-md { display: none; } }
+  @media (max-width: 560px) { .hide-sm { display: none; } td, th { padding: 14px 16px; } }
+</style>
