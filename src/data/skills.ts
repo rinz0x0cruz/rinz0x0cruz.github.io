@@ -7,7 +7,7 @@ export interface SkillGroup {
 export const skillGroups: SkillGroup[] = [
   {
     label: 'Threat Intelligence',
-    items: ['CVE triage', 'EPSS / CISA KEV', 'IOC & campaign clustering', 'Diamond Model', 'STIX 2.1 / MISP'],
+    items: ['CVE triage', 'Threat hunting', 'EPSS / CISA KEV', 'IOC & campaign clustering', 'Diamond Model', 'STIX 2.1 / MISP'],
   },
   {
     label: 'Detection Engineering',

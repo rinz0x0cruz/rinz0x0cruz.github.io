@@ -30,6 +30,18 @@ npm run preview
 - `src/data/` — site identity, projects, skills
 - `public/` — `robots.txt`, `og.png`, favicon
 
+## Writing a writeup
+
+Scaffold a new post, then edit the Markdown it creates:
+
+```bash
+npm run new:writeup -- "My Post Title"
+```
+
+This writes a dated, slugified file to `src/content/writeups/` with `draft: true`.
+Add a one-line `summary`, a few `tags`, flip `draft: false`, then commit and push —
+the deploy workflow rebuilds and publishes it.
+
 ## Deployment
 
 Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml),

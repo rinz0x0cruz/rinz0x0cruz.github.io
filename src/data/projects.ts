@@ -23,7 +23,7 @@ export const projects: Project[] = [
     name: 'exploitrank',
     tagline: 'Exploitability-aware CVE prioritizer.',
     description:
-      'Fuses CVSS, EPSS, CISA KEV, and public-PoC signals into a single SSVC-style act / track / defer verdict, so teams patch what is actually being exploited first — not just what scores high. Ships an offline threat board and runs completely key-free.',
+      'Fuses CVSS, EPSS, CISA KEV, and public-PoC signals into a single SSVC-style act / track / defer verdict, so teams patch what is actually being exploited first, not just what scores high. Ships an offline threat board and runs completely key-free.',
     stack: ['Go'],
     tags: ['Vulnerability Management', 'Threat Intel'],
     featured: true,
@@ -42,7 +42,7 @@ export const projects: Project[] = [
     name: 'Ikhor',
     tagline: 'Async command-and-control framework.',
     description:
-      'A custom, multi-threaded C2 agent for malware simulation and red-team task scheduling — built to study real adversary tradecraft and validate detections from the operator side of the keyboard.',
+      'A custom, multi-threaded C2 agent for malware simulation and red-team task scheduling, built to study real adversary tradecraft and validate detections from the operator side of the keyboard.',
     stack: ['C++', 'Qt'],
     tags: ['Offensive Security', 'Malware Simulation'],
     featured: true,
@@ -76,28 +76,10 @@ export const projects: Project[] = [
     ],
   },
   {
-    name: 'SkillForge',
-    tagline: '352 HTB Academy modules as a gamified security skill tree.',
-    description:
-      'A client-side React app that turns Hack The Box Academy into a gamified skill tree — 22 skills with ranks, ordered learning paths, a MITRE ATT&CK coverage map, spaced-repetition practice, and a real-world exploited-CVE layer. No backend, fully offline PWA.',
-    stack: ['React', 'TypeScript', 'Vite'],
-    tags: ['Security Education', 'Detection Engineering'],
-    featured: false,
-    status: 'active',
-    links: {
-      repo: 'https://github.com/rinz0x0cruz/skillforge',
-    },
-    highlights: [
-      '22 security skills + 33 DSA concepts with ranks & prerequisites',
-      'MITRE ATT&CK coverage map + CISA KEV "exploited in the wild" layer',
-      'Installable offline PWA; all progress stays local',
-    ],
-  },
-  {
     name: 'quorum',
     tagline: 'Put several AI models in a room and make them debate.',
     description:
-      'A provider-agnostic CLI that runs a deliberation between multiple language models — refining the prompt, then proposing / critiquing / revising while a judge scores each round. It bakes in a dozen research papers (multi-agent debate, Mixture-of-Agents, Self-Refine) and a benchmark harness to prove which strategy actually wins.',
+      'A provider-agnostic CLI that runs a deliberation between multiple language models: refining the prompt, then proposing / critiquing / revising while a judge scores each round. It bakes in a dozen research papers (multi-agent debate, Mixture-of-Agents, Self-Refine) and a benchmark harness to prove which strategy actually wins.',
     stack: ['Python'],
     tags: ['AI Research', 'Tooling'],
     featured: false,
@@ -115,7 +97,7 @@ export const projects: Project[] = [
     name: 'jobscope',
     tagline: 'Resume-driven job scout, enricher, and application-prep tool.',
     description:
-      'Point it at your resume; it scrapes fitting roles, ranks them with a transparent fit score, enriches each with public intel, flags scam / ghost jobs, and assembles a review-ready application package — deterministic-first, with a human always clicking submit.',
+      'Point it at your resume; it scrapes fitting roles, ranks them with a transparent fit score, enriches each with public intel, flags scam / ghost jobs, and assembles a review-ready application package, deterministic-first, with a human always clicking submit.',
     stack: ['Python'],
     tags: ['Automation', 'Tooling'],
     featured: false,
@@ -133,7 +115,7 @@ export const projects: Project[] = [
     name: 'claudebudget',
     tagline: 'Local-first monitor for the Claude Pro usage limits.',
     description:
-      "Reads Claude Code's own usage logs on your machine and turns the invisible rolling 5-hour and weekly caps into live gauges, reset countdowns, pre-cap alerts, and an offline dashboard — so you pace your work and avoid lockouts.",
+      "Reads Claude Code's own usage logs on your machine and turns the invisible rolling 5-hour and weekly caps into live gauges, reset countdowns, pre-cap alerts, and an offline dashboard, so you pace your work and avoid lockouts.",
     stack: ['Python'],
     tags: ['Dev Tooling'],
     featured: false,

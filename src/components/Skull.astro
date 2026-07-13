@@ -1,0 +1,72 @@
+---
+/**
+ * Custom animated skull emblem — self-hosted inline SVG (no Lottie/runtime deps).
+ * Line-art cranium + jaw in the Tokyo Night gradient, with glowing, slowly
+ * flickering eye sockets. Honors prefers-reduced-motion.
+ */
+interface Props {
+  size?: number;
+  class?: string;
+  id?: string;
+}
+const { size = 190, class: className, id = 'skull' } = Astro.props;
+const grad = `${id}-grad`;
+---
+
+<svg
+  class:list={['skull', className]}
+  width={size}
+  height={size}
+  viewBox="0 0 200 210"
+  role="img"
+  aria-label="skull emblem"
+>
+  <defs>
+    <linearGradient id={grad} x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7dcfff" />
+      <stop offset="55%" stop-color="#7aa2f7" />
+      <stop offset="100%" stop-color="#bb9af7" />
+    </linearGradient>
+  </defs>
+
+  <g class="ink" stroke={`url(#${grad})`} fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M100 18 C66 18 42 44 42 84 C42 104 48 118 58 130 C62 135 64 140 64 148 L64 158 L136 158 L136 148 C136 140 138 135 142 130 C152 118 158 104 158 84 C158 44 134 18 100 18 Z" />
+    <path d="M74 158 L126 158 L126 174 C126 184 118 191 108 191 L92 191 C82 191 74 184 74 174 Z" />
+    <path d="M84 170 H116" opacity="0.9" />
+    <path d="M92 158 V176 M100 158 V178 M108 158 V176" opacity="0.85" />
+  </g>
+
+  <path class="nose" d="M100 110 L110 132 C106 138 94 138 90 132 Z" fill={`url(#${grad})`} />
+
+  <ellipse class="socket" cx="78" cy="92" rx="17" ry="19" />
+  <ellipse class="socket" cx="122" cy="92" rx="17" ry="19" />
+  <circle class="eye e1" cx="78" cy="94" r="6" />
+  <circle class="eye e2" cx="122" cy="94" r="6" />
+</svg>
+
+<style>
+  .skull {
+    filter: drop-shadow(0 0 16px rgba(122, 162, 247, 0.3));
+    animation: skull-breathe 5s ease-in-out infinite;
+  }
+  .socket { fill: #0b0d14; }
+  .eye {
+    fill: #7dcfff;
+    filter: drop-shadow(0 0 5px #7dcfff);
+    animation: eye-glow 2.6s ease-in-out infinite;
+  }
+  .e2 { animation-delay: 0.55s; }
+
+  @keyframes eye-glow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+  @keyframes skull-breathe {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(122, 162, 247, 0.26)); }
+    50% { filter: drop-shadow(0 0 22px rgba(187, 154, 247, 0.45)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skull, .eye { animation: none; }
+    .eye { opacity: 0.9; }
+  }
+</style>

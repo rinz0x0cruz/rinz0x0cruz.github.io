@@ -5,13 +5,14 @@ import Footer from '@/components/Footer.astro';
 import Terminal from '@/components/Terminal.astro';
 ---
 
-<BaseLayout title="404 — not found" noindex>
+<BaseLayout title="404 · not found" noindex>
   <Nav />
   <main id="main" class="section">
     <div class="container e404">
       <p class="prompt mono"><span class="muted">rinzler@grid:~$</span> cat .{Astro.url.pathname}</p>
       <h1>404</h1>
       <p class="msg mono">cat: {Astro.url.pathname}: No such file or directory</p>
+      <p class="quip">This path went dark. Either you mistyped it, or it was never in scope.</p>
       <a class="btn btn-primary" href="/">cd ~ &nbsp;(back home)</a>
     </div>
   </main>
@@ -31,5 +32,6 @@ import Terminal from '@/components/Terminal.astro';
     background-clip: text;
     color: transparent;
   }
-  .msg { color: var(--red); margin-bottom: 28px; }
+  .msg { color: var(--red); margin-bottom: 10px; }
+  .quip { color: var(--muted); margin-bottom: 28px; max-width: 46ch; }
 </style>

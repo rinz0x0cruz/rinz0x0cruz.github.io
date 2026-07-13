@@ -9,7 +9,7 @@ export async function GET(context: APIContext) {
     .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
   return rss({
-    title: `${site.name} — Writeups`,
+    title: `${site.name} · Writeups`,
     description: site.tagline,
     site: context.site ?? site.url,
     items: writeups.map((w) => ({

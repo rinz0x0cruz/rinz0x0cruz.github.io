@@ -17,16 +17,16 @@ export const site = {
   role: 'Security Researcher',
 
   // Hero one-liner (kept short + punchy).
-  heroLine: 'I build tools that hunt threats.',
+  heroLine: 'I hunt threats and take malware apart.',
 
   // Meta description / default OG copy.
   tagline:
-    'Security researcher focused on CVE triage, malware reverse engineering, and detection engineering — I build small, sharp tools that turn raw threat data into readable intelligence.',
+    'Security researcher focused on CVE triage, malware reverse engineering, threat hunting, and detection engineering, turning raw threat data into defensible intelligence.',
 
   // Longer About copy (paragraphs).
   bio: [
-    "I'm a security researcher working across vulnerability management, detection engineering, and threat intelligence. Day to day that means triaging CVEs, reverse-engineering malware, and turning messy threat data into signals a defender can actually act on.",
-    'I build small, deterministic-first tools to do it — exploitability-aware CVE prioritization, malware-analysis tooling, and threat-intel pipelines. Everything runs standalone; AI is an optional enrichment layer, never a dependency.',
+    "I'm a security researcher who spends the day in the parts of the internet you're warned about: vulnerability management, detection engineering, and threat intel. In practice that means triaging CVEs, taking malware apart to see what makes it tick, and turning a mess of telemetry into something a defender can actually act on.",
+    'I track threat actors and their TTPs across MITRE ATT&CK, run Diamond Model hunts, and rebuild intrusion kill chains like a very grim jigsaw, then write it up as detections and advisories that survive a "says who?". Evidence over vibes, every time.',
   ],
 
   url: 'https://rinz0x0cruz.github.io',
@@ -34,7 +34,7 @@ export const site = {
   ogImage: '/og.png',
 
   availableForWork: true,
-  availabilityNote: 'Open to security roles & consulting',
+  availabilityNote: 'Open to roles, consulting & interesting malware',
 
   socials: [
     { name: 'GitHub', url: 'https://github.com/rinz0x0cruz', handle: '@rinz0x0cruz', icon: 'github' },
@@ -50,6 +50,7 @@ export const site = {
   knowsAbout: [
     'Vulnerability Management',
     'Threat Intelligence',
+    'Threat Hunting',
     'Detection Engineering',
     'Malware Analysis',
     'Reverse Engineering',
