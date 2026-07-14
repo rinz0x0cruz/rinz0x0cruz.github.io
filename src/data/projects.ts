@@ -57,22 +57,23 @@ export const projects: Project[] = [
     ],
   },
   {
-    name: 'malscope',
-    tagline: 'Sample in, structured malware-analysis report out.',
+    name: 'malscope-dashboard',
+    tagline: 'Public dashboard for a private malware-analysis pipeline.',
     description:
-      'An offline-first companion for a malware-analysis lab: it parses capa / Suricata / Zeek / FLOSS / Volatility output into a report, clusters samples by imphash and TLSH, auto-generates YARA + Sigma detections, and guards the git repo so a live sample can never be committed by accident.',
-    stack: ['Python', 'Nuxt'],
+      'A Nuxt SPA that renders redacted, defanged malware-analysis reports from the (private) malscope tool. Indicators are defanged (hxxp, [.]) and hashes-only, so triage findings, imphash / TLSH clusters, and auto-generated detections stay shareable without ever exposing a live sample.',
+    stack: ['TypeScript', 'Nuxt', 'Vue'],
     tags: ['Malware Analysis', 'Detection Engineering', 'Threat Intel'],
     featured: true,
-    status: 'active',
+    status: 'live',
     links: {
-      repo: 'https://github.com/rinz0x0cruz/malscope',
+      live: 'https://rinz0x0cruz.github.io/malscope-dashboard/',
+      repo: 'https://github.com/rinz0x0cruz/malscope-dashboard',
     },
     highlights: [
-      'Parses capa · Suricata · Zeek · FLOSS · Volatility into one report',
-      'imphash + TLSH clustering catches recompiled variants',
-      'Auto-generates YARA & Sigma rules; STIX 2.1 / MISP export',
-      'Pre-commit guard blocks live samples from being committed',
+      'Nuxt 4 static SPA rendering redacted report + intel manifests',
+      'Every indicator defanged (hxxp, [.]); hashes only, no live samples',
+      'Surfaces imphash / TLSH clusters and generated YARA / Sigma detections',
+      'Keeps the malscope analysis tool itself private',
     ],
   },
   {

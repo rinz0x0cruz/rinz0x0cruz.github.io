@@ -20,33 +20,65 @@ npm install
 npm run dev      # http://localhost:4321
 npm run build    # -> dist/
 npm run preview
+npm run parse:resume -- --write   # refresh résumé data from the PDF
 ```
 
 ## Structure
 
 - `src/pages/` — routes (`index`, `writeups/`, `rss.xml`, `404`)
 - `src/components/` — Hero, Nav, project cards, the interactive `Terminal`, …
-- `src/content/writeups/` — Markdown writeups (content collection)
-- `src/data/` — site identity, projects, skills
-- `public/` — `robots.txt`, `og.png`, favicon
+- `src/content/writeups/` — Markdown writeups (content collection); posts are synced in from the public [`rinz0x0cruz/writeups`](https://github.com/rinz0x0cruz/writeups) repo at build time
+- `src/data/` — site identity, projects, skills, and `resume.json` (résumé-derived data)
+- `public/` — `robots.txt`, `og.png`, favicon, résumé PDF
 
-## Writing a writeup
+## Résumé-driven data
 
-Scaffold a new post, then edit the Markdown it creates:
+The service-record section (roles, dates, and the computed "time in field"
+figure) is generated from [`src/data/resume.json`](src/data/resume.json), the
+single source of truth for résumé content. Edit that file directly, or
+regenerate it from the résumé PDF (`public/Mohit-Sharma-Resume.pdf`):
 
 ```bash
-npm run new:writeup -- "My Post Title"
+npm run parse:resume            # dry run — prints what it parsed
+npm run parse:resume -- --write # merge into src/data/resume.json
 ```
 
-This writes a dated, slugified file to `src/content/writeups/` with `draft: true`.
-Add a one-line `summary`, a few `tags`, flip `draft: false`, then commit and push —
-the deploy workflow rebuilds and publishes it.
+The parser is deterministic (no AI, no network). It reliably extracts contact
+details, roles + dates, skills, education, certifications, and languages, and
+preserves curated presentation fields (role title, blurbs, badges) on merge.
+Always review `git diff src/data/resume.json` before committing — PDF text
+extraction is never perfect. Rebuild to see the changes on the site.
 
 ## Deployment
 
 Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml),
 which builds with Astro and publishes `dist/` via GitHub Pages
-(Pages **source = GitHub Actions**).
+(Pages **source = GitHub Actions**). The workflow also runs on a daily schedule
+(and on manual dispatch) so new writeups and the computed "time in field" figure
+stay current without a code change.
+
+## Writing writeups
+
+Posts live in a separate public repo, **[`rinz0x0cruz/writeups`](https://github.com/rinz0x0cruz/writeups)**,
+and are pulled in at build time. Each post is one Markdown file with frontmatter:
+
+```markdown
+---
+title: "Your post title"
+date: 2026-07-13
+summary: "One-line teaser shown in the reader, /writeups, and RSS."
+tags: ["Threat Hunting", "Detection Engineering"]
+draft: false
+---
+
+Your post in Markdown…
+```
+
+- **Filename &rarr; URL**: `my-post.md` publishes at `/writeups/my-post/`.
+- **`date`** orders posts (newest first); **`draft: true`** hides one.
+- Write locally, `git push` to `rinz0x0cruz/writeups`. The portfolio picks it up
+  on its next build — within a day automatically, or immediately via the Actions
+  **Run workflow** button (or `gh workflow run "Deploy to GitHub Pages"`).
 
 ## Crawl policy
 

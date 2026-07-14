@@ -1,0 +1,85 @@
+---
+// A single employer card for the service-record section: logo tile + one or
+// more roles. Used for both official work and volunteer groups.
+import { formatRange, type WorkRole } from '@/data/resume';
+
+interface Props {
+  org: string;
+  roles: WorkRole[];
+  featured?: boolean;
+  logo?: string | null;
+}
+const { org, roles, featured = false, logo = null } = Astro.props;
+---
+
+<article class:list={['org', { featured }]}>
+  <div class:list={['logo', { img: logo }]} aria-hidden="true">
+    {logo && <img src={logo} alt="" loading="lazy" />}
+    {!logo && org === 'Microsoft' && (
+      <svg viewBox="0 0 100 100" role="img" aria-label="Microsoft">
+        <rect x="4" y="4" width="42" height="42" fill="#F25022" />
+        <rect x="54" y="4" width="42" height="42" fill="#7FBA00" />
+        <rect x="4" y="54" width="42" height="42" fill="#00A4EF" />
+        <rect x="54" y="54" width="42" height="42" fill="#FFB900" />
+      </svg>
+    )}
+    {!logo && org === 'Hacker4Justice' && (
+      <svg viewBox="0 0 100 100" role="img" aria-label="Hacker4Justice">
+        <path d="M50 7 L87 22 V49 C87 73 71 89 50 96 C29 89 13 73 13 49 V22 Z" fill="none" stroke="#7dcfff" stroke-width="4" stroke-linejoin="round" />
+        <text x="50" y="59" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="24" font-weight="700" fill="#7dcfff">H4J</text>
+      </svg>
+    )}
+    {!logo && org !== 'Microsoft' && org !== 'Hacker4Justice' && (
+      <svg viewBox="0 0 100 100" role="img" aria-label={org}>
+        <rect x="20" y="38" width="60" height="42" rx="6" fill="none" stroke="#7aa2f7" stroke-width="4" />
+        <path d="M40 38 V30 a5 5 0 0 1 5 -5 h10 a5 5 0 0 1 5 5 V38" fill="none" stroke="#7aa2f7" stroke-width="4" />
+        <line x1="20" y1="56" x2="80" y2="56" stroke="#7aa2f7" stroke-width="4" />
+        <rect x="45" y="51" width="10" height="9" rx="2" fill="#7aa2f7" />
+      </svg>
+    )}
+  </div>
+  <div class="meta">
+    <h3>{org}</h3>
+    <ul class="roles">
+      {roles.map((r) => (
+        <li class:list={['ritem', { current: r.end === null }]}>
+          <div class="rhead">
+            <span class="rtitle">{r.title}</span>
+            {r.end === null && <span class="badge mono">CURRENT</span>}
+            {r.end !== null && r.tag && <span class="badge alt mono">{r.tag}</span>}
+          </div>
+          {r.blurb && <p class="rteam">{r.blurb}</p>}
+          <p class="dt mono">{formatRange(r.start, r.end)} · {r.location}</p>
+        </li>
+      ))}
+    </ul>
+  </div>
+</article>
+
+<style>
+  .org {
+    position: relative; display: flex; gap: 20px; align-items: flex-start;
+    padding: 22px; border: 1px solid var(--border); border-radius: 4px;
+    background: rgba(31, 35, 53, 0.5); transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  }
+  .org::before { content: ''; position: absolute; top: -1px; left: -1px; width: 12px; height: 12px; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+  .org.featured { border-color: rgba(125, 207, 255, 0.5); box-shadow: 0 0 26px rgba(125, 207, 255, 0.12); background: linear-gradient(180deg, rgba(31, 35, 53, 0.75), rgba(26, 27, 38, 0.6)); }
+
+  .logo { flex: none; width: 66px; height: 66px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 8px; background: #0f1017; padding: 11px; }
+  .logo svg { width: 100%; height: 100%; display: block; }
+  .logo.img { background: #fff; padding: 8px; }
+  .logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+  .meta { min-width: 0; flex: 1; }
+  .meta h3 { font-size: 1.3rem; color: var(--fg); }
+  .badge { font-size: 0.6rem; letter-spacing: 0.14em; font-weight: 700; color: #0d1017; background: var(--cyan); border-radius: 4px; padding: 3px 8px; white-space: nowrap; }
+  .badge.alt { background: var(--purple); }
+  .roles { list-style: none; margin: 14px 0 0; padding: 0; }
+  .ritem { padding: 13px 0; border-top: 1px dashed var(--border); }
+  .ritem:first-child { padding-top: 0; border-top: 0; }
+  .rhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .rtitle { color: var(--fg); font-weight: 600; font-size: 0.98rem; }
+  .ritem.current .rtitle { color: var(--cyan); }
+  .rteam { color: var(--fg-dim); font-size: 0.84rem; margin-top: 4px; }
+  .dt { color: var(--muted); font-size: 0.8rem; margin-top: 5px; }
+</style>

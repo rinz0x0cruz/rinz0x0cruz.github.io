@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # Daily rebuild: picks up new posts from the writeups repo and refreshes
+    # the computed "time in field" figure without needing a code change.
+    - cron: '0 6 * * *'
 
 permissions:
   contents: read
@@ -21,6 +25,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Sync writeups from content repo
+        # Blog posts are authored in the public rinz0x0cruz/writeups repo and
+        # pulled in at build time. Resilient: if that repo does not exist yet
+        # (or is empty), the build falls back to any posts already in this repo.
+        run: |
+          mkdir -p src/content/writeups
+          if git clone --depth 1 https://github.com/rinz0x0cruz/writeups.git "$RUNNER_TEMP/writeups" 2>/dev/null; then
+            find "$RUNNER_TEMP/writeups" -maxdepth 2 -type f -name '*.md' ! -iname 'README.md' -exec cp -v {} src/content/writeups/ \;
+            echo "Writeups after sync:"; ls -1 src/content/writeups
+          else
+            echo "writeups repo not available yet; using in-repo posts only."
+          fi
       - name: Build with Astro
         uses: withastro/action@v3
         with:

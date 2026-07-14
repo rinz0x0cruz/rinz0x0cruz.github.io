@@ -1,0 +1,182 @@
+{
+  "basics": {
+    "name": "Mohit Sharma",
+    "location": "Punjab, India",
+    "email": "rinz0x0cruz@gmail.com",
+    "phone": "+91 88476-80164",
+    "links": {
+      "linkedin": "https://linkedin.com/in/rinz0x0cruz",
+      "github": "https://github.com/rinz0x0cruz"
+    },
+    "summary": "Threat researcher with hands-on experience in emerging-threat and vulnerability intelligence at Microsoft Defender (MDVM), malware reverse engineering, and OSINT. Tracks threat actors, TTPs, and exploitation activity across MITRE ATT&CK, builds threat-intel tooling and automation, and turns raw findings into defensible advisories. Volunteer OSINT investigator supporting foreign law-enforcement casework.",
+    "role": "Security Researcher"
+  },
+  "work": [
+    {
+      "org": "Microsoft",
+      "title": "Security Researcher",
+      "blurb": "Defender Vulnerability Management (MDVM)",
+      "location": "Hyderabad, Telangana, India",
+      "start": "2025-06",
+      "end": null
+    },
+    {
+      "org": "Hacker4Justice",
+      "title": "Volunteer OSINT Investigator",
+      "blurb": "Foreign law-enforcement casework support",
+      "location": "Remote",
+      "start": "2025-06",
+      "end": "2026-06",
+      "tag": "OSINT",
+      "volunteer": true
+    },
+    {
+      "org": "Microsoft",
+      "title": "Security Researcher Intern",
+      "blurb": null,
+      "location": "Hyderabad, Telangana, India",
+      "start": "2024-05",
+      "end": "2024-07"
+    },
+    {
+      "org": "Black Hills Information Security",
+      "title": "Software Engineer Intern",
+      "blurb": null,
+      "location": "Remote, CA, United States",
+      "start": "2023-05",
+      "end": "2023-08",
+      "logo": "/logos/black-hills.png"
+    },
+    {
+      "org": "IndussianAssist",
+      "title": "Penetration Tester Intern",
+      "blurb": null,
+      "location": "Patiala, Punjab, India",
+      "start": "2023-02",
+      "end": "2023-04"
+    }
+  ],
+  "skills": [
+    {
+      "category": "Threat Intelligence & OSINT",
+      "items": [
+        "Cyber Threat Intelligence (CTI)",
+        "Threat-actor & TTP tracking",
+        "Alias/persona correlation",
+        "Emerging-threat monitoring",
+        "Threat hunting",
+        "IOC extraction & enrichment (VirusTotal)",
+        "OSINT tradecraft & corroboration",
+        "Breach-data analysis & victim mapping",
+        "Attack-surface & exposure assessment"
+      ]
+    },
+    {
+      "category": "Frameworks & Standards",
+      "items": [
+        "MITRE ATT&CK",
+        "Cyber Kill Chain",
+        "Diamond Model",
+        "The intelligence cycle",
+        "Exploitability prioritization (CVSS, EPSS, CISA KEV)",
+        "ISO/IEC 27001",
+        "ISO/IEC 42001",
+        "PCI DSS",
+        "Zero Trust"
+      ]
+    },
+    {
+      "category": "Detection & Response",
+      "items": [
+        "Detection engineering",
+        "SIEM",
+        "KQL/Kusto (Azure Data Explorer)",
+        "Microsoft Defender (MDE / MDVM)",
+        "EDR telemetry analysis",
+        "Incident response",
+        "Endpoint hardening (WDAC, AppLocker, Smart App Control)",
+        "DFIR (Velociraptor, KAPE, Volatility)"
+      ]
+    },
+    {
+      "category": "Malware & Reverse Engineering",
+      "items": [
+        "Static & dynamic analysis",
+        "Fuzzing",
+        "YARA",
+        "IDA Pro",
+        "Ghidra",
+        "X64dbg",
+        "GDB",
+        "Malware-family & C2 tradecraft"
+      ]
+    },
+    {
+      "category": "Programming & Automation",
+      "items": [
+        "Python",
+        "Go",
+        "C++",
+        "Bash",
+        "Rust",
+        "X86-64 Assembly",
+        "KQL",
+        "Regex",
+        "Git",
+        "CI/CD",
+        "AI-assisted research & triage"
+      ]
+    },
+    {
+      "category": "Cloud & Infrastructure",
+      "items": [
+        "Azure (Entra ID, Azure Data Explorer)",
+        "AWS",
+        "Docker",
+        "Kubernetes",
+        "Active Directory",
+        "SQLite",
+        "MySQL",
+        "MongoDB"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "ExploitRank",
+      "blurb": "Threat-Intelligence Platform",
+      "tech": "Go",
+      "url": "https://github.com/rinz0x0cruz/exploitrank"
+    },
+    {
+      "name": "Malware-Analysis Lab & SIEM",
+      "blurb": "",
+      "tech": "FLARE-VM, REMnux, YARA, SIEM",
+      "url": null
+    },
+    {
+      "name": "Command-and-Control (C2) Framework",
+      "blurb": "",
+      "tech": "C++, Qt, Win32 API",
+      "url": null
+    }
+  ],
+  "education": [
+    {
+      "school": "Chitkara University, Punjab",
+      "degree": "B.Tech, Computer Science & Engineering Aug 2021 - Aug 2025 · CGPA: 9.",
+      "start": "2021-08",
+      "end": "2025-08",
+      "note": "CGPA: 9.25 / 10"
+    }
+  ],
+  "certifications": [
+    "ISC2 Certified in Cybersecurity (CC)",
+    "Microsoft Certified: Azure Cosmos DB Developer Specialty (DP-420)"
+  ],
+  "languages": [
+    "English (professional)",
+    "Hindi",
+    "Japanese (JLPT N4) -- 1 of 1 --"
+  ]
+}

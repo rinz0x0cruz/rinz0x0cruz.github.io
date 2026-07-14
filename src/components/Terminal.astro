@@ -200,7 +200,7 @@ const writeups = (await getCollection('writeups'))
     ['cat <project>', 'details for a project'],
     ['writeups', 'list writeups'],
     ['skills', 'toolbox'],
-    ['resume', 'how to request the résumé'],
+    ['resume', 'download the résumé'],
     ['contact', 'how to reach me'],
     ['clear', 'clear the screen'],
     ['gui', 'exit to the site'],
@@ -309,8 +309,8 @@ const writeups = (await getCollection('writeups'))
       });
     },
     resume() {
-      print('<span class="muted">Résumé available on request.</span>');
-      print(`<span class="key">email</span>  <a href="${esc(site.resumeRequest)}">${esc(site.email)}</a>`);
+      print(`<span class="muted">Résumé:</span> <a href="${esc(site.resumeUrl)}" download>download PDF</a>`);
+      print(`<span class="key">email</span>  <a href="mailto:${esc(site.email)}">${esc(site.email)}</a>`);
     },
     contact() {
       print(`<span class="key">email</span>  <a href="mailto:${esc(site.email)}">${esc(site.email)}</a>`);

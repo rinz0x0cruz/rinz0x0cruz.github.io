@@ -17,7 +17,7 @@ const links = [
 
     <nav class="nav-links" aria-label="Primary">
       {links.map((l) => <a href={l.href}>{l.label}</a>)}
-      <a class="btn cv" href={site.resumeRequest}>résumé</a>
+      <a class="btn cv" href={site.resumeUrl} download>résumé</a>
       <button class="btn btn-primary term" type="button" data-open-terminal>./terminal</button>
     </nav>
 
@@ -27,7 +27,7 @@ const links = [
       </summary>
       <div class="nav-mobile-panel">
         {links.map((l) => <a href={l.href}>{l.label}</a>)}
-        <a href={site.resumeRequest}>résumé</a>
+        <a href={site.resumeUrl} download>résumé</a>
         <button type="button" data-open-terminal>./terminal</button>
       </div>
     </details>

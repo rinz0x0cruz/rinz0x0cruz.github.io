@@ -44,7 +44,9 @@ export const site = {
     { name: 'Email', url: 'mailto:rinz0x0cruz@gmail.com', handle: 'rinz0x0cruz@gmail.com', icon: 'email' },
   ] satisfies Social[],
 
-  // Résumé is shared on request, not published publicly.
+  // Résumé PDF, downloadable from the site.
+  resumeUrl: '/Mohit-Sharma-Resume.pdf',
+  // Legacy mailto — still referenced by the unused hero variants kept for revert.
   resumeRequest: 'mailto:rinz0x0cruz@gmail.com?subject=Resume%20request',
 
   knowsAbout: [

@@ -13,7 +13,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "new:writeup": "node scripts/new-writeup.mjs"
+    "new:writeup": "node scripts/new-writeup.mjs",
+    "parse:resume": "node scripts/parse-resume.mjs"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.11",
@@ -22,5 +23,8 @@
     "@fontsource/jetbrains-mono": "^5.2.5",
     "astro": "^5.6.1",
     "lottie-web": "^5.13.0"
+  },
+  "devDependencies": {
+    "pdf-parse": "^2.4.5"
   }
 }
