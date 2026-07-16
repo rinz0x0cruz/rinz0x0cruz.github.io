@@ -1,4 +1,5 @@
 ---
+import { about as aboutContent } from '@/data/portfolio';
 import { resume } from '@/data/resume';
 import { calculateExperience } from '@/utils/experience';
 import { formatRange } from '@/data/resume';
@@ -7,10 +8,6 @@ const configuredBuildDate = import.meta.env.BUILD_DATE;
 const buildDate = configuredBuildDate ? new Date(`${configuredBuildDate}T00:00:00Z`) : new Date();
 const experience = calculateExperience(resume.work, buildDate);
 const roles = resume.work.filter((role) => !role.volunteer);
-const capabilityGroups = resume.skills.slice(0, 4).map((group) => ({
-  category: group.category,
-  items: group.items.slice(0, 3),
-}));
 ---
 
 <section id="about" class="about section">
@@ -18,7 +15,7 @@ const capabilityGroups = resume.skills.slice(0, 4).map((group) => ({
     <div class="about-copy">
       <p class="eyebrow">Profile and experience</p>
       <h2>Research that ends in a defensible action.</h2>
-      <p>I investigate exploitation and malware, then carry the evidence into prioritization, detections, and response.</p>
+      <p>{aboutContent.statement}</p>
       <dl class="about-stats">
         <div><dt>Time in field</dt><dd>{experience.yearsDisplay} yrs</dd></div>
         <div><dt>Roles</dt><dd>{experience.roleCount}</dd></div>
@@ -42,7 +39,7 @@ const capabilityGroups = resume.skills.slice(0, 4).map((group) => ({
     <div class="capability-matrix">
       <h3>Capabilities</h3>
       <div>
-        {capabilityGroups.map((group, index) => (
+        {aboutContent.capabilities.map((group, index) => (
           <section style={`--capability-delay:${index * 80}ms`}>
             <span class="mono">0{index + 1}</span>
             <h4>{group.category}</h4>
@@ -91,7 +88,7 @@ const capabilityGroups = resume.skills.slice(0, 4).map((group) => ({
   .experience time { color: var(--cp-text-muted); font-family: var(--font-mono); font-size: var(--type-label); text-align: right; }
   .capability-matrix { grid-column: 1 / -1; margin-top: 12px; }
   .capability-matrix > h3 { padding-bottom: 12px; border-bottom: 1px solid var(--cp-border-strong); }
-  .capability-matrix > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 24px; }
+  .capability-matrix > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 0 24px; }
   .capability-matrix section { position: relative; min-height: 124px; overflow: hidden; padding: 18px 0; border-bottom: 1px solid var(--cp-border); opacity: 1; }
   .capability-matrix section::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 2px; transform: translateX(-105%); background: linear-gradient(90deg, transparent, var(--cp-accent), transparent); }
   .about[data-motion-inview] .capability-matrix section { animation: capability-arrive 480ms var(--ease) both; animation-delay: var(--capability-delay); }

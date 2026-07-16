@@ -16,12 +16,12 @@ const writeups = (await getCollection('writeups'))
     </header>
 
     <div class="writing-grid">
-      {writeups.map((writeup) => (
-        <a class="writing-card" href={`/writeups/${writeup.id}/`}>
+      {writeups.map((writeup, index) => (
+        <a class="writing-card" href={`/writeups/${writeup.id}/`} style={`--writing-order:${index}`}>
           <time datetime={isoDate(writeup.data.date)}>{formatDate(writeup.data.date)}</time>
           <h3>{writeup.data.title}</h3>
           <p>{writeup.data.summary}</p>
-          <span>{writeup.data.tags.slice(0, 3).join(' · ')}</span>
+          <span>{writeup.data.tags.join(' · ')}</span>
         </a>
       ))}
     </div>
@@ -51,18 +51,16 @@ const writeups = (await getCollection('writeups'))
   .eyebrow { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
   .writing-head h2 { max-width: 22ch; margin-top: 10px; font-size: var(--type-section); line-height: 1; }
   .writing-head > a { color: var(--cp-accent); font-size: var(--type-small); font-weight: 700; }
-  .writing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin-top: 42px; border-top: 1px solid var(--cp-border-strong); border-left: 1px solid var(--cp-border); }
+  .writing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 0; margin-top: 42px; border-top: 1px solid var(--cp-border-strong); border-left: 1px solid var(--cp-border); }
   .writing-card { position: relative; display: grid; min-height: 250px; align-content: start; overflow: hidden; border-right: 1px solid var(--cp-border); border-bottom: 1px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text); padding: 28px; transition: background 200ms var(--ease), color 200ms var(--ease), transform 200ms var(--ease); }
   .writing-card::before { content: ''; position: absolute; top: 0; bottom: 0; left: -22%; width: 18%; opacity: 0; transform: skewX(-12deg); background: linear-gradient(90deg, transparent, var(--cp-accent-soft), var(--cp-sheen), transparent); pointer-events: none; }
-  .writing[data-motion-inview] .writing-card::before { animation: writing-scan 6.8s var(--ease) infinite; }
-  .writing[data-motion-inview] .writing-card:nth-child(2)::before { animation-delay: -3.4s; }
+  .writing[data-motion-inview] .writing-card::before { animation: writing-scan 6.8s var(--ease) infinite; animation-delay: calc(var(--writing-order) * -3.4s); }
   .writing-card:hover { transform: translateY(-4px); background: var(--cp-accent-soft); color: var(--cp-text); }
   .writing-card time { color: var(--cp-text-muted); font-size: var(--type-label); }
   .writing-card h3 { max-width: 22ch; margin-top: 20px; font-size: 1.65rem; }
   .writing-card p { margin-top: 12px; color: var(--cp-text-soft); font-size: .9rem; line-height: 1.65; }
   .writing-card span { position: relative; z-index: 1; align-self: end; margin-top: 22px; color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
-  .writing[data-motion-inview] .writing-card span { animation: writing-tags 4.8s var(--ease) infinite; }
-  .writing[data-motion-inview] .writing-card:nth-child(2) span { animation-delay: -2.4s; }
+  .writing[data-motion-inview] .writing-card span { animation: writing-tags 4.8s var(--ease) infinite; animation-delay: calc(var(--writing-order) * -2.4s); }
   .contact { position: relative; display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(320px, .88fr); gap: clamp(44px, 8vw, 104px); overflow: hidden; margin-top: clamp(72px, 9vw, 112px); border-block: 1px solid var(--cp-border-strong); padding-block: 52px; }
   .contact::before { content: ''; position: absolute; z-index: 2; top: 0; bottom: 0; left: -18%; width: 1px; opacity: 0; background: linear-gradient(transparent, var(--cp-accent), transparent); box-shadow: 0 0 16px var(--cp-accent); pointer-events: none; }
   .contact::after { content: ''; position: absolute; right: -120px; bottom: -190px; width: 420px; height: 420px; border: 1px solid var(--cp-border); border-top-color: var(--cp-accent); border-radius: 50%; background: linear-gradient(90deg, var(--cp-accent-soft), transparent 58%); pointer-events: none; }

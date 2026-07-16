@@ -22,6 +22,7 @@ const links = [
     </nav>
 
     <div class="header-actions">
+      <a class="contact-link" href="/#contact">Contact</a>
       <a class="resume-link" href={site.resumeUrl} download>Résumé</a>
       <button class="theme-button" type="button" data-theme-toggle aria-label="Switch color theme" title="Switch color theme">◐</button>
       <button class="terminal-button terminal-btn" type="button" data-open-terminal aria-label="Open terminal" title="Open terminal">⌘</button>
@@ -88,6 +89,8 @@ const links = [
   .nav-links a:hover,
   .nav-links a:focus-visible { color: var(--cp-accent); }
   .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .contact-link { display: inline-flex; min-height: 34px; align-items: center; border: 1px solid var(--cp-accent); border-radius: 999px; background: var(--cp-accent); color: var(--cp-accent-fg); padding: 6px 13px; font-size: .76rem; font-weight: 700; box-shadow: var(--card-shadow); transition: background 160ms var(--ease), color 160ms var(--ease), transform 160ms var(--ease); }
+  .contact-link:hover { transform: translateY(-1px); background: var(--cp-accent-hover); color: var(--cp-accent-fg); }
   .resume-link { color: var(--cp-text); font-size: .78rem; font-weight: 700; }
   .resume-link:hover { color: var(--cp-accent); }
   .theme-button,

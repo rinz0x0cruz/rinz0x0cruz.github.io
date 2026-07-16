@@ -12,7 +12,7 @@ Live: <https://rinz0x0cruz.github.io>
 - No client framework — vanilla JS powers the project reel, theme control, and optional terminal
 - Self-hosted IBM Plex Sans, Barlow Semi Condensed, and IBM Plex Mono typography
 - Responsive light/dark interface with real, interactive dashboard previews
-- Identity, operational outcomes, systems, carousel casework, concise experience, public practice profiles, credentials, two data-backed blogs, and contact
+- Identity, operational outcomes, systems, carousel casework, concise experience, public practice profiles, credentials, data-backed blogs, and contact
 - Keyboard-accessible project frames with contained telemetry, hotspots, and reduced-motion support
 - Sitemap, RSS, and JSON-LD `Person` / `BlogPosting` structured data for SEO
 
@@ -57,6 +57,28 @@ TryHackMe and LeetCode metrics are dated public-profile snapshots, not runtime
 API dependencies. Update their values and `verifiedAt` labels in `portfolio.ts`.
 The deterministic site still builds and works without network access.
 
+### Adding homepage content
+
+Repeated content is data-driven and layouts auto-fit new entries. Append data;
+do not duplicate or edit a component:
+
+| Homepage area | Add or edit here |
+| --- | --- |
+| Identity focus rotation | `intro.currentFocus` in `src/data/portfolio.ts` |
+| Identity social links | Add a `site.socials` entry in `src/data/site.ts`; set `featured: true` to show it in the name card |
+| Operational outcomes | `achievements` in `src/data/portfolio.ts` |
+| Interactive project reel | `projectDemos` in `src/data/portfolio.ts`; set `catalogProject` to the matching `projects.ts` name and provide its image/theme data |
+| Other systems | `projects` in `src/data/projects.ts`; projects referenced by a demo are excluded automatically |
+| Casework carousel | `caseStudies` in `src/data/portfolio.ts`; any number of evidence steps is supported |
+| About capabilities | `about.capabilities` in `src/data/portfolio.ts` |
+| Experience, education, credentials, languages | `src/data/resume.json` or the deterministic résumé parser |
+| Public practice profiles and metrics | `publicProfiles` in `src/data/portfolio.ts` |
+| Blogs | Add a validated Markdown file under `src/content/writeups/` |
+| Entire homepage sections | Add the component import and one entry to `homepageSections` in `src/pages/index.astro` |
+
+The unit and Playwright suites derive expected counts from these same data
+sources, so a new item automatically joins validation and carousel traversal.
+
 ## Résumé-driven data
 
 The service-record section (roles, dates, and the computed "time in field"
@@ -90,9 +112,9 @@ and rollback procedures.
 
 ## Writing blogs
 
-The site intentionally publishes exactly two current ExploitRank analyses.
-Posts live in [`src/content/writeups/`](src/content/writeups). Each post is one
-Markdown file with frontmatter:
+The site publishes current ExploitRank analyses from
+[`src/content/writeups/`](src/content/writeups). Each post is one Markdown file
+with frontmatter:
 
 ```markdown
 ---

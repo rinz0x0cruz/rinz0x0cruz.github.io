@@ -1,5 +1,11 @@
 ---
 import { projectDemos as slides } from '@/data/portfolio';
+
+function hexToRgb(hex: string) {
+  const channels = hex.match(/[a-f\d]{2}/gi);
+  if (!channels || channels.length !== 3) throw new Error(`Invalid demo accent: ${hex}`);
+  return channels.map((channel) => Number.parseInt(channel, 16)).join(', ');
+}
 ---
 
 <section id="work" class="cinema" data-cinema>
@@ -13,7 +19,12 @@ import { projectDemos as slides } from '@/data/portfolio';
 
   <div class="stage" aria-live="polite">
     {slides.map((slide, index) => (
-      <article class:list={['slide', `slide-${index + 1}`, { 'is-active': index === 0 }]} data-cinema-slide={index} aria-hidden={index === 0 ? 'false' : 'true'}>
+      <article
+        class:list={['slide', `slide-${index + 1}`, { 'is-active': index === 0 }]}
+        data-cinema-slide={index}
+        aria-hidden={index === 0 ? 'false' : 'true'}
+        style={`--demo-accent:${slide.theme.accent};--demo-accent-rgb:${hexToRgb(slide.theme.accent)};--demo-media-start:${slide.theme.media[0]};--demo-media-middle:${slide.theme.media[1]};--demo-media-end:${slide.theme.media[2]};--demo-image-ratio:${slide.imageWidth}/${slide.imageHeight}`}
+      >
         <div class="slide-media">
             <span class="slide-count mono">{String(index + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}</span>
             <div class="screen" data-demo-screen>
@@ -26,8 +37,8 @@ import { projectDemos as slides } from '@/data/portfolio';
                 <img
                   src={slide.image}
                   alt={slide.alt}
-                  width="1440"
-                  height="900"
+                  width={slide.imageWidth}
+                  height={slide.imageHeight}
                   decoding="async"
                   fetchpriority={index === 0 ? 'high' : 'auto'}
                 />
@@ -321,8 +332,7 @@ import { projectDemos as slides } from '@/data/portfolio';
   .slide.is-active { pointer-events: auto; }
   .slide-media { position: relative; display: grid; min-height: 0; place-items: center; overflow: hidden; padding: clamp(52px, 7vh, 76px) clamp(28px, 6vw, 96px) clamp(18px, 3vh, 32px); }
   .slide-media::before { content: ''; position: absolute; inset: -20%; opacity: .26; background-image: linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px); background-size: 54px 54px; transform: rotate(-4deg); animation: grid-drift 24s linear infinite; }
-  .slide-1 .slide-media { background: linear-gradient(130deg, #17150f 0%, #2a230f 48%, #151515 100%); }
-  .slide-2 .slide-media { background: linear-gradient(130deg, #151517 0%, #2a171b 52%, #151515 100%); }
+  .slide-media { background: linear-gradient(130deg, var(--demo-media-start) 0%, var(--demo-media-middle) 50%, var(--demo-media-end) 100%); }
   .screen { position: relative; z-index: 1; width: min(88%, 1200px, calc((100svh - var(--nav-h) - 310px) * 1.6)); overflow: hidden; border: 1px solid rgba(255,255,255,.24); border-radius: 7px; background: #111; box-shadow: 0 28px 70px rgba(0,0,0,.48), 0 0 0 1px rgba(255,255,255,.05); }
   .slide.is-active .screen { animation: screen-enter 720ms var(--ease) both; }
   .screen-chrome { display: grid; height: 30px; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; background: #111; color: rgba(255,255,255,.48); padding: 0 12px; font-family: var(--font-mono); font-size: .58rem; text-transform: uppercase; }
@@ -333,10 +343,8 @@ import { projectDemos as slides } from '@/data/portfolio';
   .window-dots i:nth-child(2) { background: #d19a3b; }
   .demo-mode { display: flex; align-items: center; gap: 6px; }
   .demo-mode i { width: 6px; height: 6px; border-radius: 50%; background: var(--demo-accent); box-shadow: 0 0 10px var(--demo-accent); animation: demo-status 2.2s ease-in-out infinite; }
-  .slide-1 .screen { --demo-accent: #ffc400; --demo-accent-rgb: 255, 196, 0; }
-  .slide-2 .screen { --demo-accent: #ff5664; --demo-accent-rgb: 255, 86, 100; }
-  .demo-surface { --pointer-x: 50%; --pointer-y: 50%; --active-x: 50%; --active-y: 50%; position: relative; overflow: hidden; }
-  .demo-surface img { display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; object-fit: cover; user-select: none; pointer-events: none; }
+  .demo-surface { --pointer-x: 50%; --pointer-y: 50%; --active-x: 50%; --active-y: 50%; position: relative; overflow: clip; }
+  .demo-surface img { display: block; width: 100%; height: auto; aspect-ratio: var(--demo-image-ratio); object-fit: cover; user-select: none; pointer-events: none; }
   .demo-light { position: absolute; z-index: 2; inset: 0; opacity: 0; background: radial-gradient(circle 180px at var(--pointer-x) var(--pointer-y), rgba(var(--demo-accent-rgb), .2), transparent 68%); pointer-events: none; transition: opacity 220ms var(--ease); }
   .demo-surface:hover .demo-light,
   .demo-surface:focus-within .demo-light { opacity: 1; }

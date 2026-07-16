@@ -7,6 +7,8 @@ export interface Social {
   handle: string;
   /** Simple-icons style slug, used for inline SVG icons. */
   icon: 'github' | 'linkedin' | 'leetcode' | 'tryhackme' | 'email';
+  /** Show this link in the compact identity plate. */
+  featured?: boolean;
 }
 
 export const site = {
@@ -34,8 +36,8 @@ export const site = {
   availabilityNote: 'Open to roles, consulting & interesting malware',
 
   socials: [
-    { name: 'GitHub', url: 'https://github.com/rinz0x0cruz', handle: '@rinz0x0cruz', icon: 'github' },
-    { name: 'LinkedIn', url: 'https://www.linkedin.com/in/rinz0x0cruz/', handle: 'in/rinz0x0cruz', icon: 'linkedin' },
+    { name: 'GitHub', url: 'https://github.com/rinz0x0cruz', handle: '@rinz0x0cruz', icon: 'github', featured: true },
+    { name: 'LinkedIn', url: 'https://www.linkedin.com/in/rinz0x0cruz/', handle: 'in/rinz0x0cruz', icon: 'linkedin', featured: true },
     { name: 'LeetCode', url: 'https://leetcode.com/u/rinz0x0cruz/', handle: 'u/rinz0x0cruz', icon: 'leetcode' },
     { name: 'TryHackMe', url: 'https://tryhackme.com/p/rinz0x0cruz', handle: 'p/rinz0x0cruz', icon: 'tryhackme' },
     { name: 'Email', url: 'mailto:rinz0x0cruz@gmail.com', handle: 'rinz0x0cruz@gmail.com', icon: 'email' },

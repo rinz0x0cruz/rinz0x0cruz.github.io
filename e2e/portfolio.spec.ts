@@ -1,5 +1,19 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import matter from 'gray-matter';
+import { achievements, caseStudies, projectDemos, publicProfiles } from '../src/data/portfolio';
+import { projects } from '../src/data/projects';
+
+const writeupDirectory = new URL('../src/content/writeups/', import.meta.url);
+const publishedWriteupCount = readdirSync(writeupDirectory)
+  .filter((file) => file.endsWith('.md'))
+  .filter((file) => !matter(readFileSync(new URL(file, writeupDirectory), 'utf8')).data.draft)
+  .length;
+const demoProjectNames = new Set(projectDemos.map((demo) => demo.catalogProject));
+const systemProjectCount = projects.filter((project) => !demoProjectNames.has(project.name)).length;
+const progressText = (index: number, total: number) =>
+  `${String(index + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
 
 function collectBrowserErrors(page: Page) {
   const errors: string[] = [];
@@ -24,7 +38,7 @@ test('home, archive, article, and 404 routes stay healthy', async ({ page }) => 
 
   await page.goto('/writeups/');
   await expect(page.locator('h1')).toContainText('Signals, decisions');
-  await expect(page.locator('.wlist > li')).toHaveCount(2);
+  await expect(page.locator('.wlist > li')).toHaveCount(publishedWriteupCount);
   const articleLink = page.locator('main a[href^="/writeups/"]').first();
   const articlePath = await articleLink.getAttribute('href');
   expect(articlePath).toBeTruthy();
@@ -50,6 +64,45 @@ test('all home surfaces render on the initial load without motion overrides', as
   }
 });
 
+test('repeated homepage layouts absorb an additional item without overflow', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const repeatedLayouts = [
+    ['#achievements .outcome-grid', 'article'],
+    ['#work .project-tabs', 'button'],
+    ['#systems .project-grid', 'article'],
+    ['#casework .case-tabs', 'button'],
+    ['#casework .case-slide.is-active .evidence-path', 'li'],
+    ['#about .capability-matrix > div', 'section'],
+    ['#trajectory .profile-grid', '.profile-card'],
+    ['#trajectory .profile-card:first-child dl', 'div'],
+    ['#writing .writing-grid', '.writing-card'],
+  ] as const;
+
+  for (const [containerSelector, itemSelector] of repeatedLayouts) {
+    const container = page.locator(containerSelector);
+    await container.evaluate((element, selector) => {
+      const item = element.querySelector(selector);
+      if (!item) throw new Error(`Missing plug-in fixture: ${selector}`);
+      element.append(item.cloneNode(true));
+    }, itemSelector);
+    const escapedPixels = await container.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return Math.max(
+        0,
+        ...Array.from(element.children, (child) => {
+          const childBounds = child.getBoundingClientRect();
+          return Math.max(bounds.left - childBounds.left, childBounds.right - bounds.right);
+        })
+      );
+    });
+    expect(escapedPixels, containerSelector).toBeLessThanOrEqual(1);
+  }
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
 test('motion stays progressive, informative, and reduced-motion safe', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
@@ -58,12 +111,9 @@ test('motion stays progressive, informative, and reduced-motion safe', async ({ 
   const outcomes = page.locator('#achievements');
   await outcomes.scrollIntoViewIfNeeded();
   await expect(outcomes).toHaveAttribute('data-motion-active', 'true');
-  await expect.poll(() => outcomes.locator('[data-outcome-value]').allTextContents()).toEqual([
-    '47%',
-    '50K+',
-    '22 / 31',
-    'Full chain',
-  ]);
+  await expect.poll(() => outcomes.locator('[data-outcome-value]').allTextContents()).toEqual(
+    achievements.map((achievement) => achievement.value)
+  );
 
   const persistentMotion = [
     { id: 'systems', selector: 'article', pseudo: '::before', name: 'system-scan' },
@@ -95,7 +145,7 @@ test('motion stays progressive, informative, and reduced-motion safe', async ({ 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.reload();
   await expect(page.locator('#top h1')).toHaveCSS('animation-name', 'none');
-  await expect(page.locator('[data-outcome-value]')).toHaveText(['47%', '50K+', '22 / 31', 'Full chain']);
+  await expect(page.locator('[data-outcome-value]')).toHaveText(achievements.map((achievement) => achievement.value));
   await page.locator('#trajectory').evaluate((section) => section.scrollIntoView({ block: 'center' }));
   await expect.poll(() => page.locator('.profile-card').first().evaluate((card) =>
     getComputedStyle(card, '::before').animationName
@@ -110,7 +160,7 @@ test('project cinema fits one viewport and navigates every frame', async ({ page
   const cinema = page.locator('[data-cinema]');
   const stage = cinema.locator('.stage');
   await expect(cinema.locator('[data-cinema-slide="0"]')).toBeVisible();
-  await expect(cinema.locator('[data-cinema-slide="0"] h2')).toHaveText('ExploitRank');
+  await expect(cinema.locator('[data-cinema-slide="0"] h2')).toHaveText(projectDemos[0].name);
   await expect(cinema.locator('[data-cinema-slide="0"] img')).toHaveJSProperty('complete', true);
 
   await cinema.scrollIntoViewIfNeeded();
@@ -120,13 +170,15 @@ test('project cinema fits one viewport and navigates every frame', async ({ page
   expect(box!.y).toBeLessThan(viewportHeight);
   expect(box!.y + box!.height).toBeLessThanOrEqual(viewportHeight + 1);
 
-  await cinema.getByRole('button', { name: 'Next project' }).click();
-  await expect(cinema.locator('[data-cinema-slide="1"] h2')).toHaveText('malscope');
-  await expect(cinema.locator('[data-cinema-progress]')).toHaveText('02 / 02');
+  for (let index = 0; index < projectDemos.length; index += 1) {
+    if (index > 0) await cinema.getByRole('button', { name: 'Next project' }).click();
+    await expect(cinema.locator(`[data-cinema-slide="${index}"] h2`)).toHaveText(projectDemos[index].name);
+    await expect(cinema.locator('[data-cinema-progress]')).toHaveText(progressText(index, projectDemos.length));
+  }
   await cinema.getByRole('button', { name: 'Next project' }).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(cinema.locator('[data-cinema-slide="0"] h2')).toHaveText('ExploitRank');
-  await expect(cinema.locator('[data-cinema-progress]')).toHaveText('01 / 02');
+  await expect(cinema.locator('[data-cinema-slide="0"] h2')).toHaveText(projectDemos[0].name);
+  await expect(cinema.locator('[data-cinema-progress]')).toHaveText(progressText(0, projectDemos.length));
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
@@ -135,13 +187,18 @@ test('project cinema fits one viewport and navigates every frame', async ({ page
 test('project previews are interactive but remain contained and non-navigable', async ({ page, isMobile }) => {
   await page.goto('/');
   const cinema = page.locator('[data-cinema]');
-  const exploitDemo = cinema.locator('.slide-1 .screen');
+  const exploitIndex = projectDemos.findIndex((demo) => demo.catalogProject === 'exploitrank');
+  const malscopeIndex = projectDemos.findIndex((demo) => demo.catalogProject === 'malscope-dashboard');
+  expect(exploitIndex).toBeGreaterThanOrEqual(0);
+  expect(malscopeIndex).toBeGreaterThanOrEqual(0);
+  await cinema.getByRole('button', { name: projectDemos[exploitIndex].name, exact: true }).click();
+  const exploitDemo = cinema.locator(`[data-cinema-slide="${exploitIndex}"] .screen`);
 
-  await expect(exploitDemo.getByRole('button', { name: /inspect/i })).toHaveCount(3);
+  await expect(exploitDemo.getByRole('button', { name: /inspect/i })).toHaveCount(projectDemos[exploitIndex].hotspots.length);
   await expect(exploitDemo.locator('a')).toHaveCount(0);
-  await expect(exploitDemo.locator('.demo-surface')).toHaveCSS('overflow', 'hidden');
-  await expect(exploitDemo.locator('.demo-telemetry > span')).toHaveCount(3);
-  await expect(exploitDemo.locator('.demo-activity em')).toHaveCount(6);
+  await expect(exploitDemo.locator('.demo-surface')).toHaveCSS('overflow', 'clip');
+  await expect(exploitDemo.locator('.demo-telemetry > span')).toHaveCount(projectDemos[exploitIndex].telemetry.length);
+  await expect(exploitDemo.locator('.demo-activity em')).toHaveCount(projectDemos[exploitIndex].activity.length * 2);
   await expect(exploitDemo.locator('[data-demo-hotspot][data-showcase="true"]')).toHaveCount(1);
   await expect(exploitDemo.locator('.demo-surface')).toHaveAttribute('data-feature-active', 'true');
   const initialActiveX = await exploitDemo.locator('.demo-surface').evaluate((surface) =>
@@ -165,18 +222,21 @@ test('project previews are interactive but remain contained and non-navigable', 
   await expect(exploitDemo.locator('.demo-surface')).toHaveCSS('--active-x', '55%');
   await expect(exploitDemo.locator('.demo-surface')).toHaveCSS('--active-y', '53%');
 
-  const surfaceBox = await exploitDemo.locator('.demo-surface').boundingBox();
-  const panelBox = await featurePanel.boundingBox();
-  expect(surfaceBox).not.toBeNull();
-  expect(panelBox).not.toBeNull();
-  expect(panelBox!.x).toBeGreaterThanOrEqual(surfaceBox!.x - 1);
-  expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(surfaceBox!.x + surfaceBox!.width + 1);
-  expect(panelBox!.y).toBeGreaterThanOrEqual(surfaceBox!.y - 1);
-  expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(surfaceBox!.y + surfaceBox!.height + 1);
+  await expect.poll(async () => {
+    const surfaceBox = await exploitDemo.locator('.demo-surface').boundingBox();
+    const panelBox = await featurePanel.boundingBox();
+    if (!surfaceBox || !panelBox) return Number.POSITIVE_INFINITY;
+    return Math.max(
+      surfaceBox.x - panelBox.x,
+      panelBox.x + panelBox.width - (surfaceBox.x + surfaceBox.width),
+      surfaceBox.y - panelBox.y,
+      panelBox.y + panelBox.height - (surfaceBox.y + surfaceBox.height)
+    );
+  }).toBeLessThanOrEqual(1);
 
-  await cinema.getByRole('button', { name: 'Next project' }).click();
-  const malscopeDemo = cinema.locator('.slide-2 .screen');
-  await expect(malscopeDemo.getByRole('button', { name: /inspect/i })).toHaveCount(4);
+  await cinema.getByRole('button', { name: projectDemos[malscopeIndex].name, exact: true }).click();
+  const malscopeDemo = cinema.locator(`[data-cinema-slide="${malscopeIndex}"] .screen`);
+  await expect(malscopeDemo.getByRole('button', { name: /inspect/i })).toHaveCount(projectDemos[malscopeIndex].hotspots.length);
   await expect(malscopeDemo.locator('a')).toHaveCount(0);
   await expect(malscopeDemo.locator('.demo-telemetry')).toContainText(/Rules ready\s+31/);
 
@@ -192,7 +252,7 @@ test('casework carousel keeps one bounded investigation active', async ({ page }
   await casework.scrollIntoViewIfNeeded();
   await expect(casework.locator('[data-case-slide="0"]')).toBeVisible();
   await expect(casework.locator('[data-case-slide="1"]')).toBeHidden();
-  await expect(casework.locator('[data-case-progress]')).toHaveText('01 / 03');
+  await expect(casework.locator('[data-case-progress]')).toHaveText(progressText(0, caseStudies.length));
 
   const expectActiveCaseContained = async (index: number) => {
     await expect.poll(async () => {
@@ -202,18 +262,16 @@ test('casework carousel keeps one bounded investigation active', async ({ page }
       return layoutBox.y + layoutBox.height - (stageBox.y + stageBox.height);
     }).toBeLessThanOrEqual(1);
   };
-  await expectActiveCaseContained(0);
-
-  await casework.getByRole('button', { name: 'Next case' }).click();
-  await expect(casework.locator('[data-case-slide="1"]')).toBeVisible();
-  await expect(casework.locator('[data-case-progress]')).toHaveText('02 / 03');
-  await expectActiveCaseContained(1);
-
-  await casework.getByRole('button', { name: 'Next case' }).focus();
-  await page.keyboard.press('ArrowRight');
-  await expect(casework.locator('[data-case-slide="2"]')).toBeVisible();
-  await expect(casework.locator('[data-case-progress]')).toHaveText('03 / 03');
-  await expectActiveCaseContained(2);
+  for (let index = 0; index < caseStudies.length; index += 1) {
+    if (index === 1) await casework.getByRole('button', { name: 'Next case' }).click();
+    if (index > 1) {
+      await casework.getByRole('button', { name: 'Next case' }).focus();
+      await page.keyboard.press('ArrowRight');
+    }
+    await expect(casework.locator(`[data-case-slide="${index}"]`)).toBeVisible();
+    await expect(casework.locator('[data-case-progress]')).toHaveText(progressText(index, caseStudies.length));
+    await expectActiveCaseContained(index);
+  }
 
   const stage = await casework.locator('.case-stage').boundingBox();
   expect(stage).not.toBeNull();
@@ -231,6 +289,18 @@ test('shared navigation returns nested pages to home sections', async ({ page, i
   await expect(page).toHaveURL(/\/#work$/);
   await expect(page.locator('#work')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('header contact action reaches the contact section from primary routes', async ({ page }) => {
+  for (const path of ['/', '/writeups/']) {
+    await page.goto(path);
+    const contactAction = page.locator('.header-actions > .contact-link');
+    await expect(contactAction).toBeVisible();
+    await expect(contactAction).toHaveAttribute('href', '/#contact');
+    await contactAction.click();
+    await expect(page).toHaveURL(/\/#contact$/);
+    await expect(page.locator('#contact')).toBeVisible();
+  }
 });
 
 test('writing previews open full article pages', async ({ page }) => {
@@ -305,13 +375,13 @@ test('primary routes have no WCAG A/AA violations', async ({ page }) => {
 test('homepage leads with identity and orders proof before projects and casework', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#top h1')).toHaveText('Mohit Sharma');
-  await expect(page.locator('#achievements article')).toHaveCount(4);
-  await expect(page.locator('#systems article')).toHaveCount(4);
-  await expect(page.locator('#trajectory .profile-card')).toHaveCount(2);
+  await expect(page.locator('#achievements article')).toHaveCount(achievements.length);
+  await expect(page.locator('#systems article')).toHaveCount(systemProjectCount);
+  await expect(page.locator('#trajectory .profile-card')).toHaveCount(publicProfiles.length);
   await expect(page.locator('#trajectory')).toContainText('TryHackMe');
   await expect(page.locator('#trajectory')).toContainText('LeetCode');
   await expect(page.locator('#trajectory')).not.toContainText('Next horizon');
-  await expect(page.locator('#writing .writing-card')).toHaveCount(2);
+  await expect(page.locator('#writing .writing-card')).toHaveCount(publishedWriteupCount);
 
   const order = await page.locator('main > section').evaluateAll((sections) =>
     sections.map((section) => section.id)

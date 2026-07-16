@@ -8,7 +8,7 @@ const configuredBuildDate = import.meta.env.BUILD_DATE;
 const buildDate = configuredBuildDate ? new Date(`${configuredBuildDate}T00:00:00Z`) : new Date();
 const experience = calculateExperience(resume.work, buildDate);
 const currentRole = resume.work.find((role) => !role.volunteer && role.end === null);
-const identityLinks = site.socials.filter((social) => ['github', 'linkedin'].includes(social.icon));
+const identityLinks = site.socials.filter((social) => social.featured);
 ---
 
 <section id="top" class="intro" data-motion-hero>
@@ -46,7 +46,11 @@ const identityLinks = site.socials.filter((social) => ['github', 'linkedin'].inc
         </div>
         <div>
           <dt>Focus</dt>
-          <dd>{intro.currentFocus[0]}</dd>
+          <dd class="focus-rotator" data-focus-rotator aria-label={intro.currentFocus.join('; ')}>
+            {intro.currentFocus.map((focus, index) => (
+              <span class:list={{ 'is-active': index === 0 }} aria-hidden="true">{focus}</span>
+            ))}
+          </dd>
         </div>
         <div>
           <dt>Experience</dt>
@@ -71,6 +75,26 @@ const identityLinks = site.socials.filter((social) => ['github', 'linkedin'].inc
 
   <div class="intro-pulse" aria-hidden="true"><span></span></div>
 </section>
+
+<script>
+  function initFocusRotators() {
+    document.querySelectorAll<HTMLElement>('[data-focus-rotator]').forEach((root) => {
+      if (root.dataset.bound) return;
+      root.dataset.bound = 'true';
+      const items = Array.from(root.querySelectorAll<HTMLElement>('span'));
+      if (items.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      let active = 0;
+      window.setInterval(() => {
+        items[active].classList.remove('is-active');
+        active = (active + 1) % items.length;
+        items[active].classList.add('is-active');
+      }, 4200);
+    });
+  }
+
+  initFocusRotators();
+  document.addEventListener('astro:page-load', initFocusRotators);
+</script>
 
 <style>
   .intro {
@@ -142,6 +166,9 @@ const identityLinks = site.socials.filter((social) => ['github', 'linkedin'].inc
   .proof-strip > div:last-child { border-right: 0; }
   .proof-strip dt { color: var(--cp-accent); font-family: var(--font-mono); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
   .proof-strip dd { margin: 6px 0 0; color: var(--cp-text); font-size: .82rem; line-height: 1.45; }
+  .focus-rotator { display: grid; min-height: 1.45em; overflow: hidden; }
+  .focus-rotator span { grid-area: 1 / 1; opacity: 0; transform: translateY(7px); transition: opacity 280ms var(--ease), transform 360ms var(--ease); }
+  .focus-rotator span.is-active { opacity: 1; transform: none; }
   .identity-actions { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid var(--cp-border); padding-block: 14px; }
   .identity-actions > div,
   .identity-actions nav { display: flex; flex-wrap: wrap; gap: 9px; }
@@ -217,6 +244,8 @@ const identityLinks = site.socials.filter((social) => ['github', 'linkedin'].inc
     .identity-actions,
     .availability i,
     .intro-pulse span { animation: none; }
+    .focus-rotator span { display: none; transition: none; }
+    .focus-rotator span:first-child { display: inline; opacity: 1; transform: none; }
     h1 { background: none; color: var(--cp-text); }
   }
 </style>

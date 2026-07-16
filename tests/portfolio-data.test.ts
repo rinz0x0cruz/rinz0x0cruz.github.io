@@ -1,12 +1,16 @@
 import { readdirSync, readFileSync } from 'node:fs';
+import matter from 'gray-matter';
 import { describe, expect, it } from 'vitest';
 import {
+  about,
   achievements,
   caseStudies,
   intro,
   projectDemos,
   publicProfiles,
 } from '../src/data/portfolio';
+import { projects } from '../src/data/projects';
+import { site } from '../src/data/site';
 
 function expectUnique(values: readonly string[]) {
   expect(new Set(values).size).toBe(values.length);
@@ -16,8 +20,21 @@ describe('plug-and-play portfolio content', () => {
   it('keeps the identity statement and current focus complete', () => {
     expect(intro.eyebrow.length).toBeGreaterThan(10);
     expect(intro.statement.length).toBeGreaterThan(40);
-    expect(intro.currentFocus).toHaveLength(3);
+    expect(intro.currentFocus.length).toBeGreaterThan(0);
     expectUnique(intro.currentFocus);
+    const featuredSocials = site.socials.filter((social) => social.featured);
+    expect(featuredSocials.length).toBeGreaterThan(0);
+    expectUnique(featuredSocials.map((social) => social.name));
+  });
+
+  it('defines additive curated capability groups', () => {
+    expect(about.statement.length).toBeGreaterThan(40);
+    expect(about.capabilities.length).toBeGreaterThan(0);
+    expectUnique(about.capabilities.map((group) => group.category));
+    for (const group of about.capabilities) {
+      expect(group.items.length).toBeGreaterThan(0);
+      expectUnique(group.items);
+    }
   });
 
   it('defines distinct, complete featured outcomes', () => {
@@ -30,12 +47,19 @@ describe('plug-and-play portfolio content', () => {
   });
 
   it('defines self-contained interactive project demos', () => {
-    expect(projectDemos).toHaveLength(2);
+    expect(projectDemos.length).toBeGreaterThanOrEqual(2);
     expectUnique(projectDemos.map((demo) => demo.name.toLowerCase()));
+    expectUnique(projectDemos.map((demo) => demo.catalogProject));
     for (const demo of projectDemos) {
+      expect(projects.some((project) => project.name === demo.catalogProject)).toBe(true);
       expect(demo.image).toMatch(/^\/[a-z0-9-]+\.png$/);
-      expect(demo.telemetry).toHaveLength(3);
-      expect(demo.hotspots.length).toBeGreaterThanOrEqual(3);
+      expect(demo.imageWidth).toBeGreaterThan(0);
+      expect(demo.imageHeight).toBeGreaterThan(0);
+      expect(demo.theme.accent).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(demo.theme.media).toHaveLength(3);
+      expect(demo.telemetry.length).toBeGreaterThan(0);
+      expect(demo.activity.length).toBeGreaterThan(0);
+      expect(demo.hotspots.length).toBeGreaterThan(0);
       expectUnique(demo.hotspots.map((hotspot) => hotspot.title));
       for (const hotspot of demo.hotspots) {
         expect(hotspot.x).toBeGreaterThan(0);
@@ -50,31 +74,29 @@ describe('plug-and-play portfolio content', () => {
     expect(caseStudies.length).toBeGreaterThanOrEqual(3);
     expectUnique(caseStudies.map((study) => study.title));
     for (const study of caseStudies) {
-      expect(study.approach).toHaveLength(3);
+      expect(study.approach.length).toBeGreaterThan(0);
       expect(study.outcome.length).toBeGreaterThan(30);
       expect(study.metric.trim()).not.toBe('');
     }
   });
 
   it('keeps public profiles extensible', () => {
-    expect(publicProfiles).toHaveLength(2);
+    expect(publicProfiles.length).toBeGreaterThanOrEqual(2);
     expectUnique(publicProfiles.map((profile) => profile.name));
     for (const profile of publicProfiles) {
       expect(new URL(profile.url).protocol).toBe('https:');
-      expect(profile.metrics).toHaveLength(3);
+      expect(profile.metrics.length).toBeGreaterThan(0);
       expectUnique(profile.metrics.map((metric) => metric.label));
       expect(profile.verifiedAt).toContain('2026');
     }
   });
 
-  it('publishes exactly two ExploitRank-backed blogs', () => {
+  it('publishes an additive set of ExploitRank-backed blogs', () => {
     const contentDirectory = new URL('../src/content/writeups/', import.meta.url);
     const files = readdirSync(contentDirectory).filter((file) => file.endsWith('.md')).sort();
-    expect(files).toEqual([
-      'one-cve-301-ransomware-signals.md',
-      'patch-by-exploitability-not-cvss.md',
-    ]);
-    for (const file of files) {
+    const publishedFiles = files.filter((file) => !matter(readFileSync(new URL(file, contentDirectory), 'utf8')).data.draft);
+    expect(publishedFiles.length).toBeGreaterThanOrEqual(2);
+    for (const file of publishedFiles) {
       const source = readFileSync(new URL(file, contentDirectory), 'utf8');
       expect(source).toContain('ExploitRank');
       expect(source).toContain('2026-07');

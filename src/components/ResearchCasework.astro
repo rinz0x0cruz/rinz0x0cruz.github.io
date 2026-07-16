@@ -6,13 +6,13 @@ import { caseStudies as studies } from '@/data/portfolio';
   <header class="casework-head container">
     <div>
       <p class="eyebrow">Professional investigations</p>
-      <h2>Three investigations. One frame at a time.</h2>
+      <h2>Investigations, one frame at a time.</h2>
     </div>
     <p>Each case is reduced to the decision it changed, the evidence path, and the operational handoff.</p>
   </header>
 
   <div class="case-carousel container">
-    <nav class="case-tabs" aria-label="Casework investigations">
+    <nav class="case-tabs" aria-label="Casework investigations" style={`--case-count:${studies.length}`}>
       {studies.map((study, index) => (
         <button type="button" data-case-jump={index} aria-pressed={index === 0 ? 'true' : 'false'}>
           <span class="mono">{String(index + 1).padStart(2, '0')}</span>
@@ -42,7 +42,7 @@ import { caseStudies as studies } from '@/data/portfolio';
               <p class="case-role"><span class="mono">My role</span>{study.role}</p>
               <ol class="evidence-path">
                 {study.approach.map((step, stepIndex) => (
-                  <li><span class="mono">0{stepIndex + 1}</span><p>{step}</p></li>
+                  <li style={`--evidence-order:${stepIndex}`}><span class="mono">{String(stepIndex + 1).padStart(2, '0')}</span><p>{step}</p></li>
                 ))}
               </ol>
             </div>
@@ -156,7 +156,7 @@ import { caseStudies as studies } from '@/data/portfolio';
   .casework-head h2 { max-width: 22ch; font-size: 2.8rem; line-height: 1; }
   .casework-head > p { max-width: 45ch; color: var(--cp-text-soft); font-size: var(--type-body); line-height: 1.65; }
   .case-carousel { margin-top: 42px; }
-  .case-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid var(--cp-border-strong); }
+  .case-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); border-block: 1px solid var(--cp-border-strong); }
   .case-tabs button { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; overflow: hidden; border: 0; border-right: 1px solid var(--cp-border); background: transparent; color: var(--cp-text-muted); padding: 14px 18px; text-align: left; cursor: pointer; }
   .case-tabs button::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 3px; transform: scaleX(0); transform-origin: left; background: var(--cp-accent); }
   .case-tabs button:last-child { border-right: 0; }
@@ -180,11 +180,9 @@ import { caseStudies as studies } from '@/data/portfolio';
   .case-summary { max-width: 65ch; margin-top: 14px; color: var(--cp-text-soft); font-size: .9rem; line-height: 1.62; }
   .case-role { display: grid; grid-template-columns: 72px 1fr; gap: 12px; margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: .78rem; line-height: 1.5; }
   .case-role span { color: var(--cp-accent); font-size: var(--type-label); text-transform: uppercase; }
-  .evidence-path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }
+  .evidence-path { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 16px; margin-top: 22px; }
   .evidence-path li { border-top: 1px solid var(--cp-border-strong); padding-top: 10px; }
-  .casework[data-motion-inview] .case-slide.is-active .evidence-path li { animation: evidence-arrive 560ms var(--ease) both; }
-  .casework[data-motion-inview] .case-slide.is-active .evidence-path li:nth-child(2) { animation-delay: 110ms; }
-  .casework[data-motion-inview] .case-slide.is-active .evidence-path li:nth-child(3) { animation-delay: 220ms; }
+  .casework[data-motion-inview] .case-slide.is-active .evidence-path li { animation: evidence-arrive 560ms var(--ease) both; animation-delay: calc(var(--evidence-order) * 110ms); }
   .evidence-path span { color: var(--cp-accent); font-size: var(--type-label); }
   .evidence-path p { margin-top: 7px; color: var(--cp-text-soft); font-size: .72rem; line-height: 1.5; }
   .case-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 14px; }
@@ -203,6 +201,7 @@ import { caseStudies as studies } from '@/data/portfolio';
   }
   @media (max-width: 560px) {
     .casework-head h2 { font-size: 2.2rem; }
+    .case-tabs { grid-template-columns: repeat(var(--case-count), minmax(0, 1fr)); }
     .case-tabs button { display: flex; justify-content: center; padding: 13px 8px; }
     .case-tabs button strong { display: none; }
     .case-stage { height: 560px; min-height: 560px; }

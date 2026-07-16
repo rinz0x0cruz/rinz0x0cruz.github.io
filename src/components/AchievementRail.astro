@@ -82,7 +82,7 @@ import { achievements } from '@/data/portfolio';
   .outcomes-head > p:first-child { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
   .outcomes-head h2 { max-width: 19ch; font-size: 2.25rem; line-height: 1; }
   .outcomes-head > p:last-child { max-width: 48ch; color: var(--cp-text-muted); font-size: var(--type-small); line-height: 1.6; }
-  .outcome-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 32px; border-top: 1px solid var(--cp-border-strong); }
+  .outcome-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); margin-top: 32px; border-top: 1px solid var(--cp-border-strong); }
   article { position: relative; min-height: 196px; border-right: 1px solid var(--cp-border); padding: 17px 24px 0 0; transition: background 220ms var(--ease); }
   article::after { content: ''; position: absolute; right: 24px; bottom: 0; left: 0; height: 2px; transform: scaleX(0); transform-origin: left; background: linear-gradient(90deg, var(--cp-accent), transparent); }
   .outcomes[data-motion-active] article { animation: outcome-arrive 620ms var(--ease) both; animation-delay: calc(120ms + var(--outcome-order) * 90ms); }
@@ -107,7 +107,7 @@ import { achievements } from '@/data/portfolio';
     .outcomes-head { grid-template-columns: 1fr 1fr; }
     .outcomes-head > p:first-child { grid-column: 1 / -1; }
     .outcome-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    article:nth-child(2) { border-right: 0; }
+    article:nth-child(even) { border-right: 0; }
     article:nth-child(n + 3) { border-top: 1px solid var(--cp-border); }
   }
   @media (max-width: 560px) {

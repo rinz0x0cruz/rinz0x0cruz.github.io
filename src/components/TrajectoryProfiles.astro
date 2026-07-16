@@ -24,7 +24,7 @@ const languages = resume.languages.map((language) => language.replace(/\s+--.*$/
           <div><h3>{profile.name}</h3><p class="mono">@{profile.handle}</p></div>
           <span aria-hidden="true">↗</span>
         </header>
-        <dl>{profile.metrics.map((metric) => <div><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl>
+        <dl>{profile.metrics.map((metric, metricIndex) => <div style={`--metric-order:${metricIndex}`}><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl>
         <small class="mono">{profile.verifiedAt}</small>
       </a>
     ))}
@@ -54,7 +54,7 @@ const languages = resume.languages.map((language) => language.replace(/\s+--.*$/
   .eyebrow { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
   .trajectory-head h2 { max-width: 19ch; margin-top: 12px; font-size: var(--type-section); line-height: 1; }
   .trajectory-head > p { max-width: 50ch; color: var(--cp-text-soft); font-size: var(--type-body); line-height: 1.65; }
-  .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 48px; }
+  .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 16px; margin-top: 48px; }
   .profile-card { position: relative; display: grid; min-height: 250px; align-content: start; overflow: hidden; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text); padding: 28px; box-shadow: var(--card-shadow); transition: border-color 180ms var(--ease), transform 180ms var(--ease), background 180ms var(--ease); }
   .profile-card::before { content: ''; position: absolute; z-index: 0; top: -25%; bottom: -25%; left: -30%; width: 13%; opacity: 0; transform: skewX(-13deg); background: linear-gradient(90deg, transparent, var(--cp-sheen), var(--cp-accent-soft), transparent); }
   .profile-card::after { content: ''; position: absolute; right: -42px; bottom: -62px; width: 180px; height: 180px; border: 1px solid var(--cp-border); border-top-color: var(--cp-accent); border-radius: 50%; background: linear-gradient(90deg, var(--cp-accent-soft), transparent 52%); rotate: 0deg; transition: transform 320ms var(--ease), border-color 180ms var(--ease); }
@@ -69,14 +69,12 @@ const languages = resume.languages.map((language) => language.replace(/\s+--.*$/
   .trajectory[data-motion-inview] .profile-mark { animation: profile-beacon 3s ease-out infinite; }
   .profile-card h3 { font-size: 1.5rem; }
   .profile-card header p { margin-top: 2px; color: var(--cp-text-muted); font-size: var(--type-label); }
-  .profile-card dl { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 28px; border-block: 1px solid var(--cp-border); }
+  .profile-card dl { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(96px, 100%), 1fr)); margin-top: 28px; border-block: 1px solid var(--cp-border); }
   .profile-card dl div { padding: 14px 10px; border-right: 1px solid var(--cp-border); }
   .profile-card dl div:last-child { border-right: 0; }
   .profile-card dt { color: var(--cp-text-muted); font-size: .7rem; text-transform: uppercase; }
   .profile-card dd { margin: 5px 0 0; color: var(--cp-text); font-family: var(--font-display); font-size: 1.28rem; font-weight: 700; }
-  .trajectory[data-motion-inview] .profile-card dl div:first-child dd { animation: profile-metric 5.7s var(--ease) infinite; }
-  .trajectory[data-motion-inview] .profile-card dl div:nth-child(2) dd { animation: profile-metric 5.7s -3.8s var(--ease) infinite; }
-  .trajectory[data-motion-inview] .profile-card dl div:nth-child(3) dd { animation: profile-metric 5.7s -1.9s var(--ease) infinite; }
+  .trajectory[data-motion-inview] .profile-card dd { animation: profile-metric 5.7s var(--ease) infinite; animation-delay: calc(var(--metric-order) * -1.9s); }
   .profile-card > small { position: relative; z-index: 1; align-self: end; margin-top: 22px; color: var(--cp-text-muted); font-size: .68rem; text-transform: uppercase; }
   .credential-band { position: relative; display: grid; grid-template-columns: 1fr 1.15fr .7fr; gap: 0; overflow: hidden; margin-top: 42px; border-block: 1px solid var(--cp-border-strong); }
   .credential-band::after { content: ''; position: absolute; top: 0; bottom: 0; left: -22%; width: 18%; opacity: 0; transform: skewX(-12deg); background: linear-gradient(90deg, transparent, var(--cp-accent-soft), transparent); pointer-events: none; }

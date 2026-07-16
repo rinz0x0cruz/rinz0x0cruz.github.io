@@ -17,10 +17,17 @@ export interface DemoHotspot {
 }
 
 export interface ProjectDemo {
+  catalogProject: string;
   name: string;
   label: string;
   image: string;
+  imageWidth: number;
+  imageHeight: number;
   alt: string;
+  theme: {
+    accent: string;
+    media: readonly [string, string, string];
+  };
   description: string;
   meta: readonly (readonly [string, string])[];
   telemetry: readonly (readonly [string, string])[];
@@ -51,6 +58,11 @@ export interface PublicProfile {
   }[];
 }
 
+export interface CapabilityGroup {
+  category: string;
+  items: readonly string[];
+}
+
 export const intro = {
   eyebrow: 'Security researcher / threat intelligence / malware analysis',
   statement:
@@ -60,6 +72,28 @@ export const intro = {
     'Malware similarity and detection pipelines',
     'Evidence-led intrusion reconstruction',
   ],
+} as const;
+
+export const about = {
+  statement: 'I investigate exploitation and malware, then carry the evidence into prioritization, detections, and response.',
+  capabilities: [
+    {
+      category: 'Threat Intelligence & OSINT',
+      items: ['Cyber Threat Intelligence (CTI)', 'Threat-actor & TTP tracking', 'Alias/persona correlation'],
+    },
+    {
+      category: 'Frameworks & Standards',
+      items: ['MITRE ATT&CK', 'Cyber Kill Chain', 'Diamond Model'],
+    },
+    {
+      category: 'Detection & Response',
+      items: ['Detection engineering', 'SIEM', 'KQL/Kusto (Azure Data Explorer)'],
+    },
+    {
+      category: 'Malware & Reverse Engineering',
+      items: ['Static & dynamic analysis', 'Fuzzing', 'YARA'],
+    },
+  ] satisfies readonly CapabilityGroup[],
 } as const;
 
 export const achievements = [
@@ -87,10 +121,17 @@ export const achievements = [
 
 export const projectDemos = [
   {
+    catalogProject: 'exploitrank',
     name: 'ExploitRank',
     label: 'Vulnerability intelligence',
     image: '/work-exploitrank.png',
+    imageWidth: 1440,
+    imageHeight: 900,
     alt: 'ExploitRank vulnerability prioritization interface',
+    theme: {
+      accent: '#ffc400',
+      media: ['#17150f', '#2a230f', '#151515'],
+    },
     description:
       'A key-free prioritization product that combines EPSS, CISA KEV, CVSS, and public exploit evidence into a fixed review queue defenders can audit and self-grade.',
     meta: [
@@ -142,10 +183,17 @@ export const projectDemos = [
     ],
   },
   {
+    catalogProject: 'malscope-dashboard',
     name: 'malscope',
     label: 'Malware analysis',
     image: '/work-malscope.png',
+    imageWidth: 1440,
+    imageHeight: 900,
     alt: 'malscope malware analysis interface',
+    theme: {
+      accent: '#ff5664',
+      media: ['#151517', '#2a171b', '#151515'],
+    },
     description:
       'A private analysis pipeline with a separately publishable evidence surface for similarity clusters, configuration intelligence, defanged indicators, YARA, and Sigma.',
     meta: [
