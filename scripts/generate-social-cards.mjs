@@ -44,7 +44,18 @@ function escapeMarkup(value) {
     .replaceAll("'", '&apos;');
 }
 
-async function textOverlay({ text, font, fontfile, width, maxHeight, color, size, weight = 400, spacing = 0 }) {
+async function textOverlay({
+  text,
+  font,
+  fontfile,
+  width,
+  maxHeight,
+  color,
+  size,
+  minSize = 18,
+  weight = 400,
+  spacing = 0,
+}) {
   const { data, info } = await sharp({
     text: {
       text: `<span foreground="${color}" size="${size * 1024}" weight="${weight}">${escapeMarkup(text)}</span>`,
@@ -57,8 +68,8 @@ async function textOverlay({ text, font, fontfile, width, maxHeight, color, size
     },
   }).png().toBuffer({ resolveWithObject: true });
   if (info.height > maxHeight) {
-    if (size <= 32) throw new Error(`Social-card text exceeds ${maxHeight}px: ${text}`);
-    return textOverlay({ text, font, fontfile, width, maxHeight, color, size: size - 4, weight, spacing });
+    if (size <= minSize) throw new Error(`Social-card text exceeds ${maxHeight}px at ${minSize}px: ${text}`);
+    return textOverlay({ text, font, fontfile, width, maxHeight, color, size: size - 2, minSize, weight, spacing });
   }
   return data;
 }
@@ -82,6 +93,7 @@ async function createCard({ output, eyebrow, title, summary, mediaPath, accent }
       maxHeight: 32,
       color: accent,
       size: 18,
+      minSize: 14,
       weight: 700,
     }),
     textOverlay({
@@ -92,6 +104,7 @@ async function createCard({ output, eyebrow, title, summary, mediaPath, accent }
       maxHeight: 226,
       color: '#f4f1eb',
       size: 62,
+      minSize: 32,
       weight: 700,
       spacing: 2,
     }),
@@ -103,6 +116,7 @@ async function createCard({ output, eyebrow, title, summary, mediaPath, accent }
       maxHeight: 116,
       color: '#b8b5ae',
       size: 28,
+      minSize: 18,
       weight: 600,
     }),
     textOverlay({
@@ -113,6 +127,7 @@ async function createCard({ output, eyebrow, title, summary, mediaPath, accent }
       maxHeight: 30,
       color: '#8b8881',
       size: 15,
+      minSize: 12,
       weight: 700,
     }),
   ]);
