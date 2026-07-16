@@ -1,0 +1,129 @@
+---
+import { resume } from '@/data/resume';
+import { calculateExperience } from '@/utils/experience';
+import { formatRange } from '@/data/resume';
+
+const configuredBuildDate = import.meta.env.BUILD_DATE;
+const buildDate = configuredBuildDate ? new Date(`${configuredBuildDate}T00:00:00Z`) : new Date();
+const experience = calculateExperience(resume.work, buildDate);
+const roles = resume.work.filter((role) => !role.volunteer);
+const capabilityGroups = resume.skills.slice(0, 4).map((group) => ({
+  category: group.category,
+  items: group.items.slice(0, 3),
+}));
+---
+
+<section id="about" class="about section">
+  <div class="container about-grid">
+    <div class="about-copy">
+      <p class="eyebrow">Profile and experience</p>
+      <h2>Research that ends in a defensible action.</h2>
+      <p>I investigate exploitation and malware, then carry the evidence into prioritization, detections, and response.</p>
+      <dl class="about-stats">
+        <div><dt>Time in field</dt><dd>{experience.yearsDisplay} yrs</dd></div>
+        <div><dt>Roles</dt><dd>{experience.roleCount}</dd></div>
+        <div><dt>Organizations</dt><dd>{experience.organizationCount}</dd></div>
+      </dl>
+    </div>
+
+    <div class="experience">
+      <header><h3>Experience</h3><span class="mono">Official roles</span></header>
+      <ol class="timeline">
+        {roles.map((role, index) => (
+          <li class:list={{ current: role.end === null }} style={`--role-delay:${index * 90}ms`}>
+            <span class="timeline-node" aria-hidden="true"></span>
+            <div><strong>{role.title}</strong><span>{role.org}{role.blurb ? ` · ${role.blurb}` : ''}</span></div>
+            <time>{formatRange(role.start, role.end)}</time>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <div class="capability-matrix">
+      <h3>Capabilities</h3>
+      <div>
+        {capabilityGroups.map((group, index) => (
+          <section style={`--capability-delay:${index * 80}ms`}>
+            <span class="mono">0{index + 1}</span>
+            <h4>{group.category}</h4>
+            <p>{group.items.join(' · ')}</p>
+          </section>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .about { border-top: 1px solid var(--cp-border-strong); background: linear-gradient(135deg, var(--cp-bg) 0%, var(--cp-bg-elevated) 58%, var(--cp-bg) 100%); padding-block: clamp(72px, 8vw, 108px); }
+  .about-grid { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: clamp(44px, 7vw, 96px); }
+  .eyebrow { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .about-copy h2 { max-width: 15ch; margin: 14px 0 22px; font-size: var(--type-section); line-height: 1; }
+  .about-copy > p:not(.eyebrow) { max-width: 45ch; color: var(--cp-text-soft); font-size: 1rem; line-height: 1.65; }
+  .about-copy > p + p { margin-top: 12px; }
+  .about-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 32px; border-block: 1px solid var(--cp-border-strong); }
+  .about-stats div { border-right: 1px solid var(--cp-border); padding: 14px 12px; }
+  .about-stats div:last-child { border-right: 0; }
+  .about-stats dt { color: var(--cp-text-muted); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .about-stats dd { margin-top: 5px; color: var(--cp-text); font-size: 1.05rem; font-weight: 700; }
+  .about[data-motion-inview] .about-stats div:first-child dd { animation: stat-cycle 5.4s var(--ease) infinite; }
+  .about[data-motion-inview] .about-stats div:nth-child(2) dd { animation: stat-cycle 5.4s -3.6s var(--ease) infinite; }
+  .about[data-motion-inview] .about-stats div:nth-child(3) dd { animation: stat-cycle 5.4s -1.8s var(--ease) infinite; }
+  .experience > header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--cp-border-strong); }
+  .experience h3,
+  .capability-matrix > h3 { font-size: var(--type-small); text-transform: uppercase; }
+  .experience header span { color: var(--cp-text-muted); font-size: var(--type-label); text-transform: uppercase; }
+  .experience ol { list-style: none; }
+  .timeline { position: relative; }
+  .timeline::before { content: ''; position: absolute; top: 0; bottom: 0; left: 5px; width: 1px; background: var(--cp-border); transform-origin: top; }
+  .timeline::after { content: ''; position: absolute; z-index: 2; top: 0; left: 2px; width: 7px; height: 24px; opacity: 0; border-radius: 999px; background: linear-gradient(var(--cp-accent), transparent); box-shadow: 0 0 14px var(--cp-accent); pointer-events: none; }
+  .about[data-motion-inview] .timeline::before { animation: timeline-grow 900ms var(--ease) both; }
+  .about[data-motion-inview] .timeline::after { animation: timeline-signal 4.8s 500ms var(--ease) infinite; }
+  .experience li { position: relative; display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 18px; padding: 18px 0; border-bottom: 1px solid var(--cp-border); opacity: 1; }
+  .about[data-motion-inview] .experience li { animation: role-arrive 480ms var(--ease) both; animation-delay: var(--role-delay); }
+  .experience li:hover { transform: translateX(4px); }
+  .timeline-node { position: relative; z-index: 1; width: 11px; height: 11px; margin-top: 6px; border: 2px solid var(--cp-bg); border-radius: 50%; background: var(--cp-border-strong); }
+  .experience li.current .timeline-node { background: var(--cp-accent); box-shadow: 0 0 0 0 var(--cp-accent-soft); animation: role-pulse 2.4s ease-out infinite; }
+  .experience li.current strong { color: var(--cp-accent); }
+  .experience li > div { display: grid; }
+  .experience strong { font-size: var(--type-body); }
+  .experience span { margin-top: 4px; color: var(--cp-text-muted); font-size: var(--type-small); }
+  .experience time { color: var(--cp-text-muted); font-family: var(--font-mono); font-size: var(--type-label); text-align: right; }
+  .capability-matrix { grid-column: 1 / -1; margin-top: 12px; }
+  .capability-matrix > h3 { padding-bottom: 12px; border-bottom: 1px solid var(--cp-border-strong); }
+  .capability-matrix > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 24px; }
+  .capability-matrix section { position: relative; min-height: 124px; overflow: hidden; padding: 18px 0; border-bottom: 1px solid var(--cp-border); opacity: 1; }
+  .capability-matrix section::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 2px; transform: translateX(-105%); background: linear-gradient(90deg, transparent, var(--cp-accent), transparent); }
+  .about[data-motion-inview] .capability-matrix section { animation: capability-arrive 480ms var(--ease) both; animation-delay: var(--capability-delay); }
+  .about[data-motion-inview] .capability-matrix section::after { animation: capability-signal 6s var(--ease) infinite; animation-delay: var(--capability-delay); }
+  .capability-matrix section > span { color: var(--cp-accent); font-size: var(--type-label); }
+  .capability-matrix h4 { margin-top: 13px; font-size: .88rem; transition: color 180ms var(--ease); }
+  .capability-matrix section:hover h4 { color: var(--cp-accent); }
+  .capability-matrix p { margin-top: 8px; color: var(--cp-text-muted); font-size: .78rem; line-height: 1.6; }
+  @keyframes timeline-grow { from { transform: scaleY(0); } }
+  @keyframes timeline-signal { 0%, 12% { top: 0; opacity: 0; } 24% { opacity: 1; } 72% { opacity: .6; } 86%, 100% { top: calc(100% - 24px); opacity: 0; } }
+  @keyframes role-arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+  @keyframes role-pulse { to { box-shadow: 0 0 0 10px transparent; } }
+  @keyframes stat-cycle { 0%, 66%, 100% { color: var(--cp-text); transform: translateY(0); } 76% { color: var(--cp-accent); transform: translateY(-3px); } }
+  @keyframes capability-arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+  @keyframes capability-signal { 0%, 70% { transform: translateX(-105%); } 88%, 100% { transform: translateX(105%); } }
+  @media (max-width: 820px) { .about-grid { grid-template-columns: 1fr; } .capability-matrix { grid-column: 1; } .capability-matrix > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) {
+    .about-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .about-stats div { padding: 12px 10px; }
+    .about-stats dt { font-size: .66rem; }
+    .about-stats dd { font-size: 1rem; }
+    .capability-matrix > div { grid-template-columns: 1fr; }
+    .experience li { grid-template-columns: 1fr; gap: 8px; }
+    .experience time { text-align: left; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .timeline::before,
+    .timeline::after,
+    .experience li,
+    .experience li.current .timeline-node,
+    .about-stats dd,
+    .capability-matrix section,
+    .capability-matrix section::after { animation: none !important; opacity: 1; }
+  }
+</style>

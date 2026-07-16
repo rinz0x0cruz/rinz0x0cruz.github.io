@@ -1,0 +1,227 @@
+---
+import { caseStudies as studies } from '@/data/portfolio';
+---
+
+<section id="casework" class="casework section" data-casework>
+  <header class="casework-head container">
+    <div>
+      <p class="eyebrow">Professional investigations</p>
+      <h2>Three investigations. One frame at a time.</h2>
+    </div>
+    <p>Each case is reduced to the decision it changed, the evidence path, and the operational handoff.</p>
+  </header>
+
+  <div class="case-carousel container">
+    <nav class="case-tabs" aria-label="Casework investigations">
+      {studies.map((study, index) => (
+        <button type="button" data-case-jump={index} aria-pressed={index === 0 ? 'true' : 'false'}>
+          <span class="mono">{String(index + 1).padStart(2, '0')}</span>
+          <strong>{study.label}</strong>
+        </button>
+      ))}
+    </nav>
+
+    <div class="case-stage" aria-live="polite">
+      {studies.map((study, index) => (
+        <article class:list={['case-slide', { 'is-active': index === 0 }]} data-case-slide={index} aria-hidden={index === 0 ? 'false' : 'true'}>
+          <header class="case-kicker">
+            <span class="mono">Case {String(index + 1).padStart(2, '0')}</span>
+            <p>{study.label}</p>
+          </header>
+
+          <div class="case-layout">
+            <div class="case-result">
+              <p class="mono">Outcome</p>
+              <strong>{study.metric}</strong>
+              <span>{study.outcome}</span>
+            </div>
+
+            <div class="case-story">
+              <h3>{study.title}</h3>
+              <p class="case-summary">{study.summary}</p>
+              <p class="case-role"><span class="mono">My role</span>{study.role}</p>
+              <ol class="evidence-path">
+                {study.approach.map((step, stepIndex) => (
+                  <li><span class="mono">0{stepIndex + 1}</span><p>{step}</p></li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <footer class="case-controls">
+      <button type="button" data-case-prev aria-label="Previous case">←</button>
+      <span class="mono" data-case-progress>01 / {String(studies.length).padStart(2, '0')}</span>
+      <button type="button" data-case-next aria-label="Next case">→</button>
+    </footer>
+  </div>
+</section>
+
+<script>
+  function initCasework() {
+    document.querySelectorAll<HTMLElement>('[data-casework]').forEach((root) => {
+      if (root.dataset.bound) return;
+      root.dataset.bound = 'true';
+      const slides = Array.from(root.querySelectorAll<HTMLElement>('[data-case-slide]'));
+      const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-case-jump]'));
+      const progress = root.querySelector<HTMLElement>('[data-case-progress]');
+      const stage = root.querySelector<HTMLElement>('.case-stage');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      let current = 0;
+      let inView = false;
+      let paused = false;
+      let timer: number | undefined;
+
+      const schedule = () => {
+        window.clearTimeout(timer);
+        root.dataset.caseAutoplay = 'false';
+        if (!inView || paused || reducedMotion.matches || document.hidden) return;
+        void root.offsetWidth;
+        root.dataset.caseAutoplay = 'true';
+        timer = window.setTimeout(() => show(current + 1), 7000);
+      };
+
+      const fitStage = () => {
+        if (!stage) return;
+        const active = slides[current];
+        const minimum = window.matchMedia('(max-width: 800px)').matches ? 560 : 430;
+        stage.style.height = `${Math.max(minimum, active.scrollHeight)}px`;
+      };
+
+      const show = (nextIndex: number) => {
+        const next = (nextIndex + slides.length) % slides.length;
+        const direction = nextIndex >= current ? 1 : -1;
+        root.style.setProperty('--case-direction', String(direction));
+        current = next;
+        slides.forEach((slide, index) => {
+          const active = index === current;
+          slide.classList.toggle('is-active', active);
+          slide.setAttribute('aria-hidden', String(!active));
+        });
+        tabs.forEach((tab, index) => tab.setAttribute('aria-pressed', String(index === current)));
+        if (progress) progress.textContent = `${String(current + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}`;
+        requestAnimationFrame(fitStage);
+        schedule();
+      };
+
+      root.querySelector('[data-case-prev]')?.addEventListener('click', () => show(current - 1));
+      root.querySelector('[data-case-next]')?.addEventListener('click', () => show(current + 1));
+      tabs.forEach((tab) => tab.addEventListener('click', () => show(Number(tab.dataset.caseJump))));
+      root.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          show(current - 1);
+        }
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          show(current + 1);
+        }
+      });
+      root.addEventListener('pointerenter', () => { paused = true; schedule(); });
+      root.addEventListener('pointerleave', () => { paused = false; schedule(); });
+      root.addEventListener('focusin', () => { paused = true; schedule(); });
+      root.addEventListener('focusout', (event) => {
+        const next = event.relatedTarget as Node | null;
+        if (!next || !root.contains(next)) { paused = false; schedule(); }
+      });
+      document.addEventListener('visibilitychange', schedule);
+      reducedMotion.addEventListener('change', schedule);
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            inView = entries.some((entry) => entry.isIntersecting);
+            schedule();
+          },
+          { threshold: 0.24 }
+        );
+        observer.observe(root);
+      } else {
+        inView = true;
+      }
+      window.addEventListener('resize', fitStage);
+      requestAnimationFrame(fitStage);
+      schedule();
+    });
+  }
+  initCasework();
+  document.addEventListener('astro:page-load', initCasework);
+</script>
+
+<style>
+  .casework { --case-direction: 1; border-top: 1px solid var(--cp-border); background: linear-gradient(145deg, var(--cp-bg), var(--cp-bg-elevated)); padding-block: clamp(68px, 6vw, 92px); }
+  .casework-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .52fr); gap: clamp(32px, 7vw, 90px); align-items: end; }
+  .eyebrow { margin-bottom: 14px; color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .casework-head h2 { max-width: 22ch; font-size: 2.8rem; line-height: 1; }
+  .casework-head > p { max-width: 45ch; color: var(--cp-text-soft); font-size: var(--type-body); line-height: 1.65; }
+  .case-carousel { margin-top: 42px; }
+  .case-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid var(--cp-border-strong); }
+  .case-tabs button { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; overflow: hidden; border: 0; border-right: 1px solid var(--cp-border); background: transparent; color: var(--cp-text-muted); padding: 14px 18px; text-align: left; cursor: pointer; }
+  .case-tabs button::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 3px; transform: scaleX(0); transform-origin: left; background: var(--cp-accent); }
+  .case-tabs button:last-child { border-right: 0; }
+  .case-tabs button span { color: var(--cp-accent); font-size: var(--type-label); }
+  .case-tabs button strong { overflow: hidden; font-size: .76rem; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+  .case-tabs button[aria-pressed='true'] { background: var(--cp-accent-soft); color: var(--cp-text); }
+  .casework[data-case-autoplay='true'] .case-tabs button[aria-pressed='true']::after { animation: case-timer 7s linear both; }
+  .case-stage { position: relative; height: 430px; min-height: 430px; overflow: hidden; border-bottom: 1px solid var(--cp-border-strong); transition: height 420ms var(--ease); }
+  .case-stage::after { content: ''; position: absolute; z-index: 3; right: 0; left: 0; height: 1px; opacity: 0; background: linear-gradient(90deg, transparent, var(--cp-accent), transparent); box-shadow: 0 0 16px var(--cp-accent); pointer-events: none; }
+  .casework[data-motion-inview] .case-stage::after { animation: case-scan 5.2s ease-in-out infinite; }
+  .case-slide { position: absolute; inset: 0; visibility: hidden; opacity: 0; transform: translateX(calc(var(--case-direction) * 54px)); pointer-events: none; transition: opacity 420ms var(--ease), transform 560ms var(--ease), visibility 560ms; }
+  .case-slide.is-active { visibility: visible; opacity: 1; transform: none; pointer-events: auto; }
+  .case-kicker { display: flex; justify-content: space-between; gap: 20px; padding: 22px 0 14px; border-bottom: 1px solid var(--cp-border); }
+  .case-kicker span,
+  .case-kicker p { color: var(--cp-text-muted); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .case-layout { display: grid; grid-template-columns: minmax(210px, .58fr) minmax(0, 1.42fr); gap: clamp(38px, 7vw, 92px); padding-top: 34px; }
+  .case-result > p { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .case-result strong { display: block; max-width: 10ch; margin-top: 15px; font-size: 3.15rem; line-height: .9; }
+  .case-result > span { display: block; max-width: 34ch; margin-top: 20px; color: var(--cp-text-soft); font-size: .84rem; line-height: 1.6; }
+  .case-story h3 { max-width: 24ch; font-size: 2rem; line-height: 1.04; }
+  .case-summary { max-width: 65ch; margin-top: 14px; color: var(--cp-text-soft); font-size: .9rem; line-height: 1.62; }
+  .case-role { display: grid; grid-template-columns: 72px 1fr; gap: 12px; margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: .78rem; line-height: 1.5; }
+  .case-role span { color: var(--cp-accent); font-size: var(--type-label); text-transform: uppercase; }
+  .evidence-path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }
+  .evidence-path li { border-top: 1px solid var(--cp-border-strong); padding-top: 10px; }
+  .casework[data-motion-inview] .case-slide.is-active .evidence-path li { animation: evidence-arrive 560ms var(--ease) both; }
+  .casework[data-motion-inview] .case-slide.is-active .evidence-path li:nth-child(2) { animation-delay: 110ms; }
+  .casework[data-motion-inview] .case-slide.is-active .evidence-path li:nth-child(3) { animation-delay: 220ms; }
+  .evidence-path span { color: var(--cp-accent); font-size: var(--type-label); }
+  .evidence-path p { margin-top: 7px; color: var(--cp-text-soft); font-size: .72rem; line-height: 1.5; }
+  .case-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 14px; }
+  .case-controls button { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid var(--cp-border); border-radius: 50%; background: var(--cp-surface); color: var(--cp-text); cursor: pointer; }
+  .case-controls button:hover { border-color: var(--cp-accent); color: var(--cp-accent); }
+  .case-controls span { min-width: 68px; color: var(--cp-text-muted); font-size: var(--type-label); text-align: center; }
+  @keyframes case-timer { to { transform: scaleX(1); } }
+  @keyframes case-scan { 0%, 15% { top: 0; opacity: 0; } 28% { opacity: .72; } 72% { opacity: .18; } 82%, 100% { top: 100%; opacity: 0; } }
+  @keyframes evidence-arrive { from { opacity: 0; transform: translateY(14px); } }
+  @media (max-width: 800px) {
+    .casework-head,
+    .case-layout { grid-template-columns: 1fr; }
+    .case-stage { height: 560px; min-height: 560px; }
+    .case-layout { gap: 26px; }
+    .case-result strong { max-width: none; font-size: 3rem; }
+  }
+  @media (max-width: 560px) {
+    .casework-head h2 { font-size: 2.2rem; }
+    .case-tabs button { display: flex; justify-content: center; padding: 13px 8px; }
+    .case-tabs button strong { display: none; }
+    .case-stage { height: 560px; min-height: 560px; }
+    .case-kicker { padding-top: 18px; }
+    .case-layout { gap: 18px; padding-top: 24px; }
+    .case-result strong { font-size: 2.6rem; }
+    .case-result > span { margin-top: 12px; font-size: .78rem; }
+    .case-story h3 { font-size: 1.68rem; }
+    .case-summary { display: none; }
+    .case-role { grid-template-columns: 1fr; gap: 5px; }
+    .evidence-path { grid-template-columns: 1fr; gap: 10px; }
+    .evidence-path li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; }
+    .evidence-path p { margin-top: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .case-slide,
+    .case-stage { transition: none; }
+    .case-tabs button::after,
+    .case-stage::after,
+    .case-slide.is-active .evidence-path li { animation: none !important; }
+  }
+</style>

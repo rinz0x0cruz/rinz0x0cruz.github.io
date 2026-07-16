@@ -1,0 +1,100 @@
+---
+import { getCollection } from 'astro:content';
+import { formatDate, isoDate } from '@/utils/format';
+import { site } from '@/data/site';
+
+const writeups = (await getCollection('writeups'))
+  .filter((writeup) => !writeup.data.draft)
+  .sort((left, right) => right.data.date.getTime() - left.data.date.getTime());
+---
+
+<section id="writing" class="writing section">
+  <div class="container">
+    <header class="writing-head">
+      <div><p class="eyebrow">Blogs</p><h2>Evidence turned into a readable decision.</h2></div>
+      <a href="/writeups">All blogs ↗</a>
+    </header>
+
+    <div class="writing-grid">
+      {writeups.map((writeup) => (
+        <a class="writing-card" href={`/writeups/${writeup.id}/`}>
+          <time datetime={isoDate(writeup.data.date)}>{formatDate(writeup.data.date)}</time>
+          <h3>{writeup.data.title}</h3>
+          <p>{writeup.data.summary}</p>
+          <span>{writeup.data.tags.slice(0, 3).join(' · ')}</span>
+        </a>
+      ))}
+    </div>
+
+    <div id="contact" class="contact">
+      <div class="contact-copy">
+        <p class="eyebrow">Contact</p>
+        <p class="contact-status mono"><i aria-hidden="true"></i> Open to the right investigation or research team</p>
+        <h2>Bring me the problem that needs evidence, not guesswork.</h2>
+      </div>
+      <div class="contact-actions">
+        <p>Security research roles, threat-intelligence products, malware analysis, and difficult intrusion questions.</p>
+        <a class="contact-email" href={`mailto:${site.email}`}><span>{site.email}</span><b aria-hidden="true">↗</b></a>
+        <div class="contact-buttons">
+          <a class="btn" href={site.resumeUrl} download>Download resume</a>
+          <button class="btn" type="button" data-open-terminal>Open terminal</button>
+        </div>
+        <nav aria-label="Social links">{site.socials.filter((social) => social.icon !== 'email').map((social) => <a href={social.url} target="_blank" rel="me noopener">{social.name} <span aria-hidden="true">↗</span></a>)}</nav>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .writing { border-top: 1px solid var(--cp-border-strong); background: linear-gradient(150deg, var(--cp-bg-elevated), var(--cp-bg) 62%); padding-block: clamp(72px, 8vw, 108px); }
+  .writing-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+  .eyebrow { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .writing-head h2 { max-width: 22ch; margin-top: 10px; font-size: var(--type-section); line-height: 1; }
+  .writing-head > a { color: var(--cp-accent); font-size: var(--type-small); font-weight: 700; }
+  .writing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin-top: 42px; border-top: 1px solid var(--cp-border-strong); border-left: 1px solid var(--cp-border); }
+  .writing-card { position: relative; display: grid; min-height: 250px; align-content: start; overflow: hidden; border-right: 1px solid var(--cp-border); border-bottom: 1px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text); padding: 28px; transition: background 200ms var(--ease), color 200ms var(--ease), transform 200ms var(--ease); }
+  .writing-card::before { content: ''; position: absolute; top: 0; bottom: 0; left: -22%; width: 18%; opacity: 0; transform: skewX(-12deg); background: linear-gradient(90deg, transparent, var(--cp-accent-soft), var(--cp-sheen), transparent); pointer-events: none; }
+  .writing[data-motion-inview] .writing-card::before { animation: writing-scan 6.8s var(--ease) infinite; }
+  .writing[data-motion-inview] .writing-card:nth-child(2)::before { animation-delay: -3.4s; }
+  .writing-card:hover { transform: translateY(-4px); background: var(--cp-accent-soft); color: var(--cp-text); }
+  .writing-card time { color: var(--cp-text-muted); font-size: var(--type-label); }
+  .writing-card h3 { max-width: 22ch; margin-top: 20px; font-size: 1.65rem; }
+  .writing-card p { margin-top: 12px; color: var(--cp-text-soft); font-size: .9rem; line-height: 1.65; }
+  .writing-card span { position: relative; z-index: 1; align-self: end; margin-top: 22px; color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .writing[data-motion-inview] .writing-card span { animation: writing-tags 4.8s var(--ease) infinite; }
+  .writing[data-motion-inview] .writing-card:nth-child(2) span { animation-delay: -2.4s; }
+  .contact { position: relative; display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(320px, .88fr); gap: clamp(44px, 8vw, 104px); overflow: hidden; margin-top: clamp(72px, 9vw, 112px); border-block: 1px solid var(--cp-border-strong); padding-block: 52px; }
+  .contact::before { content: ''; position: absolute; z-index: 2; top: 0; bottom: 0; left: -18%; width: 1px; opacity: 0; background: linear-gradient(transparent, var(--cp-accent), transparent); box-shadow: 0 0 16px var(--cp-accent); pointer-events: none; }
+  .contact::after { content: ''; position: absolute; right: -120px; bottom: -190px; width: 420px; height: 420px; border: 1px solid var(--cp-border); border-top-color: var(--cp-accent); border-radius: 50%; background: linear-gradient(90deg, var(--cp-accent-soft), transparent 58%); pointer-events: none; }
+  .writing[data-motion-inview] .contact::before { animation: contact-transmission 6s var(--ease) infinite; }
+  .writing[data-motion-inview] .contact::after { animation: contact-orbit 18s linear infinite; }
+  .contact-status { display: flex; align-items: center; gap: 8px; margin-top: 22px; color: var(--cp-text-muted); font-size: var(--type-label); text-transform: uppercase; }
+  .contact-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--cp-success); box-shadow: 0 0 0 0 var(--cp-highlight); animation: contact-pulse 2.4s ease-out infinite; }
+  .contact h2 { max-width: 17ch; margin-top: 14px; font-size: var(--type-section); line-height: 1; }
+  .contact-actions { position: relative; z-index: 1; }
+  .contact-actions > p { max-width: 47ch; color: var(--cp-text-soft); font-size: var(--type-body); line-height: 1.65; }
+  .contact-email { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 28px; border-block: 1px solid var(--cp-border-strong); color: var(--cp-text); padding-block: 17px; font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; }
+  .contact-email:hover { color: var(--cp-accent); }
+  .contact-email b { color: var(--cp-accent); font-size: 1.3rem; }
+  .writing[data-motion-inview] .contact-email b { animation: contact-arrow 1.8s var(--ease) infinite; }
+  .contact-buttons { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 20px; }
+  .contact nav { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 26px; }
+  .contact nav a { color: var(--cp-text-muted); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .contact nav a:hover { color: var(--cp-accent); }
+  @keyframes writing-scan { 0%, 20% { left: -22%; opacity: 0; } 30% { opacity: .9; } 58%, 100% { left: 112%; opacity: 0; } }
+  @keyframes writing-tags { 0%, 70%, 100% { opacity: .58; } 82% { opacity: 1; } }
+  @keyframes contact-transmission { 0%, 18% { left: -18%; opacity: 0; } 30% { opacity: .8; } 58%, 100% { left: 112%; opacity: 0; } }
+  @keyframes contact-orbit { to { transform: rotate(360deg); } }
+  @keyframes contact-pulse { to { box-shadow: 0 0 0 10px transparent; } }
+  @keyframes contact-arrow { 0%, 65%, 100% { transform: translate(0, 0); } 78% { transform: translate(3px, -3px); } }
+  @media (max-width: 760px) { .writing-grid, .contact { grid-template-columns: 1fr; } }
+  @media (max-width: 480px) { .writing-head { display: grid; } .contact { padding-block: 38px; } .contact-email { font-size: .92rem; } }
+  @media (prefers-reduced-motion: reduce) {
+    .writing-card::before,
+    .writing-card span,
+    .contact::before,
+    .contact::after,
+    .contact-status i,
+    .contact-email b { animation: none !important; }
+  }
+</style>

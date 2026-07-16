@@ -1,35 +1,61 @@
 # rinz0x0cruz.github.io
 
 Personal portfolio of **Mohit Sharma** (`@rinz0x0cruz`) — Security Researcher.
-Built with [Astro](https://astro.build), themed after a Tokyo Night terminal
-aesthetic, and deployed to GitHub Pages.
+Built with [Astro](https://astro.build), organized as an identity-first research
+portfolio with live project demos, and deployed to GitHub Pages.
 
 Live: <https://rinz0x0cruz.github.io>
 
 ## Stack
 
-- Astro 5 (static output) + TypeScript
-- No client framework — a little vanilla JS powers the interactive `./terminal`
-- Self-hosted fonts (JetBrains Mono, Inter)
-- Sitemap, RSS, and JSON-LD `Person` structured data for SEO
+- Astro 7 (static output) + TypeScript
+- No client framework — vanilla JS powers the project reel, theme control, and optional terminal
+- Self-hosted IBM Plex Sans, Barlow Semi Condensed, and IBM Plex Mono typography
+- Responsive light/dark interface with real, interactive dashboard previews
+- Identity, operational outcomes, systems, carousel casework, concise experience, public practice profiles, credentials, two data-backed blogs, and contact
+- Keyboard-accessible project frames with contained telemetry, hotspots, and reduced-motion support
+- Sitemap, RSS, and JSON-LD `Person` / `BlogPosting` structured data for SEO
 
 ## Develop
 
 ```bash
-npm install
+npm ci
 npm run dev      # http://localhost:4321
+npm run validate
 npm run build    # -> dist/
+npm run verify:build
 npm run preview
+npm run test:e2e
 npm run parse:resume -- --write   # refresh résumé data from the PDF
 ```
+
+Use Node 24.18.0 (see [`.node-version`](.node-version)). Install the Playwright
+browser once with `npx playwright install chromium` before running E2E tests.
 
 ## Structure
 
 - `src/pages/` — routes (`index`, `writeups/`, `rss.xml`, `404`)
-- `src/components/` — Hero, Nav, project cards, the interactive `Terminal`, …
-- `src/content/writeups/` — Markdown writeups (content collection); posts are synced in from the public [`rinz0x0cruz/writeups`](https://github.com/rinz0x0cruz/writeups) repo at build time
-- `src/data/` — site identity, projects, skills, and `resume.json` (résumé-derived data)
+- `src/components/` — standalone homepage sections, shared navigation, project cinema, writing/contact, and optional `Terminal`
+- `src/content/writeups/` — authoritative Markdown writeups content collection
+- `src/data/portfolio.ts` — authored homepage content (outcomes, demos, casework, and public profiles)
+- `src/data/projects.ts` — broader project/system inventory
+- `src/data/resume.json` — validated résumé-derived roles, skills, credentials, education, and languages
 - `public/` — `robots.txt`, `og.png`, favicon, résumé PDF
+
+## Homepage composition
+
+The homepage is a section registry in [`src/pages/index.astro`](src/pages/index.astro).
+Reorder, add, or remove a section by changing the `homepageSections` array. The
+sections themselves are independent Astro components and consume one of three
+content sources:
+
+- Authored portfolio claims and snapshots: [`src/data/portfolio.ts`](src/data/portfolio.ts)
+- Project catalog: [`src/data/projects.ts`](src/data/projects.ts)
+- Résumé facts: [`src/data/resume.json`](src/data/resume.json)
+
+TryHackMe and LeetCode metrics are dated public-profile snapshots, not runtime
+API dependencies. Update their values and `verifiedAt` labels in `portfolio.ts`.
+The deterministic site still builds and works without network access.
 
 ## Résumé-driven data
 
@@ -39,28 +65,34 @@ single source of truth for résumé content. Edit that file directly, or
 regenerate it from the résumé PDF (`public/Mohit-Sharma-Resume.pdf`):
 
 ```bash
-npm run parse:resume            # dry run — prints what it parsed
-npm run parse:resume -- --write # merge into src/data/resume.json
+npm run parse:resume                              # dry run with semantic diff
+npm run check:resume                              # fail when PDF and JSON drift
+npm run parse:resume -- --write                   # validated, non-destructive merge
+npm run parse:resume -- --write --accept-removals # intentionally remove absent records
 ```
 
-The parser is deterministic (no AI, no network). It reliably extracts contact
-details, roles + dates, skills, education, certifications, and languages, and
-preserves curated presentation fields (role title, blurbs, badges) on merge.
-Always review `git diff src/data/resume.json` before committing — PDF text
-extraction is never perfect. Rebuild to see the changes on the site.
+The parser is deterministic (no AI, no network), validates output against the
+runtime résumé schema, preserves curated presentation fields and historical
+records by default, and writes atomically. Always review its semantic diff and
+`git diff src/data/resume.json` before committing.
 
 ## Deployment
 
-Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml),
-which builds with Astro and publishes `dist/` via GitHub Pages
-(Pages **source = GitHub Actions**). The workflow also runs on a daily schedule
-(and on manual dispatch) so new writeups and the computed "time in field" figure
-stay current without a code change.
+Pull requests run source validation, résumé drift checks, type checking, unit
+tests, a production build, structured artifact verification, and desktop/mobile
+Playwright + axe checks. A merge to `main` publishes the verified artifact via
+GitHub Pages and waits for the live `build-meta.json` commit before smoke-testing
+public endpoints. The workflow also runs on the first day of each month because
+the computed "time in field" figure has month-level precision.
 
-## Writing writeups
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for branch protection, release, incident,
+and rollback procedures.
 
-Posts live in a separate public repo, **[`rinz0x0cruz/writeups`](https://github.com/rinz0x0cruz/writeups)**,
-and are pulled in at build time. Each post is one Markdown file with frontmatter:
+## Writing blogs
+
+The site intentionally publishes exactly two current ExploitRank analyses.
+Posts live in [`src/content/writeups/`](src/content/writeups). Each post is one
+Markdown file with frontmatter:
 
 ```markdown
 ---
@@ -74,11 +106,12 @@ draft: false
 Your post in Markdown…
 ```
 
-- **Filename &rarr; URL**: `my-post.md` publishes at `/writeups/my-post/`.
+- **Filename &rarr; URL**: `my-post.md` publishes at `/writeups/my-post/` (the internal route name is retained for compatibility).
 - **`date`** orders posts (newest first); **`draft: true`** hides one.
-- Write locally, `git push` to `rinz0x0cruz/writeups`. The portfolio picks it up
-  on its next build — within a day automatically, or immediately via the Actions
-  **Run workflow** button (or `gh workflow run "Deploy to GitHub Pages"`).
+- Raw HTML and unsafe URL schemes are rejected before Astro renders a post.
+- Run `npm run check:content` before opening a pull request. A merged post
+  publishes with the portfolio; use the Actions **Run workflow** button for a
+  manual rebuild.
 
 ## Crawl policy
 

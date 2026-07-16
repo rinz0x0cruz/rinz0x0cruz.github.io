@@ -16,6 +16,10 @@ node_modules/
 *.log
 npm-debug.log*
 
+# browser tests
+playwright-report/
+test-results/
+
 # os / editor cruft
 .DS_Store
 Thumbs.db

@@ -2,7 +2,7 @@
 import { getCollection, render } from 'astro:content';
 import type { GetStaticPaths } from 'astro';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import Nav from '@/components/Nav.astro';
+import Nav from '@/components/PortfolioHeader.astro';
 import Footer from '@/components/Footer.astro';
 import Terminal from '@/components/Terminal.astro';
 import { formatDate, isoDate } from '@/utils/format';
@@ -20,11 +20,17 @@ const { Content } = await render(writeup);
 const { title, summary, date, tags } = writeup.data;
 ---
 
-<BaseLayout title={title} description={summary} article publishedTime={date.toISOString()}>
+<BaseLayout
+  title={title}
+  description={summary}
+  article
+  publishedTime={date.toISOString()}
+  articleTags={tags}
+>
   <Nav />
   <main id="main" class="section">
     <article class="container article">
-      <a class="back mono" href="/writeups">&larr; all writeups</a>
+      <a class="back mono" href="/writeups">← Blogs</a>
       <header class="wh">
         <time class="mono" datetime={isoDate(date)}>{formatDate(date)}</time>
         <h1>{title}</h1>
@@ -42,24 +48,29 @@ const { title, summary, date, tags } = writeup.data;
 </BaseLayout>
 
 <style>
-  .article { max-width: var(--container-narrow); }
+  main { background: var(--cp-bg-elevated); }
+  .article { max-width: 900px; }
   .back {
     display: inline-block;
-    font-size: 0.85rem;
-    color: var(--muted);
-    margin-bottom: 30px;
+    font-size: 0.72rem;
+    color: var(--cp-accent);
+    margin-bottom: clamp(44px, 7vw, 72px);
+    text-transform: uppercase;
   }
-  .back:hover { color: var(--cyan); }
-  .wh { margin-bottom: 32px; }
-  .wh time { font-size: 0.85rem; color: var(--cyan); }
+  .back:hover { color: var(--cp-accent-hover); }
+  .wh { max-width: 820px; margin-bottom: clamp(44px, 8vw, 72px); padding-bottom: 32px; border-bottom: 1px solid var(--cp-border-strong); }
+  .wh time { font-size: 0.72rem; color: var(--cp-text-muted); text-transform: uppercase; }
   .wh h1 {
-    font-size: clamp(1.9rem, 5vw, 2.8rem);
-    margin: 10px 0 14px;
+    max-width: 15ch;
+    font-size: clamp(2.8rem, 7vw, 5.6rem);
+    margin: 16px 0 24px;
+    line-height: 0.98;
   }
   .tags {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
   }
-  .tags li { font-size: 0.76rem; color: var(--purple); }
+  .tags li { font-size: 0.7rem; color: var(--cp-accent); text-transform: uppercase; }
+  .prose { margin-inline: auto; }
 </style>

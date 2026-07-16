@@ -1,6 +1,9 @@
 ---
 import { getCollection } from 'astro:content';
 import { isoDate } from '@/utils/format';
+import { site } from '@/data/site';
+import { projects } from '@/data/projects';
+import { skillGroups, neofetch } from '@/data/skills';
 
 const writeups = (await getCollection('writeups'))
   .filter((w) => !w.data.draft)
@@ -11,6 +14,10 @@ const writeups = (await getCollection('writeups'))
     summary: w.data.summary,
     date: isoDate(w.data.date),
   }));
+const terminalDataJson = JSON.stringify({ site, projects, skillGroups, neofetch, writeups }).replace(
+  /</g,
+  '\\u003c'
+);
 ---
 
 <div id="terminal-overlay" class="overlay" hidden>
@@ -41,7 +48,7 @@ const writeups = (await getCollection('writeups'))
   </div>
 </div>
 
-<script type="application/json" id="term-writeups" set:html={JSON.stringify(writeups)}></script>
+<script is:inline type="application/json" id="terminal-data" set:html={terminalDataJson}></script>
 
 <style is:global>
   html.term-open { overflow: hidden; }
@@ -55,7 +62,7 @@ const writeups = (await getCollection('writeups'))
     display: grid;
     place-items: center;
     padding: clamp(12px, 4vw, 40px);
-    background: rgba(10, 11, 18, 0.72);
+    background: var(--cp-overlay);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     animation: fade 0.18s var(--ease);
@@ -68,10 +75,10 @@ const writeups = (await getCollection('writeups'))
     height: min(78vh, 660px);
     display: flex;
     flex-direction: column;
-    background: #16171f;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
+    background: var(--cp-surface);
+    border: 1px solid var(--cp-border-strong);
+    border-radius: 16px;
+    box-shadow: var(--cp-shadow);
     overflow: hidden;
   }
   .term-bar {
@@ -79,22 +86,22 @@ const writeups = (await getCollection('writeups'))
     align-items: center;
     gap: 8px;
     padding: 11px 14px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border);
+    background: var(--cp-surface-soft);
+    border-bottom: 1px solid var(--cp-border);
     position: relative;
     flex-shrink: 0;
   }
   .tl { width: 12px; height: 12px; border-radius: 50%; }
-  .tl.r { background: #f7768e; }
-  .tl.y { background: #e0af68; }
-  .tl.c { background: #7dcfff; }
+  .tl.r { background: var(--cp-danger); }
+  .tl.y { background: var(--cp-warning); }
+  .tl.c { background: var(--cp-accent); }
   .term-title {
     position: absolute;
     left: 0;
     right: 0;
     text-align: center;
     font-size: 0.78rem;
-    color: var(--muted);
+    color: var(--cp-text-muted);
     pointer-events: none;
   }
   .term-close {
@@ -102,14 +109,14 @@ const writeups = (await getCollection('writeups'))
     z-index: 1;
     background: none;
     border: 0;
-    color: var(--muted);
+    color: var(--cp-text-muted);
     font-size: 0.9rem;
     cursor: pointer;
     width: 26px;
     height: 26px;
     border-radius: 6px;
   }
-  .term-close:hover { color: var(--red); background: rgba(247, 118, 142, 0.12); }
+  .term-close:hover { color: var(--cp-danger); background: var(--cp-accent-soft); }
 
   .term-screen {
     flex: 1;
@@ -118,24 +125,21 @@ const writeups = (await getCollection('writeups'))
     font-family: var(--font-mono);
     font-size: 0.86rem;
     line-height: 1.55;
-    color: var(--fg);
+    color: var(--cp-text);
   }
   .term-output :global(.line) { white-space: pre-wrap; word-break: break-word; }
-  .term-output :global(.cmd) { color: var(--cyan); }
-  .term-output :global(.key) { color: var(--blue); font-weight: 700; }
-  .term-output :global(.muted) { color: var(--muted); }
-  .term-output :global(.err) { color: var(--red); }
-  .term-output :global(.ok) { color: var(--cyan); }
-  .term-output :global(.head) { color: var(--purple); font-weight: 700; }
-  .term-output :global(a) { color: var(--cyan); text-decoration: underline; text-underline-offset: 2px; }
-  .term-output :global(.echo) { color: var(--fg-dim); }
-  .term-output :global(.echo .p) { color: var(--purple); }
+  .term-output :global(.cmd) { color: var(--cp-accent); }
+  .term-output :global(.key) { color: var(--cp-link); font-weight: 700; }
+  .term-output :global(.muted) { color: var(--cp-text-muted); }
+  .term-output :global(.err) { color: var(--cp-danger); }
+  .term-output :global(.ok) { color: var(--cp-success); }
+  .term-output :global(.head) { color: var(--cp-accent); font-weight: 700; }
+  .term-output :global(a) { color: var(--cp-link); text-decoration: underline; text-underline-offset: 2px; }
+  .term-output :global(.echo) { color: var(--cp-text-soft); }
+  .term-output :global(.echo .p) { color: var(--cp-accent); }
   .term-output :global(.emblem-ascii) {
     margin: 2px 0 6px;
-    background: linear-gradient(180deg, #7dcfff, #7aa2f7 50%, #bb9af7);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--cp-accent);
     font-size: 0.72rem;
     line-height: 1.05;
   }
@@ -152,30 +156,64 @@ const writeups = (await getCollection('writeups'))
     gap: 10px;
     margin-top: 6px;
   }
-  .prompt { color: var(--blue); font-weight: 700; flex-shrink: 0; }
+  .prompt { color: var(--cp-accent); font-weight: 700; flex-shrink: 0; }
   .term-input {
     flex: 1;
     background: none;
     border: 0;
     outline: none;
-    color: var(--fg);
+    color: var(--cp-text);
     font-family: var(--font-mono);
     font-size: 0.86rem;
-    caret-color: var(--cyan);
+    caret-color: var(--cp-accent);
   }
 
   @media (max-width: 560px) {
     .term-win { height: 86vh; }
+    .term-title { position: static; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .68rem; }
     .term-screen { font-size: 0.8rem; }
   }
 </style>
 
 <script>
-  import { site } from '../data/site';
-  import { projects } from '../data/projects';
-  import { skillGroups, neofetch } from '../data/skills';
-
   type Writeup = { title: string; slug: string; summary: string; date: string };
+  type TerminalData = {
+    site: {
+      name: string;
+      role: string;
+      handle: string;
+      bio: readonly string[];
+      resumeUrl: string;
+      email: string;
+      socials: readonly { name: string; url: string; handle: string; icon: string }[];
+    };
+    projects: {
+      name: string;
+      tagline: string;
+      description: string;
+      highlights: string[];
+      links: { live?: string; repo?: string };
+    }[];
+    skillGroups: { label: string; items: string[] }[];
+    neofetch: { key: string; value: string }[];
+    writeups: Writeup[];
+  };
+  type TerminalWindow = typeof window & {
+    __termController?: AbortController;
+    __termReturnElement?: HTMLElement | null;
+    __termReturnSelector?: string | null;
+  };
+
+  function getTerminalData(): TerminalData {
+    try {
+      return JSON.parse(document.getElementById('terminal-data')?.textContent || '{}');
+    } catch {
+      return { site: {} as TerminalData['site'], projects: [], skillGroups: [], neofetch: [], writeups: [] };
+    }
+  }
+
+  const { site, projects, skillGroups, neofetch, writeups } = getTerminalData();
+  const terminalWindow = window as TerminalWindow;
 
   const emblem = [
     '      ████████      ',
@@ -198,7 +236,7 @@ const writeups = (await getCollection('writeups'))
     ['neofetch', 'system card'],
     ['projects', 'list selected work'],
     ['cat <project>', 'details for a project'],
-    ['writeups', 'list writeups'],
+    ['blogs', 'list blogs'],
     ['skills', 'toolbox'],
     ['resume', 'download the résumé'],
     ['contact', 'how to reach me'],
@@ -214,7 +252,6 @@ const writeups = (await getCollection('writeups'))
   let opened = false;
   let history: string[] = [];
   let histIndex = 0;
-  let lastFocus: HTMLElement | null = null;
 
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
@@ -234,14 +271,6 @@ const writeups = (await getCollection('writeups'))
 
   function echo(input: string) {
     print(`<span class="echo"><span class="p">visitor@grid</span>:~$</span> ${esc(input)}`);
-  }
-
-  function getWriteups(): Writeup[] {
-    try {
-      return JSON.parse($('term-writeups')?.textContent || '[]');
-    } catch {
-      return [];
-    }
   }
 
   const cmds: Record<string, (args: string[]) => void> = {
@@ -292,15 +321,17 @@ const writeups = (await getCollection('writeups'))
       if (p.links.repo) links.push(`<a href="${esc(p.links.repo)}" target="_blank" rel="noopener">code</a>`);
       if (links.length) print(`<span class="muted">links:</span> ${links.join(' · ')}`);
     },
-    writeups() {
-      const w = getWriteups();
-      if (!w.length) {
-        print('<span class="muted">no writeups yet.</span>');
+    blogs() {
+      if (!writeups.length) {
+        print('<span class="muted">no blogs yet.</span>');
         return;
       }
-      w.forEach((x) =>
+      writeups.forEach((x) =>
         print(`<span class="muted">${esc(x.date)}</span>  <a href="/writeups/${esc(x.slug)}">${esc(x.title)}</a>`)
       );
+    },
+    writeups() {
+      cmds.blogs([]);
     },
     skills() {
       skillGroups.forEach((g) => {
@@ -357,7 +388,20 @@ const writeups = (await getCollection('writeups'))
   function open(opener?: HTMLElement) {
     const overlay = $('terminal-overlay');
     if (!overlay) return;
-    lastFocus = opener || (document.activeElement as HTMLElement) || null;
+    const mobileOpener = opener?.matches('.nav-mobile [data-open-terminal]') ?? false;
+    const returnTarget = mobileOpener
+      ? opener?.closest('details')?.querySelector('summary')
+      : opener || (document.activeElement as HTMLElement) || null;
+    terminalWindow.__termReturnElement = returnTarget as HTMLElement | null;
+    terminalWindow.__termReturnSelector = mobileOpener
+      ? '.nav-mobile summary'
+      : opener?.matches('.nav-links [data-open-terminal]')
+        ? '.nav-links [data-open-terminal]'
+        : null;
+    if (mobileOpener) {
+      const mobileMenu = opener?.closest('details') as HTMLDetailsElement | null;
+      if (mobileMenu) mobileMenu.open = false;
+    }
     overlay.hidden = false;
     document.documentElement.classList.add('term-open');
     if (!opened) {
@@ -373,7 +417,14 @@ const writeups = (await getCollection('writeups'))
     if (!overlay || overlay.hidden) return;
     overlay.hidden = true;
     document.documentElement.classList.remove('term-open');
-    lastFocus?.focus?.();
+    setTimeout(() => {
+      const focusTarget = terminalWindow.__termReturnElement?.isConnected
+        ? terminalWindow.__termReturnElement
+        : terminalWindow.__termReturnSelector
+          ? document.querySelector<HTMLElement>(terminalWindow.__termReturnSelector)
+          : null;
+      focusTarget?.focus();
+    }, 0);
   }
 
   function isOpen() {
@@ -381,9 +432,10 @@ const writeups = (await getCollection('writeups'))
     return overlay ? !overlay.hidden : false;
   }
 
-  // One-time, delegated listeners — survive Astro client-side navigation.
-  if (!(window as any).__termBound) {
-    (window as any).__termBound = true;
+  terminalWindow.__termController?.abort();
+  const terminalController = new AbortController();
+  terminalWindow.__termController = terminalController;
+  const listenerOptions = { signal: terminalController.signal };
 
     document.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
@@ -398,11 +450,13 @@ const writeups = (await getCollection('writeups'))
         return;
       }
       if (t.id === 'terminal-overlay') close(); // backdrop click
-    });
+    }, listenerOptions);
 
     document.addEventListener('keydown', (e) => {
       if (!isOpen()) return;
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
         close();
         return;
       }
@@ -424,7 +478,7 @@ const writeups = (await getCollection('writeups'))
           }
         }
       }
-    });
+    }, { ...listenerOptions, capture: true });
 
     document.addEventListener('submit', (e) => {
       const form = e.target as HTMLElement;
@@ -434,7 +488,7 @@ const writeups = (await getCollection('writeups'))
       if (!input) return;
       run(input.value);
       input.value = '';
-    });
+    }, listenerOptions);
 
     document.addEventListener('keydown', (e) => {
       const input = $<HTMLInputElement>('term-input');
@@ -462,6 +516,5 @@ const writeups = (await getCollection('writeups'))
           }
         }
       }
-    });
-  }
+    }, listenerOptions);
 </script>

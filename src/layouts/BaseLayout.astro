@@ -1,10 +1,11 @@
 ---
-import '@fontsource-variable/inter';
-import '@fontsource/jetbrains-mono/400.css';
-import '@fontsource/jetbrains-mono/500.css';
-import '@fontsource/jetbrains-mono/700.css';
+import '@fontsource/barlow-semi-condensed/latin-600.css';
+import '@fontsource/barlow-semi-condensed/latin-700.css';
+import '@fontsource-variable/ibm-plex-sans/wght.css';
+import '@fontsource/ibm-plex-mono/latin-400.css';
+import '@fontsource/ibm-plex-mono/latin-700.css';
 import '@/styles/global.css';
-import { ClientRouter } from 'astro:transitions';
+import MotionLayer from '@/components/MotionLayer.astro';
 import { site } from '@/data/site';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
   image?: string;
   article?: boolean;
   publishedTime?: string;
+  articleTags?: readonly string[];
   noindex?: boolean;
 }
 
@@ -22,6 +24,7 @@ const {
   image = site.ogImage,
   article = false,
   publishedTime,
+  articleTags = [],
   noindex = false,
 } = Astro.props;
 
@@ -30,8 +33,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site).href;
 const ogImageURL = new URL(image, Astro.site).href;
 
 const personSchema = {
-  '@context': 'https://schema.org',
   '@type': 'Person',
+  '@id': `${site.url}/#person`,
   name: site.name,
   alternateName: site.handle,
   jobTitle: site.role,
@@ -40,11 +43,40 @@ const personSchema = {
   sameAs: site.socials.filter((s) => s.icon !== 'email').map((s) => s.url),
   knowsAbout: [...site.knowsAbout],
 };
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    personSchema,
+    ...(article
+      ? [
+          {
+            '@type': 'BlogPosting',
+            headline: title,
+            description,
+            datePublished: publishedTime,
+            mainEntityOfPage: canonicalURL,
+            image: ogImageURL,
+            keywords: [...articleTags],
+            author: { '@id': `${site.url}/#person` },
+          },
+        ]
+      : []),
+  ],
+};
+const structuredDataJson = JSON.stringify(structuredData).replace(/</g, '\\u003c');
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
+    <script is:inline>
+      (() => {
+        const param = new URLSearchParams(window.location.search).get("scoutTheme");
+        const theme =
+          param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="canonical" href={canonicalURL} />
@@ -53,15 +85,15 @@ const personSchema = {
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <meta name="author" content={site.name} />
-    <meta name="theme-color" content="#1a1b26" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#f7f4ef" />
+    <meta name="color-scheme" content="light dark" />
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
     <link
       rel="alternate"
       type="application/rss+xml"
-      title={`${site.name} · writeups`}
+      title={`${site.name} · blogs`}
       href={new URL('/rss.xml', Astro.site)}
     />
 
@@ -82,42 +114,12 @@ const personSchema = {
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageURL} />
 
-    <script type="application/ld+json" set:html={JSON.stringify(personSchema)} />
+    <script is:inline type="application/ld+json" set:html={structuredDataJson}></script>
 
-    <ClientRouter />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
+    <MotionLayer />
     <slot />
-
-    <noscript>
-      <style>
-        .reveal { opacity: 1 !important; transform: none !important; }
-      </style>
-    </noscript>
-
-    <script>
-      function initReveal() {
-        const els = Array.from(document.querySelectorAll('.reveal:not(.is-visible)'));
-        if (els.length === 0) return;
-        if (!('IntersectionObserver' in window)) {
-          els.forEach((el) => el.classList.add('is-visible'));
-          return;
-        }
-        const io = new IntersectionObserver(
-          (entries) => {
-            for (const entry of entries) {
-              if (entry.isIntersecting) {
-                entry.target.classList.add('is-visible');
-                io.unobserve(entry.target);
-              }
-            }
-          },
-          { rootMargin: '0px 0px -8% 0px', threshold: 0.06 }
-        );
-        els.forEach((el) => io.observe(el));
-      }
-      document.addEventListener('astro:page-load', initReveal);
-    </script>
   </body>
 </html>

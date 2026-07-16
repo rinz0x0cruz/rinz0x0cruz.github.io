@@ -1,16 +1,11 @@
-import { defineCollection, z } from 'astro:content';
+import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { writeupSchema } from '@/content/writeup-schema';
 
-// Writeups / blog. Uses Astro 5's content-layer glob loader.
+// Writeups / blog. Uses Astro's content-layer glob loader.
 const writeups = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/writeups' }),
-  schema: z.object({
-    title: z.string(),
-    date: z.coerce.date(),
-    summary: z.string(),
-    tags: z.array(z.string()).default([]),
-    draft: z.boolean().default(false),
-  }),
+  schema: writeupSchema,
 });
 
 export const collections = { writeups };

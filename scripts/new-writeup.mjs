@@ -47,3 +47,4 @@ then commit and push. GitHub Actions rebuilds and publishes it automatically.
 writeFileSync(file, body, 'utf8');
 console.log(`\n  created  src/content/writeups/${slug}.md`);
 console.log(`  preview  npm run dev   (drafts stay hidden until draft: false)\n`);
+console.log('  verify   npm run check:content\n');

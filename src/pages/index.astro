@@ -1,29 +1,33 @@
 ---
-import BaseLayout from '@/layouts/BaseLayout.astro';
-import Nav from '@/components/Nav.astro';
-import HudHero from '@/components/HudHero.astro';
-import About from '@/components/About.astro';
-import Employment from '@/components/Employment.astro';
-import Operations from '@/components/Operations.astro';
-import Modules from '@/components/Modules.astro';
-import WriteupsReader from '@/components/WriteupsReader.astro';
-import Skills from '@/components/Skills.astro';
-import Contact from '@/components/Contact.astro';
-import Footer from '@/components/Footer.astro';
-import Terminal from '@/components/Terminal.astro';
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Nav from "@/components/PortfolioHeader.astro";
+import ProfileIntro from "@/components/ProfileIntro.astro";
+import AchievementRail from "@/components/AchievementRail.astro";
+import ProjectCinema from "@/components/ProjectCinema.astro";
+import ProjectIndex from "@/components/ProjectIndex.astro";
+import ResearchCasework from "@/components/ResearchCasework.astro";
+import AboutCompact from "@/components/AboutCompact.astro";
+import TrajectoryProfiles from "@/components/TrajectoryProfiles.astro";
+import WritingContact from "@/components/WritingContact.astro";
+import Footer from "@/components/Footer.astro";
+import Terminal from "@/components/Terminal.astro";
+
+const homepageSections = [
+  ProfileIntro,
+  AchievementRail,
+  ProjectCinema,
+  ProjectIndex,
+  ResearchCasework,
+  AboutCompact,
+  TrajectoryProfiles,
+  WritingContact,
+] as const;
 ---
 
 <BaseLayout>
   <Nav />
   <main id="main">
-    <HudHero />
-    <div class="reveal"><About /></div>
-    <div class="reveal"><Employment /></div>
-    <div class="reveal"><Operations /></div>
-    <div class="reveal"><Modules /></div>
-    <div class="reveal"><WriteupsReader /></div>
-    <div class="reveal"><Skills /></div>
-    <div class="reveal"><Contact /></div>
+    {homepageSections.map((Section) => <Section />)}
   </main>
   <Footer />
   <Terminal />

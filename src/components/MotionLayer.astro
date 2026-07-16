@@ -1,0 +1,264 @@
+<div class="page-progress" aria-hidden="true"><span></span></div>
+
+<script>
+  type MotionSession = {
+    controller: AbortController;
+    sectionObserver?: IntersectionObserver;
+    navigationObserver?: IntersectionObserver;
+    frame?: number;
+  };
+
+  type MotionWindow = Window & { __portfolioMotion?: MotionSession };
+
+  function initMotionLayer() {
+    const motionWindow = window as MotionWindow;
+    motionWindow.__portfolioMotion?.controller.abort();
+    motionWindow.__portfolioMotion?.sectionObserver?.disconnect();
+    motionWindow.__portfolioMotion?.navigationObserver?.disconnect();
+    if (motionWindow.__portfolioMotion?.frame) cancelAnimationFrame(motionWindow.__portfolioMotion.frame);
+
+    const controller = new AbortController();
+    const session: MotionSession = { controller };
+    motionWindow.__portfolioMotion = session;
+    const listenerOptions = { signal: controller.signal };
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const root = document.documentElement;
+    const header = document.querySelector<HTMLElement>('[data-site-nav]');
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('main > section:not(#top)'));
+
+    sections.forEach((section) => {
+      section.dataset.motionSection = '';
+      if (!section.querySelector(':scope > [data-motion-rail]')) {
+        const rail = document.createElement('span');
+        rail.dataset.motionRail = '';
+        rail.setAttribute('aria-hidden', 'true');
+        rail.append(document.createElement('i'));
+        section.append(rail);
+      }
+      section.querySelector<HTMLElement>('.eyebrow, .outcomes-head > .mono, .section-label')?.setAttribute('data-motion-label', '');
+      section.querySelector<HTMLElement>('h2')?.setAttribute('data-motion-heading', '');
+      section
+        .querySelector<HTMLElement>('.systems-head > p, .casework-head > p, .trajectory-head > p')
+        ?.setAttribute('data-motion-lead', '');
+
+      const items = section.querySelectorAll<HTMLElement>(
+        '.project-grid > article, .profile-card, .writing-card, .capability-matrix section'
+      );
+      items.forEach((item, index) => {
+        item.dataset.motionItem = '';
+        item.style.setProperty('--motion-order', String(index));
+      });
+    });
+
+    const updatePageProgress = () => {
+      session.frame = undefined;
+      const scrollRange = Math.max(root.scrollHeight - window.innerHeight, 1);
+      const progress = Math.min(1, Math.max(0, window.scrollY / scrollRange));
+      root.style.setProperty('--page-progress', String(progress));
+      header?.toggleAttribute('data-scrolled', window.scrollY > 18);
+      sections.forEach((section) => {
+        const bounds = section.getBoundingClientRect();
+        const localProgress = Math.min(1, Math.max(0, (window.innerHeight - bounds.top) / (window.innerHeight + bounds.height)));
+        const focus = Math.sin(Math.PI * localProgress);
+        section.style.setProperty('--section-progress', localProgress.toFixed(4));
+        section.style.setProperty('--section-heading-y', `${((0.5 - localProgress) * 26).toFixed(2)}px`);
+        section.style.setProperty('--section-label-x', `${((localProgress - 0.5) * 18).toFixed(2)}px`);
+        section.style.setProperty('--section-rail-y', `${(localProgress * 100).toFixed(2)}%`);
+        section.style.setProperty('--section-focus', focus.toFixed(4));
+        section.toggleAttribute('data-motion-inview', bounds.bottom > 0 && bounds.top < window.innerHeight);
+      });
+    };
+    const schedulePageProgress = () => {
+      if (session.frame) return;
+      session.frame = requestAnimationFrame(updatePageProgress);
+    };
+    window.addEventListener('scroll', schedulePageProgress, { ...listenerOptions, passive: true });
+    window.addEventListener('resize', schedulePageProgress, listenerOptions);
+    updatePageProgress();
+
+    const revealSection = (section: HTMLElement) => {
+      if (section.dataset.motionState === 'visible') return;
+      section.dataset.motionState = 'visible';
+    };
+    if (reducedMotion.matches || !('IntersectionObserver' in window)) {
+      sections.forEach(revealSection);
+    } else {
+      session.sectionObserver = new IntersectionObserver(
+        (entries, observer) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            revealSection(entry.target as HTMLElement);
+            observer.unobserve(entry.target);
+          });
+        },
+        { rootMargin: '0px 0px -8% 0px', threshold: 0.12 }
+      );
+      sections.forEach((section) => session.sectionObserver?.observe(section));
+    }
+
+    const navigationLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('.nav-links a[href*="#"]'));
+    const linkedSections = navigationLinks
+      .map((link) => ({ link, section: document.getElementById(new URL(link.href).hash.slice(1)) }))
+      .filter((entry): entry is { link: HTMLAnchorElement; section: HTMLElement } => Boolean(entry.section));
+    if (linkedSections.length && 'IntersectionObserver' in window) {
+      const visibility = new Map<Element, number>();
+      session.navigationObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => visibility.set(entry.target, entry.isIntersecting ? entry.intersectionRatio : 0));
+          const active = linkedSections.reduce<(typeof linkedSections)[number] | undefined>((best, entry) => {
+            if (!best) return entry;
+            return (visibility.get(entry.section) ?? 0) > (visibility.get(best.section) ?? 0) ? entry : best;
+          }, undefined);
+          linkedSections.forEach(({ link, section }) => {
+            if (section === active?.section && (visibility.get(section) ?? 0) > 0) link.setAttribute('aria-current', 'location');
+            else link.removeAttribute('aria-current');
+          });
+        },
+        { rootMargin: '-28% 0px -58% 0px', threshold: [0, 0.25, 0.6] }
+      );
+      linkedSections.forEach(({ section }) => session.navigationObserver?.observe(section));
+    }
+
+    const hero = document.querySelector<HTMLElement>('[data-motion-hero]');
+    if (hero && !reducedMotion.matches && window.matchMedia('(pointer: fine)').matches) {
+      hero.addEventListener('pointermove', (event) => {
+        const horizontal = event.clientX / window.innerWidth - 0.5;
+        const vertical = event.clientY / window.innerHeight - 0.5;
+        hero.style.setProperty('--hero-grid-x', `${horizontal * -20}px`);
+        hero.style.setProperty('--hero-grid-y', `${vertical * -14}px`);
+        hero.style.setProperty('--hero-copy-x', `${horizontal * 5}px`);
+        hero.style.setProperty('--hero-copy-y', `${vertical * 4}px`);
+        hero.toggleAttribute('data-pointer-active', true);
+      }, { ...listenerOptions, passive: true });
+      hero.addEventListener('pointerleave', () => {
+        hero.style.removeProperty('--hero-grid-x');
+        hero.style.removeProperty('--hero-grid-y');
+        hero.style.removeProperty('--hero-copy-x');
+        hero.style.removeProperty('--hero-copy-y');
+        hero.removeAttribute('data-pointer-active');
+      }, listenerOptions);
+    }
+
+    reducedMotion.addEventListener('change', initMotionLayer, listenerOptions);
+  }
+
+  initMotionLayer();
+  document.addEventListener('astro:page-load', initMotionLayer);
+</script>
+
+<style is:global>
+  .page-progress {
+    position: fixed;
+    z-index: 220;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 3px;
+    overflow: hidden;
+    background: var(--cp-border);
+    pointer-events: none;
+  }
+  .page-progress span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(var(--page-progress, 0));
+    transform-origin: left;
+    background: repeating-linear-gradient(90deg, var(--cp-text-soft) 0 10px, transparent 10px 14px);
+    transition: transform 90ms linear;
+  }
+  .header {
+    transition: border-color 220ms var(--ease), background 220ms var(--ease), box-shadow 220ms var(--ease);
+  }
+  .header[data-scrolled] {
+    border-color: var(--cp-border-strong);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .1);
+  }
+  .nav-links a {
+    position: relative;
+  }
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: -10px;
+    left: 0;
+    height: 2px;
+    transform: scaleX(0);
+    transform-origin: left;
+    background: var(--cp-accent);
+    transition: transform 240ms var(--ease);
+  }
+  .nav-links a[aria-current='location'] {
+    color: var(--cp-accent);
+  }
+  .nav-links a[aria-current='location']::after {
+    transform: scaleX(1);
+  }
+  [data-motion-section] {
+    --section-progress: 0;
+    --section-focus: 0;
+    --section-heading-y: 0px;
+    --section-label-x: 0px;
+    --section-rail-y: 0%;
+    position: relative;
+    overflow: clip;
+    isolation: isolate;
+  }
+  [data-motion-rail] {
+    position: absolute;
+    z-index: 12;
+    top: 9%;
+    right: max(5px, calc((100vw - var(--container)) / 2 + 8px));
+    bottom: 9%;
+    width: 1px;
+    background: repeating-linear-gradient(to bottom, transparent 0 5px, var(--cp-border-strong) 5px 7px);
+    pointer-events: none;
+  }
+  [data-motion-rail] i {
+    position: absolute;
+    top: var(--section-rail-y);
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--cp-surface);
+    border-radius: 50%;
+    background: var(--cp-text-muted);
+    box-shadow: 0 0 0 4px var(--cp-surface-soft);
+    transition: box-shadow 180ms var(--ease);
+  }
+  [data-motion-label] {
+    transform: translate3d(var(--section-label-x), 0, 0);
+    will-change: transform;
+  }
+  [data-motion-heading] {
+    position: relative;
+    transform: translate3d(0, var(--section-heading-y), 0);
+    will-change: transform;
+  }
+  [data-motion-heading]::after {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 0;
+    width: 34%;
+    height: 2px;
+    opacity: var(--section-focus);
+    transform: scaleX(var(--section-focus));
+    transform-origin: left;
+    background: linear-gradient(90deg, var(--cp-border-strong), transparent);
+  }
+  [data-motion-lead] {
+    transform: translate3d(0, calc(var(--section-heading-y) * -.45), 0);
+    will-change: transform;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .page-progress span { transition: none; }
+    [data-motion-rail] { display: none; }
+    [data-motion-label],
+    [data-motion-heading],
+    [data-motion-lead] { transform: none; }
+    [data-motion-heading]::after { display: none; }
+  }
+</style>

@@ -1,0 +1,123 @@
+---
+import { publicProfiles } from '@/data/portfolio';
+import { formatRange, resume } from '@/data/resume';
+
+const education = resume.education[0];
+const degree = education?.degree.replace(/\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}.*$/i, '') ?? '';
+const languages = resume.languages.map((language) => language.replace(/\s+--.*$/, ''));
+---
+
+<section id="trajectory" class="trajectory section" aria-labelledby="trajectory-title">
+  <header class="container trajectory-head">
+    <div>
+      <p class="eyebrow mono">Practice and credentials</p>
+      <h2 id="trajectory-title">Practice that compounds.</h2>
+    </div>
+    <p>Public repetition across hands-on security and algorithmic problem solving, backed by verified credentials.</p>
+  </header>
+
+  <div class="container profile-grid">
+    {publicProfiles.map((profile, index) => (
+      <a class="profile-card" href={profile.url} target="_blank" rel="me noopener">
+        <header>
+          <span class="profile-mark mono">{String(index + 1).padStart(2, '0')}</span>
+          <div><h3>{profile.name}</h3><p class="mono">@{profile.handle}</p></div>
+          <span aria-hidden="true">↗</span>
+        </header>
+        <dl>{profile.metrics.map((metric) => <div><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl>
+        <small class="mono">{profile.verifiedAt}</small>
+      </a>
+    ))}
+  </div>
+
+  <div class="container credential-band">
+    <div>
+      <p class="mono">Credentials</p>
+      <ul>{resume.certifications.map((certification) => <li>{certification}</li>)}</ul>
+    </div>
+    <div>
+      <p class="mono">Education</p>
+      <strong>{degree}</strong>
+      <span>{education?.school} · {education ? formatRange(education.start, education.end) : ''} · {education?.note}</span>
+    </div>
+    <div>
+      <p class="mono">Languages</p>
+      <ul>{languages.map((language) => <li>{language}</li>)}</ul>
+    </div>
+  </div>
+
+</section>
+
+<style>
+  .trajectory { border-top: 1px solid var(--cp-border-strong); background: linear-gradient(150deg, var(--cp-bg-elevated), var(--cp-bg) 64%); }
+  .trajectory-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .55fr); gap: 64px; align-items: end; }
+  .eyebrow { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .trajectory-head h2 { max-width: 19ch; margin-top: 12px; font-size: var(--type-section); line-height: 1; }
+  .trajectory-head > p { max-width: 50ch; color: var(--cp-text-soft); font-size: var(--type-body); line-height: 1.65; }
+  .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 48px; }
+  .profile-card { position: relative; display: grid; min-height: 250px; align-content: start; overflow: hidden; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text); padding: 28px; box-shadow: var(--card-shadow); transition: border-color 180ms var(--ease), transform 180ms var(--ease), background 180ms var(--ease); }
+  .profile-card::before { content: ''; position: absolute; z-index: 0; top: -25%; bottom: -25%; left: -30%; width: 13%; opacity: 0; transform: skewX(-13deg); background: linear-gradient(90deg, transparent, var(--cp-sheen), var(--cp-accent-soft), transparent); }
+  .profile-card::after { content: ''; position: absolute; right: -42px; bottom: -62px; width: 180px; height: 180px; border: 1px solid var(--cp-border); border-top-color: var(--cp-accent); border-radius: 50%; background: linear-gradient(90deg, var(--cp-accent-soft), transparent 52%); rotate: 0deg; transition: transform 320ms var(--ease), border-color 180ms var(--ease); }
+  .trajectory[data-motion-inview] .profile-card::before { animation: profile-scan 6.4s var(--ease) infinite; }
+  .trajectory[data-motion-inview] .profile-card:nth-child(2)::before { animation-delay: -3.2s; }
+  .trajectory[data-motion-inview] .profile-card::after { animation: profile-orbit 12s linear infinite; }
+  .trajectory[data-motion-inview] .profile-card:nth-child(2)::after { animation-direction: reverse; }
+  .profile-card:hover { transform: translateY(-4px); border-color: var(--cp-accent); background: var(--cp-accent-soft); color: var(--cp-text); }
+  .profile-card:hover::after { transform: translate(-10px, -8px) scale(1.08); border-color: var(--cp-accent); }
+  .profile-card header { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; }
+  .profile-mark { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid var(--cp-border-strong); border-radius: 50%; color: var(--cp-accent); font-size: var(--type-small); }
+  .trajectory[data-motion-inview] .profile-mark { animation: profile-beacon 3s ease-out infinite; }
+  .profile-card h3 { font-size: 1.5rem; }
+  .profile-card header p { margin-top: 2px; color: var(--cp-text-muted); font-size: var(--type-label); }
+  .profile-card dl { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 28px; border-block: 1px solid var(--cp-border); }
+  .profile-card dl div { padding: 14px 10px; border-right: 1px solid var(--cp-border); }
+  .profile-card dl div:last-child { border-right: 0; }
+  .profile-card dt { color: var(--cp-text-muted); font-size: .7rem; text-transform: uppercase; }
+  .profile-card dd { margin: 5px 0 0; color: var(--cp-text); font-family: var(--font-display); font-size: 1.28rem; font-weight: 700; }
+  .trajectory[data-motion-inview] .profile-card dl div:first-child dd { animation: profile-metric 5.7s var(--ease) infinite; }
+  .trajectory[data-motion-inview] .profile-card dl div:nth-child(2) dd { animation: profile-metric 5.7s -3.8s var(--ease) infinite; }
+  .trajectory[data-motion-inview] .profile-card dl div:nth-child(3) dd { animation: profile-metric 5.7s -1.9s var(--ease) infinite; }
+  .profile-card > small { position: relative; z-index: 1; align-self: end; margin-top: 22px; color: var(--cp-text-muted); font-size: .68rem; text-transform: uppercase; }
+  .credential-band { position: relative; display: grid; grid-template-columns: 1fr 1.15fr .7fr; gap: 0; overflow: hidden; margin-top: 42px; border-block: 1px solid var(--cp-border-strong); }
+  .credential-band::after { content: ''; position: absolute; top: 0; bottom: 0; left: -22%; width: 18%; opacity: 0; transform: skewX(-12deg); background: linear-gradient(90deg, transparent, var(--cp-accent-soft), transparent); pointer-events: none; }
+  .trajectory[data-motion-inview] .credential-band::after { animation: credential-sweep 7.2s 1s var(--ease) infinite; }
+  .credential-band > div { min-height: 160px; border-right: 1px solid var(--cp-border); padding: 22px 26px 22px 0; }
+  .credential-band > div + div { padding-left: 26px; }
+  .credential-band > div:last-child { border-right: 0; }
+  .credential-band p { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .credential-band ul { display: grid; gap: 7px; margin-top: 17px; }
+  .credential-band li,
+  .credential-band strong,
+  .credential-band span { color: var(--cp-text-soft); font-size: var(--type-small); line-height: 1.55; }
+  .credential-band strong,
+  .credential-band span { display: block; margin-top: 17px; }
+  .credential-band span { margin-top: 5px; color: var(--cp-text-muted); }
+  @keyframes profile-scan { 0%, 20% { left: -30%; opacity: 0; } 30% { opacity: .9; } 56%, 100% { left: 118%; opacity: 0; } }
+  @keyframes profile-orbit { to { rotate: 1turn; } }
+  @keyframes profile-beacon { 0%, 45% { box-shadow: 0 0 0 0 var(--cp-accent-soft); } 82%, 100% { box-shadow: 0 0 0 11px transparent; } }
+  @keyframes profile-metric { 0%, 68%, 100% { color: var(--cp-text); transform: translateY(0); } 78% { color: var(--cp-accent); transform: translateY(-3px); } }
+  @keyframes credential-sweep { 0%, 18% { left: -22%; opacity: 0; } 30% { opacity: 1; } 58%, 100% { left: 112%; opacity: 0; } }
+  @media (max-width: 900px) {
+    .credential-band { grid-template-columns: 1fr 1fr; }
+    .credential-band > div:nth-child(2) { border-right: 0; }
+    .credential-band > div:last-child { grid-column: 1 / -1; border-top: 1px solid var(--cp-border); }
+  }
+  @media (max-width: 720px) {
+    .trajectory-head,
+    .profile-grid,
+    .credential-band,
+    .credential-band { grid-template-columns: 1fr; }
+    .profile-card { min-height: 0; }
+    .credential-band > div,
+    .credential-band > div + div { min-height: 0; border-right: 0; border-top: 1px solid var(--cp-border); padding: 22px 0; }
+    .credential-band > div:first-child { border-top: 0; }
+    .credential-band > div:last-child { grid-column: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .profile-card::before,
+    .profile-card::after,
+    .profile-mark,
+    .profile-card dd,
+    .credential-band::after { animation: none !important; }
+  }
+</style>

@@ -5,26 +5,28 @@ const repo = `https://github.com/${site.handle}/${site.handle}.github.io`;
 ---
 
 <footer class="footer">
-  <div class="grad" aria-hidden="true"></div>
   <div class="container foot-inner">
-    <p class="mono">
-      © {year} {site.name} <span class="muted">· @{site.handle}</span>
-    </p>
-    <p class="mono muted">
-      built with <a href="https://astro.build" target="_blank" rel="noopener">Astro</a>
-      · <a href={repo} target="_blank" rel="noopener">source</a>
-    </p>
+    <div><strong>{site.name}</strong><span class="mono">Security research · @{site.handle}</span></div>
+    <p class="mono">© {year} · <a href="https://astro.build" target="_blank" rel="noopener">Astro</a> · <a href={repo} target="_blank" rel="noopener">Source</a></p>
   </div>
 </footer>
 
 <style>
   .footer {
-    margin-top: 40px;
+    position: relative;
+    overflow: hidden;
+    border-top: 1px solid var(--cp-border);
+    background: var(--cp-bg);
   }
-  .grad {
-    height: 4px;
-    background: linear-gradient(90deg, #7aa2f7 0%, #7dcfff 50%, #bb9af7 100%);
-    opacity: 0.9;
+  .footer::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -22%;
+    width: 22%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cp-accent), transparent);
+    animation: footer-signal 5.8s var(--ease) infinite;
   }
   .foot-inner {
     display: flex;
@@ -32,10 +34,16 @@ const repo = `https://github.com/${site.handle}/${site.handle}.github.io`;
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-    padding-top: 26px;
-    padding-bottom: 40px;
-    font-size: 0.82rem;
+    padding-top: 34px;
+    padding-bottom: 42px;
+    font-size: 0.74rem;
   }
-  .foot-inner a { color: var(--fg-dim); }
-  .foot-inner a:hover { color: var(--cyan); }
+  .foot-inner > div { display: grid; gap: 5px; }
+  .foot-inner strong { color: var(--cp-text); }
+  .foot-inner span,
+  .foot-inner p { color: var(--cp-text-muted); }
+  .foot-inner a { color: var(--cp-text-soft); }
+  .foot-inner a:hover { color: var(--cp-accent); }
+  @keyframes footer-signal { 0%, 18% { left: -22%; opacity: 0; } 30% { opacity: 1; } 70%, 100% { left: 105%; opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .footer::before { animation: none; } }
 </style>

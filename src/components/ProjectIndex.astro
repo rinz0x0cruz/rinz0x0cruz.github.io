@@ -1,0 +1,97 @@
+---
+import { projects } from '@/data/projects';
+
+const demoNames = new Set(['exploitrank', 'malscope-dashboard']);
+const otherProjects = projects.filter((project) => !demoNames.has(project.name));
+---
+
+<section id="systems" class="systems section" aria-labelledby="systems-title">
+  <header class="container systems-head">
+    <div>
+      <p class="eyebrow mono">Built systems</p>
+      <h2 id="systems-title">Systems beyond the spotlight.</h2>
+    </div>
+    <p>Four additional products spanning adversary simulation, research deliberation, job intelligence, and local-first tooling.</p>
+  </header>
+
+  <div class="container project-grid">
+    {otherProjects.map((project, index) => (
+      <article>
+        <header class="project-id">
+          <span class="mono">{String(index + 1).padStart(2, '0')}</span>
+          <small class="mono"><i class:list={['status-dot', project.status]} aria-hidden="true"></i>{project.status}</small>
+        </header>
+
+        <h3>{project.name}</h3>
+        <p class="project-tagline">{project.tagline}</p>
+        <p class="project-description">{project.highlights[0] ?? project.description}</p>
+
+        <div class="project-meta">
+          <ul class="stack mono">{project.stack.map((item) => <li>{item}</li>)}</ul>
+          <nav aria-label={`${project.name} links`}>
+            {project.links.live && <a href={project.links.live} target="_blank" rel="noopener">Live <span aria-hidden="true">↗</span></a>}
+            {project.links.repo && <a href={project.links.repo} target="_blank" rel="noopener">Source <span aria-hidden="true">↗</span></a>}
+          </nav>
+        </div>
+      </article>
+    ))}
+  </div>
+</section>
+
+<style>
+  .systems { border-top: 1px solid var(--cp-border-strong); background: var(--cp-bg-elevated); }
+  .systems-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .55fr); gap: 64px; align-items: end; }
+  .eyebrow { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .systems-head h2 { max-width: 17ch; margin-top: 12px; font-size: var(--type-section); line-height: 1; }
+  .systems-head > p { max-width: 50ch; color: var(--cp-text-soft); font-size: var(--type-body); line-height: 1.65; }
+  .project-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 42px; }
+  article { position: relative; display: flex; min-height: 310px; flex-direction: column; overflow: hidden; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 26px; box-shadow: var(--card-shadow); transition: transform 220ms var(--ease), border-color 220ms var(--ease), background 220ms var(--ease); }
+  article::before { content: ''; position: absolute; z-index: 0; top: -28%; bottom: -28%; left: -34%; width: 16%; opacity: 0; background: linear-gradient(90deg, transparent, var(--cp-accent-soft), var(--cp-sheen), transparent); transform: skewX(-12deg); }
+  article:nth-child(2)::before { animation-delay: -5.2s; }
+  article:nth-child(3)::before { animation-delay: -3.4s; }
+  article:nth-child(4)::before { animation-delay: -1.6s; }
+  article::after { content: ''; position: absolute; right: -18%; bottom: -48%; width: 250px; height: 250px; border: 1px solid var(--cp-border); border-radius: 50%; opacity: .58; background: linear-gradient(90deg, var(--cp-accent-soft), transparent 52%); rotate: 0deg; transition: transform 360ms var(--ease), border-color 220ms var(--ease); }
+  article:nth-child(even)::after { animation-direction: reverse; animation-duration: 16s; }
+  article:hover { transform: translateY(-5px); border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+  article:hover::after { transform: translate(-15px, -10px) scale(1.08); border-color: var(--cp-accent); }
+  .project-id { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; }
+  .project-id > span,
+  .project-id small { display: flex; align-items: center; gap: 7px; color: var(--cp-text-muted); font-size: var(--type-label); text-transform: uppercase; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cp-text-muted); }
+  .status-dot.live { background: var(--cp-success); }
+  .status-dot.active { background: var(--cp-link); }
+  .status-dot.research { background: var(--cp-accent); }
+  article > h3 { position: relative; z-index: 1; margin-top: 42px; font-size: 2rem; }
+  .project-tagline { position: relative; z-index: 1; margin-top: 7px; color: var(--cp-accent); font-size: .82rem; font-weight: 700; }
+  .project-description { position: relative; z-index: 1; max-width: 55ch; margin-top: 20px; color: var(--cp-text-soft); font-size: .84rem; line-height: 1.62; }
+  .project-meta { position: relative; z-index: 1; display: grid; gap: 14px; margin-top: auto; padding-top: 24px; }
+  .stack { display: flex; flex-wrap: wrap; gap: 7px; }
+  .stack li { border: 1px solid var(--cp-border); border-radius: 999px; color: var(--cp-text-muted); padding: 3px 8px; font-size: .7rem; }
+  .stack li:nth-child(2) { animation-delay: -4.2s; }
+  .stack li:nth-child(3) { animation-delay: -3s; }
+  .stack li:nth-child(4) { animation-delay: -1.8s; }
+  .stack li:nth-child(5) { animation-delay: -.6s; }
+  .project-meta nav { display: flex; flex-wrap: wrap; gap: 14px; }
+  .project-meta a { color: var(--cp-text); font-size: var(--type-small); font-weight: 700; }
+  .project-meta a:hover { color: var(--cp-accent); }
+  .systems[data-motion-inview] article::before { animation: system-scan 7s var(--ease) infinite; }
+  .systems[data-motion-inview] article::after { animation: system-orbit 13s linear infinite; }
+  .systems[data-motion-inview] article:nth-child(even)::after { animation-direction: reverse; animation-duration: 16s; }
+  .systems[data-motion-inview] .status-dot { animation: status-beacon 2.6s ease-out infinite; }
+  .systems[data-motion-inview] .stack li { animation: stack-signal 5.4s var(--ease) infinite; }
+  @keyframes system-scan { 0%, 18% { left: -34%; opacity: 0; } 28% { opacity: .85; } 52%, 100% { left: 118%; opacity: 0; } }
+  @keyframes system-orbit { to { rotate: 1turn; } }
+  @keyframes status-beacon { 0%, 45% { box-shadow: 0 0 0 0 currentColor; } 82%, 100% { box-shadow: 0 0 0 8px transparent; } }
+  @keyframes stack-signal { 0%, 68%, 100% { border-color: var(--cp-border); color: var(--cp-text-muted); } 78% { border-color: var(--cp-accent); color: var(--cp-accent); } }
+  @media (max-width: 720px) {
+    .systems-head,
+    .project-grid { grid-template-columns: 1fr; }
+    article { min-height: 290px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    article::before,
+    article::after,
+    .status-dot,
+    .stack li { animation: none !important; }
+  }
+</style>

@@ -16,9 +16,6 @@ export const site = {
   host: 'rinzler@grid',
   role: 'Security Researcher',
 
-  // Hero one-liner (kept short + punchy).
-  heroLine: 'I hunt threats and take malware apart.',
-
   // Meta description / default OG copy.
   tagline:
     'Security researcher focused on CVE triage, malware reverse engineering, threat hunting, and detection engineering, turning raw threat data into defensible intelligence.',
@@ -46,8 +43,6 @@ export const site = {
 
   // Résumé PDF, downloadable from the site.
   resumeUrl: '/Mohit-Sharma-Resume.pdf',
-  // Legacy mailto — still referenced by the unused hero variants kept for revert.
-  resumeRequest: 'mailto:rinz0x0cruz@gmail.com?subject=Resume%20request',
 
   knowsAbout: [
     'Vulnerability Management',

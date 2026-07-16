@@ -1,0 +1,133 @@
+---
+import { achievements } from '@/data/portfolio';
+---
+
+<section id="achievements" class="outcomes" aria-labelledby="outcomes-title" data-outcomes>
+  <div class="container outcomes-head">
+    <p class="mono">Selected impact</p>
+    <h2 id="outcomes-title">Results with operational weight.</h2>
+    <p>Four outcomes where investigation changed what defenders fixed, detected, or contained.</p>
+  </div>
+
+  <div class="outcome-grid container">
+    {achievements.map((achievement, index) => (
+      <article style={`--outcome-order:${index}`}>
+        <header><span class="mono">{String(index + 1).padStart(2, '0')}</span><i aria-hidden="true"></i></header>
+        <strong data-outcome-value={achievement.value} aria-label={achievement.value}>{achievement.value}</strong>
+        <h3>{achievement.label}</h3>
+        <p>{achievement.detail}</p>
+      </article>
+    ))}
+  </div>
+</section>
+
+<script>
+  function initOutcomeMotion() {
+    document.querySelectorAll<HTMLElement>('[data-outcomes]').forEach((root) => {
+      if (root.dataset.motionBound) return;
+      root.dataset.motionBound = 'true';
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const animateValue = (element: HTMLElement) => {
+        const rawValue = element.dataset.outcomeValue ?? '';
+        const match = rawValue.match(/^(\d+(?:\.\d+)?)(.*)$/);
+        if (!match) return;
+        const target = Number(match[1]);
+        const suffix = match[2];
+        const decimals = match[1].includes('.') ? match[1].split('.')[1].length : 0;
+        const startedAt = performance.now();
+        const duration = 950;
+
+        const tick = (timestamp: number) => {
+          const progress = Math.min(1, (timestamp - startedAt) / duration);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          element.textContent = `${(target * eased).toFixed(decimals)}${suffix}`;
+          if (progress < 1) requestAnimationFrame(tick);
+          else element.textContent = rawValue;
+        };
+        requestAnimationFrame(tick);
+      };
+
+      const activate = () => {
+        if (root.dataset.motionActive) return;
+        root.dataset.motionActive = 'true';
+        if (!reducedMotion) root.querySelectorAll<HTMLElement>('[data-outcome-value]').forEach(animateValue);
+      };
+
+      if (reducedMotion || !('IntersectionObserver' in window)) {
+        activate();
+        return;
+      }
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          activate();
+          observer.disconnect();
+        },
+        { threshold: 0.28 }
+      );
+      observer.observe(root);
+    });
+  }
+
+  initOutcomeMotion();
+  document.addEventListener('astro:page-load', initOutcomeMotion);
+</script>
+
+<style>
+  .outcomes { position: relative; overflow: hidden; border-bottom: 1px solid var(--cp-border-strong); background: var(--cp-surface); padding-block: 48px 56px; }
+  .outcomes::before { content: ''; position: absolute; inset: 0; opacity: 0; transform: translateX(-105%); background: linear-gradient(90deg, transparent 0 38%, var(--cp-accent-soft) 50%, transparent 62% 100%); pointer-events: none; }
+  .outcomes[data-motion-active]::before { animation: outcome-sweep 1.4s 140ms var(--ease) both; }
+  .outcomes-head { display: grid; grid-template-columns: .42fr 1.08fr 1fr; gap: 34px; align-items: end; }
+  .outcomes-head > p:first-child { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .outcomes-head h2 { max-width: 19ch; font-size: 2.25rem; line-height: 1; }
+  .outcomes-head > p:last-child { max-width: 48ch; color: var(--cp-text-muted); font-size: var(--type-small); line-height: 1.6; }
+  .outcome-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 32px; border-top: 1px solid var(--cp-border-strong); }
+  article { position: relative; min-height: 196px; border-right: 1px solid var(--cp-border); padding: 17px 24px 0 0; transition: background 220ms var(--ease); }
+  article::after { content: ''; position: absolute; right: 24px; bottom: 0; left: 0; height: 2px; transform: scaleX(0); transform-origin: left; background: linear-gradient(90deg, var(--cp-accent), transparent); }
+  .outcomes[data-motion-active] article { animation: outcome-arrive 620ms var(--ease) both; animation-delay: calc(120ms + var(--outcome-order) * 90ms); }
+  .outcomes[data-motion-active] article::after { animation: outcome-trace 800ms var(--ease) both; animation-delay: calc(360ms + var(--outcome-order) * 110ms); }
+  article:hover { background: linear-gradient(180deg, transparent, var(--cp-accent-soft)); }
+  article + article { padding-left: 24px; }
+  article:last-child { border-right: 0; }
+  article header { display: flex; align-items: center; gap: 9px; }
+  article header span { color: var(--cp-text-muted); font-size: var(--type-label); }
+  article header i { width: 28px; height: 2px; background: var(--cp-accent); transform-origin: left; transition: transform 240ms var(--ease); animation: impact-signal 4.2s var(--ease) infinite; animation-delay: calc(var(--outcome-order) * -1.05s); }
+  article:hover header i { transform: scaleX(1.8); }
+  article > strong { display: block; margin-top: 23px; color: var(--cp-text); font-family: var(--font-display); font-size: 2.6rem; line-height: .9; transition: color 180ms var(--ease), transform 180ms var(--ease); animation: impact-value 6.4s var(--ease) infinite; animation-delay: calc(var(--outcome-order) * -1.6s); }
+  article:hover > strong { transform: translateY(-3px); color: var(--cp-accent); }
+  article h3 { margin-top: 14px; font-size: .9rem; text-transform: uppercase; }
+  article p { max-width: 34ch; margin-top: 8px; color: var(--cp-text-muted); font-size: .76rem; line-height: 1.55; }
+  @keyframes outcome-sweep { 0% { opacity: 0; transform: translateX(-105%); } 35% { opacity: 1; } 100% { opacity: 0; transform: translateX(105%); } }
+  @keyframes outcome-arrive { from { opacity: .4; transform: translateY(16px); } }
+  @keyframes outcome-trace { to { transform: scaleX(1); } }
+  @keyframes impact-signal { 0%, 62%, 100% { opacity: .45; scale: 1 1; } 74% { opacity: 1; scale: 2.15 1; } }
+  @keyframes impact-value { 0%, 66%, 100% { color: var(--cp-text); text-shadow: none; } 76% { color: var(--cp-accent); text-shadow: 0 0 18px var(--cp-accent-soft); } }
+  @media (max-width: 900px) {
+    .outcomes-head { grid-template-columns: 1fr 1fr; }
+    .outcomes-head > p:first-child { grid-column: 1 / -1; }
+    .outcome-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    article:nth-child(2) { border-right: 0; }
+    article:nth-child(n + 3) { border-top: 1px solid var(--cp-border); }
+  }
+  @media (max-width: 560px) {
+    .outcomes { padding-block: 44px 50px; }
+    .outcomes-head { grid-template-columns: 1fr; gap: 12px; }
+    .outcome-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 28px; }
+    article,
+    article + article { min-height: 210px; border-top: 1px solid var(--cp-border); border-right: 1px solid var(--cp-border); padding: 17px 15px 14px 0; }
+    article:nth-child(even) { border-right: 0; padding-left: 15px; }
+    article:nth-child(-n + 2) { border-top: 0; }
+    article > strong { margin-top: 17px; font-size: 2rem; }
+    article h3 { font-size: .8rem; }
+    article p { font-size: .72rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .outcomes[data-motion-active]::before,
+    .outcomes[data-motion-active] article,
+    .outcomes[data-motion-active] article::after,
+    article header i,
+    article > strong { animation: none; }
+    .outcomes[data-motion-active] article::after { transform: scaleX(1); }
+  }
+</style>
