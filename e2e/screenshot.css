@@ -12,6 +12,8 @@
 .intro-pulse,
 .demo-light,
 .demo-scan,
-.demo-focus {
+.demo-focus,
+.header,
+.skip-link {
   display: none !important;
 }
