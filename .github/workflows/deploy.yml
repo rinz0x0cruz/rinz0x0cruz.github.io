@@ -51,7 +51,7 @@ jobs:
 
       - name: Build static site
         env:
-          PUBLIC_PLAUSIBLE_SCRIPT_URL: ${{ vars.PUBLIC_PLAUSIBLE_SCRIPT_URL }}
+          PUBLIC_ANALYTICS_ENDPOINT: ${{ vars.PUBLIC_ANALYTICS_ENDPOINT }}
         run: npm run build
 
       - name: Verify build artifact

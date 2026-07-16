@@ -2,8 +2,8 @@
 
 The portfolio is a static Astro site deployed to GitHub Pages. There is no
 runtime server, database, secret, CMS, build-time content fetch, or AI
-dependency. Optional Plausible analytics is a client-side enrichment and cannot
-affect site behavior.
+dependency. Optional self-owned analytics is a client-side enrichment and cannot
+affect site behavior; its Worker/D1 service deploys separately.
 
 ## Release path
 
@@ -63,11 +63,10 @@ its real `BUILD_DATE` in the separate validated artifact.
 
 ## Optional analytics configuration
 
-After creating the site in Plausible, add the repository Actions variable
-`PUBLIC_PLAUSIBLE_SCRIPT_URL` with the personalized HTTPS `pa-*.js` URL from the
-Plausible installation screen. Do not store it as a secret and do not add a
-hardcoded fallback. A missing variable intentionally produces no analytics
-script. DNT/GPC visitors also receive no provider request.
+After deploying `portfolio-analytics`, add the repository Actions variable
+`PUBLIC_ANALYTICS_ENDPOINT` with its HTTPS `/api/event` URL. Do not store it as
+a secret and do not add a hardcoded fallback. A missing variable intentionally
+produces no analytics client. DNT/GPC visitors produce no collector request.
 
 The allowed custom events are `contact_click`, `resume_download`,
 `project_live`, `project_source`, `work_detail_open`, and `blog_open`. Properties

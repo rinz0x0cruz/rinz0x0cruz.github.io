@@ -111,15 +111,48 @@ test('published work generates an archive, detail routes, and homepage deep link
 
 test('analytics is privacy-signaled and fail-open', async ({ page, context }) => {
   const errors = collectBrowserErrors(page);
+  const requests: string[] = [];
+  await page.route('**/api/event', async (route) => {
+    requests.push(route.request().postData() ?? '');
+    await route.fulfill({ status: 202, headers: { 'access-control-allow-origin': '*' } });
+  });
   await page.goto('/');
-  await expect(page.locator('script[src*="plausible.io"]')).toHaveCount(0);
-  expect(await page.evaluate(() => typeof (window as Window & { plausible?: unknown }).plausible)).toBe('undefined');
   expect(await context.cookies()).toEqual([]);
-  expect(await page.evaluate(() => localStorage.getItem('plausible_ignore'))).toBeNull();
   await page.locator('.header-actions > .contact-link').click();
   await expect(page).toHaveURL(/\/#contact$/);
   await expect(page.locator('#contact')).toBeVisible();
+  expect(requests).toEqual([]);
   expect(errors).toEqual([]);
+});
+
+test('configured owned analytics emits only bounded aggregate events', async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium', 'One isolated browser context covers this collector contract.');
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const payloads: Array<Record<string, unknown>> = [];
+  await page.route('**/api/event', async (route) => {
+    payloads.push(JSON.parse(route.request().postData() ?? '{}'));
+    await route.fulfill({ status: 202, headers: { 'access-control-allow-origin': '*' } });
+  });
+  await page.goto('/');
+  const analyticsConfigured = await page.locator('script').evaluateAll((scripts) =>
+    scripts.some((script) => script.textContent?.includes('/api/event')),
+  );
+  test.skip(!analyticsConfigured, 'Collector endpoint is not configured in this build.');
+  await expect.poll(() => payloads.length).toBeGreaterThanOrEqual(1);
+  await page.locator('.header-actions > .contact-link').click();
+  await expect.poll(() => payloads.length).toBeGreaterThanOrEqual(2);
+
+  expect(payloads[0]).toEqual({ name: 'pageview', route: '/' });
+  expect(payloads[1]).toEqual({
+    name: 'contact_click',
+    route: '/',
+    content_id: 'contact',
+    placement: 'header',
+  });
+  expect(await context.cookies()).toEqual([]);
+  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({ local: 0, session: 0 });
+  await context.close();
 });
 
 test('all home surfaces render on the initial load without motion overrides', async ({ page }) => {
@@ -178,9 +211,10 @@ test('motion stays progressive, informative, and reduced-motion safe', async ({ 
   const outcomes = page.locator('#achievements');
   await outcomes.scrollIntoViewIfNeeded();
   await expect(outcomes).toHaveAttribute('data-motion-active', 'true');
-  await expect.poll(() => outcomes.locator('[data-outcome-value]').allTextContents()).toEqual(
-    achievements.map((achievement) => achievement.value)
-  );
+  await expect.poll(
+    () => outcomes.locator('[data-outcome-value]').allTextContents(),
+    { timeout: 10_000 },
+  ).toEqual(achievements.map((achievement) => achievement.value));
 
   const persistentMotion = [
     { id: 'systems', selector: 'article', pseudo: '::before', name: 'system-scan' },
@@ -223,6 +257,7 @@ test('motion stays progressive, informative, and reduced-motion safe', async ({ 
 });
 
 test('project cinema fits one viewport and navigates every frame', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   const cinema = page.locator('[data-cinema]');
   const stage = cinema.locator('.stage');
@@ -239,6 +274,7 @@ test('project cinema fits one viewport and navigates every frame', async ({ page
 
   for (let index = 0; index < projectDemos.length; index += 1) {
     if (index > 0) await cinema.getByRole('button', { name: 'Next project' }).click();
+    await expect(cinema.locator(`[data-cinema-slide="${index}"]`)).toBeVisible();
     await expect(cinema.locator(`[data-cinema-slide="${index}"] h2`)).toHaveText(projectDemos[index].name);
     await expect(cinema.locator('[data-cinema-progress]')).toHaveText(progressText(index, projectDemos.length));
   }

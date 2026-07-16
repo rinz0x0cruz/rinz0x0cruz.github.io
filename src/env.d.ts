@@ -1,7 +1,7 @@
 /// <reference types="astro/client" />
 
 interface ImportMetaEnv {
-  readonly PUBLIC_PLAUSIBLE_SCRIPT_URL?: string;
+  readonly PUBLIC_ANALYTICS_ENDPOINT?: string;
 }
 
 interface ImportMeta {

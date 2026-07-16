@@ -23,11 +23,10 @@ import { site } from '@/data/site';
         </p>
         <h2>Aggregate analytics</h2>
         <p>
-          When the production site is configured for analytics, it uses the hosted
-          Plausible Analytics script. Plausible states that its service uses no cookies
-          or persistent identifiers and reports aggregate traffic rather than individual
-          visitor histories. If the site-specific script URL is not configured, no
-          analytics provider request is made.
+          When configured, this site sends bounded events to a collector owned by the
+          site operator and hosted on Cloudflare Workers with aggregate storage in
+          Cloudflare D1. There is no third-party analytics product or public dashboard.
+          If the collector endpoint is not configured, no analytics request is made.
         </p>
         <p>The site limits custom measurement to these commands:</p>
         <ul>
@@ -37,15 +36,18 @@ import { site } from '@/data/site';
         </ul>
         <p>
           Event properties are limited to the current route, a stable content ID, and
-          the command's placement. Query strings, URL fragments, email addresses,
-          free-form text, résumé contents, and user IDs are not sent as event properties.
+          the command's placement. The collector may add coarse country and device class
+          and stores only a referrer's hostname. Query strings, URL fragments, IP
+          addresses, full user agents, email addresses, free-form text, résumé contents,
+          cookies, persistent identifiers, and individual visitor records are not stored.
+          Aggregate rows are deleted after 24 months.
         </p>
         <h2>Privacy signals</h2>
         <p>
           If your browser sends Global Privacy Control or Do Not Track, this site skips
-          analytics initialization and does not load the provider script. Analytics is
-          also disabled during local development and remains non-essential: blocking the
-          provider cannot change any page, command, download, or contact path.
+          analytics initialization. Analytics is also disabled during local development
+          and remains non-essential: blocking or losing the collector cannot change any
+          page, command, download, or contact path.
         </p>
         <h2>Contact</h2>
         <p>

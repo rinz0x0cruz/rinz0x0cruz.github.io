@@ -16,7 +16,7 @@ Live: <https://rinz0x0cruz.github.io>
 - Keyboard-accessible project frames with contained telemetry, hotspots, and reduced-motion support
 - Shareable project/case details with responsive AVIF/WebP media and generated social cards
 - Sitemap, RSS, and JSON-LD `ProfilePage`, `BlogPosting`, `SoftwareSourceCode`, and `CreativeWork` metadata
-- Optional cookieless Plausible analytics that remains disabled and fail-open until configured
+- Optional self-owned aggregate analytics that remains disabled and fail-open until configured
 
 ## Develop
 
@@ -185,12 +185,12 @@ Records older than 90 days are reported; only the monthly scheduled workflow
 fails records older than 180 days. The reference date is deterministic in CI
 through `BUILD_DATE`.
 
-Analytics is off by default. To activate hosted Plausible, create a repository
-Actions variable named `PUBLIC_PLAUSIBLE_SCRIPT_URL` containing the personalized
-HTTPS `pa-*.js` URL shown by Plausible's site-installation screen. It is not a
-secret. Production then tracks only the six documented aggregate command events
-with route, stable content ID, and placement. DNT/GPC prevents the provider
-script from loading; no feature depends on it. See `/privacy/` and
+Analytics is off by default. To activate the separately deployed owner-controlled
+collector, create a repository Actions variable named `PUBLIC_ANALYTICS_ENDPOINT`
+containing its HTTPS `/api/event` URL. It is not a secret. Production then tracks
+pageviews and only the six documented aggregate command events with route, stable
+content ID, and placement. DNT/GPC prevents collection; no feature depends on it.
+See `/privacy/` and
 [`ACCESSIBILITY.md`](ACCESSIBILITY.md).
 
 ## Crawl policy
