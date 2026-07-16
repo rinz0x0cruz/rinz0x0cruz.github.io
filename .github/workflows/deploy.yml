@@ -74,10 +74,40 @@ jobs:
         with:
           path: dist
 
+  visual:
+    name: Visual regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build fixed visual fixture
+        env:
+          BUILD_DATE: '2026-07-16'
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Compare reviewed baselines
+        run: npm run test:visual
+
   deploy:
     name: Deploy GitHub Pages
     if: github.event_name != 'pull_request'
-    needs: validate
+    needs: [validate, visual]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

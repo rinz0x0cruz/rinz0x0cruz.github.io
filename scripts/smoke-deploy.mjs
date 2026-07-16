@@ -44,18 +44,50 @@ for (let attempt = 1; attempt <= attempts; attempt += 1) {
 if (!metadata) throw new Error(`Deployment did not expose commit ${expectedSha} within ${(attempts * delayMs) / 1000}s.`);
 
 const endpoints = [
-  '',
-  'writeups/',
-  'rss.xml',
-  'sitemap-index.xml',
-  'robots.txt',
-  'Mohit-Sharma-Resume.pdf',
+  { path: '', includes: ['ProfilePage', '/work/exploitrank/', 'data-analytics-event="work_detail_open"'] },
+  { path: 'work/', includes: ['Systems and investigations', '/work/midnight-blizzard/'] },
+  { path: 'work/exploitrank/', includes: ['SoftwareSourceCode', '/social/work/exploitrank.png', 'href="/#contact"'] },
+  { path: 'work/midnight-blizzard/', includes: ['CreativeWork', 'Disclosure boundary', 'href="/#contact"'] },
+  { path: 'writeups/', includes: ['Signals, decisions', 'data-analytics-event="blog_open"'] },
+  { path: 'privacy/', includes: ['Measure the work, not the visitor', 'Global Privacy Control'] },
+  { path: 'rss.xml' },
+  { path: 'sitemap-index.xml' },
+  { path: 'robots.txt' },
+  { path: 'Mohit-Sharma-Resume.pdf' },
 ];
-for (const path of endpoints) {
-  const response = await fetchFresh(path);
-  if (!response.ok) throw new Error(`${new URL(path, baseUrl).href} returned ${response.status}.`);
+for (const endpoint of endpoints) {
+  const response = await fetchFresh(endpoint.path);
+  const url = new URL(endpoint.path, baseUrl).href;
+  if (!response.ok) throw new Error(`${url} returned ${response.status}.`);
   const body = await response.arrayBuffer();
-  if (!body.byteLength) throw new Error(`${new URL(path, baseUrl).href} returned an empty body.`);
+  if (!body.byteLength) throw new Error(`${url} returned an empty body.`);
+  if (endpoint.includes) {
+    const text = new TextDecoder().decode(body);
+    for (const expected of endpoint.includes) {
+      if (!text.includes(expected)) throw new Error(`${url} is missing expected content: ${expected}`);
+    }
+  }
+}
+
+const socialCards = [
+  'social/work/exploitrank.png',
+  'social/work/midnight-blizzard.png',
+  'social/writeups/patch-by-exploitability-not-cvss.png',
+];
+for (const path of socialCards) {
+  const response = await fetchFresh(path);
+  const url = new URL(path, baseUrl).href;
+  if (!response.ok) throw new Error(`${url} returned ${response.status}.`);
+  if (response.headers.get('content-type') !== 'image/png') throw new Error(`${url} is not served as image/png.`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (bytes.length < 24 || pngSignature.some((byte, index) => bytes[index] !== byte)) {
+    throw new Error(`${url} is not a valid PNG.`);
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = view.getUint32(16);
+  const height = view.getUint32(20);
+  if (width !== 1200 || height !== 630) throw new Error(`${url} is ${width}x${height}; expected 1200x630.`);
 }
 
 const summary = [
@@ -65,6 +97,7 @@ const summary = [
   `- Commit: \`${metadata.commit}\``,
   `- Build date: ${metadata.buildDate}`,
   `- Published writeups: ${metadata.writeupCount}`,
+  `- Published work details: ${metadata.workCount}`,
   `- JavaScript: ${metadata.assets.js.gzipBytes} bytes gzip`,
   `- CSS: ${metadata.assets.css.gzipBytes} bytes gzip`,
   '',

@@ -57,8 +57,9 @@ Ubuntu Chromium PNG before adding the Linux files under
 Windows baseline files are ignored because rendering differs by OS. Never
 promote a baseline only to make a failed comparison green; tie it to an
 intentional reviewed UI change. The manual generator never writes back to the
-repository. Once the first reviewed Linux set is committed, add
-`npm run test:visual` to the required Ubuntu validation job.
+repository. The required **Visual regression** job builds a fixed-date fixture
+and compares the reviewed Linux set before Pages can deploy; production keeps
+its real `BUILD_DATE` in the separate validated artifact.
 
 ## Optional analytics configuration
 
