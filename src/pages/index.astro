@@ -1,4 +1,5 @@
 ---
+import { getCollection } from "astro:content";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import Nav from "@/components/PortfolioHeader.astro";
 import ProfileIntro from "@/components/ProfileIntro.astro";
@@ -22,9 +23,17 @@ const homepageSections = [
   TrajectoryProfiles,
   WritingContact,
 ] as const;
+const [publishedWork, publishedWriteups] = await Promise.all([
+  getCollection('work', ({ data }) => !data.draft),
+  getCollection('writeups', ({ data }) => !data.draft),
+]);
+const profileHasPart = [
+  ...publishedWork.map((entry) => `/work/${entry.id}/`),
+  ...publishedWriteups.map((entry) => `/writeups/${entry.id}/`),
+];
 ---
 
-<BaseLayout>
+<BaseLayout profilePage profileHasPart={profileHasPart}>
   <Nav />
   <main id="main">
     {homepageSections.map((Section) => <Section />)}

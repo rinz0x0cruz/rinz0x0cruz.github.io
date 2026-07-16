@@ -25,7 +25,7 @@ const languages = resume.languages.map((language) => language.replace(/\s+--.*$/
           <span aria-hidden="true">↗</span>
         </header>
         <dl>{profile.metrics.map((metric, metricIndex) => <div style={`--metric-order:${metricIndex}`}><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl>
-        <small class="mono">{profile.verifiedAt}</small>
+        <small class="mono"><time datetime={profile.snapshotDate}>{profile.verifiedAt}</time></small>
       </a>
     ))}
   </div>

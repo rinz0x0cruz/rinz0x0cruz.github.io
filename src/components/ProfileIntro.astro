@@ -61,13 +61,13 @@ const identityLinks = site.socials.filter((social) => social.featured);
       <div class="identity-actions">
         <div>
           <a class="btn btn-primary" href="#work">Selected work <span aria-hidden="true">↓</span></a>
-          <a class="btn" href={site.resumeUrl} download>Resume</a>
+          <a class="btn" href={site.resumeUrl} download data-analytics-event="resume_download" data-analytics-id="resume" data-analytics-placement="hero">Resume</a>
         </div>
         <nav aria-label="Primary identity links">
           {identityLinks.map((social) => (
             <a href={social.url} target="_blank" rel="me noopener">{social.name} <span aria-hidden="true">↗</span></a>
           ))}
-          <a href={`mailto:${site.email}`}>Email <span aria-hidden="true">↗</span></a>
+          <a href={`mailto:${site.email}`} data-analytics-event="contact_click" data-analytics-id="email" data-analytics-placement="hero">Email <span aria-hidden="true">↗</span></a>
         </nav>
       </div>
     </footer>

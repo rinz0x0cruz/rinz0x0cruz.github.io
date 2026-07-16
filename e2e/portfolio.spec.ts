@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import matter from 'gray-matter';
 import { achievements, caseStudies, projectDemos, publicProfiles } from '../src/data/portfolio';
 import { projects } from '../src/data/projects';
@@ -10,8 +10,13 @@ const publishedWriteupCount = readdirSync(writeupDirectory)
   .filter((file) => file.endsWith('.md'))
   .filter((file) => !matter(readFileSync(new URL(file, writeupDirectory), 'utf8')).data.draft)
   .length;
-const demoProjectNames = new Set(projectDemos.map((demo) => demo.catalogProject));
-const systemProjectCount = projects.filter((project) => !demoProjectNames.has(project.name)).length;
+const workDirectory = new URL('../src/content/work/', import.meta.url);
+const publishedWork = readdirSync(workDirectory)
+  .filter((file) => file.endsWith('.md'))
+  .map((file) => ({ slug: file.slice(0, -3), data: matter(readFileSync(new URL(file, workDirectory), 'utf8')).data }))
+  .filter((entry) => !entry.data.draft);
+const demoProjectIds = new Set(projectDemos.map((demo) => demo.projectSourceId));
+const systemProjectCount = projects.filter((project) => !demoProjectIds.has(project.sourceId)).length;
 const progressText = (index: number, total: number) =>
   `${String(index + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
 
@@ -29,6 +34,22 @@ async function expectAccessible(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
   expect(results.violations).toEqual([]);
 }
+
+async function expectTargetSize(locator: Locator) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(24);
+  expect(box!.height).toBeGreaterThanOrEqual(24);
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, 'doNotTrack', {
+      configurable: true,
+      get: () => '1',
+    });
+  });
+});
 
 test('home, archive, article, and 404 routes stay healthy', async ({ page }) => {
   const errors = collectBrowserErrors(page);
@@ -53,6 +74,52 @@ test('home, archive, article, and 404 routes stay healthy', async ({ page }) => 
   await page.goto('/does-not-exist/');
   await expect(page.locator('h1')).toContainText('404');
   await expect(page.getByRole('link', { name: /back home/i })).toHaveAttribute('href', '/');
+});
+
+test('published work generates an archive, detail routes, and homepage deep links', async ({ page }) => {
+  const errors = collectBrowserErrors(page);
+  await page.goto('/work/');
+  await expect(page.locator('.work-grid > article')).toHaveCount(publishedWork.length);
+
+  for (const work of publishedWork) {
+    await page.goto(`/work/${work.slug}/`);
+    await expect(page.locator('article h1')).toBeVisible();
+    await expect(page.locator('.visual-band img')).toHaveJSProperty('complete', true);
+    await expect(page.locator('.evidence-band li')).toHaveCount(work.data.evidence.length);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `https://rinz0x0cruz.github.io/social/work/${work.slug}.png`);
+    await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute('content', /technical deep-dive preview/);
+    await expect(page.getByRole('link', { name: 'Contact', exact: true }).last()).toHaveAttribute('href', '/#contact');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+  }
+
+  await page.goto('/');
+  for (const work of publishedWork.filter((entry) => entry.data.kind === 'project')) {
+    const index = projectDemos.findIndex((demo) => demo.projectSourceId === work.data.sourceId);
+    expect(index).toBeGreaterThanOrEqual(0);
+    await page.locator(`[data-cinema-jump="${index}"]`).click();
+    await expect(page.locator(`[data-cinema-slide="${index}"] .caption-link`)).toHaveAttribute('href', `/work/${work.slug}/`);
+  }
+  for (const work of publishedWork.filter((entry) => entry.data.kind === 'case-study')) {
+    const index = caseStudies.findIndex((study) => study.sourceId === work.data.sourceId);
+    expect(index).toBeGreaterThanOrEqual(0);
+    await page.locator(`[data-case-jump="${index}"]`).click();
+    await expect(page.locator(`[data-case-slide="${index}"] .case-detail-link`)).toHaveAttribute('href', `/work/${work.slug}/`);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('analytics is privacy-signaled and fail-open', async ({ page, context }) => {
+  const errors = collectBrowserErrors(page);
+  await page.goto('/');
+  await expect(page.locator('script[src*="plausible.io"]')).toHaveCount(0);
+  expect(await page.evaluate(() => typeof (window as Window & { plausible?: unknown }).plausible)).toBe('undefined');
+  expect(await context.cookies()).toEqual([]);
+  expect(await page.evaluate(() => localStorage.getItem('plausible_ignore'))).toBeNull();
+  await page.locator('.header-actions > .contact-link').click();
+  await expect(page).toHaveURL(/\/#contact$/);
+  await expect(page.locator('#contact')).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
 test('all home surfaces render on the initial load without motion overrides', async ({ page }) => {
@@ -187,8 +254,8 @@ test('project cinema fits one viewport and navigates every frame', async ({ page
 test('project previews are interactive but remain contained and non-navigable', async ({ page, isMobile }) => {
   await page.goto('/');
   const cinema = page.locator('[data-cinema]');
-  const exploitIndex = projectDemos.findIndex((demo) => demo.catalogProject === 'exploitrank');
-  const malscopeIndex = projectDemos.findIndex((demo) => demo.catalogProject === 'malscope-dashboard');
+  const exploitIndex = projectDemos.findIndex((demo) => demo.projectSourceId === 'exploitrank');
+  const malscopeIndex = projectDemos.findIndex((demo) => demo.projectSourceId === 'malscope-dashboard');
   expect(exploitIndex).toBeGreaterThanOrEqual(0);
   expect(malscopeIndex).toBeGreaterThanOrEqual(0);
   await cinema.getByRole('button', { name: projectDemos[exploitIndex].name, exact: true }).click();
@@ -292,7 +359,7 @@ test('shared navigation returns nested pages to home sections', async ({ page, i
 });
 
 test('header contact action reaches the contact section from primary routes', async ({ page }) => {
-  for (const path of ['/', '/writeups/']) {
+  for (const path of ['/', '/writeups/', '/work/']) {
     await page.goto(path);
     const contactAction = page.locator('.header-actions > .contact-link');
     await expect(contactAction).toBeVisible();
@@ -365,11 +432,82 @@ test('explicit theme selection overrides storage and updates browser chrome', as
 });
 
 test('primary routes have no WCAG A/AA violations', async ({ page }) => {
-  for (const path of ['/', '/writeups/', '/writeups/patch-by-exploitability-not-cvss/']) {
+  for (const path of ['/', '/privacy/', '/writeups/', '/writeups/patch-by-exploitability-not-cvss/', '/work/', '/work/exploitrank/', '/work/midnight-blizzard/']) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(path);
     await expectAccessible(page);
   }
+});
+
+test('revealed interactive states remain accessible in both themes', async ({ page, isMobile }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+
+  if (isMobile) {
+    await page.locator('.nav-mobile summary').click();
+    await expectAccessible(page);
+    await page.locator('.nav-mobile summary').click();
+  }
+
+  const terminalOpener = isMobile
+    ? page.locator('.nav-mobile').locator('[data-open-terminal]')
+    : page.locator('.terminal-button');
+  if (isMobile) await page.locator('.nav-mobile summary').click();
+  await terminalOpener.click();
+  await expect(page.getByRole('dialog', { name: 'Interactive terminal' })).toBeVisible();
+  await expectAccessible(page);
+  await page.keyboard.press('Escape');
+
+  const firstHotspot = page.locator('[data-cinema-slide="0"] [data-demo-hotspot]').first();
+  await firstHotspot.click();
+  await expect(firstHotspot).toHaveAttribute('aria-expanded', 'true');
+  await expectAccessible(page);
+
+  for (let index = 0; index < caseStudies.length; index += 1) {
+    await page.locator(`[data-case-jump="${index}"]`).click();
+    await expect(page.locator(`[data-case-slide="${index}"]`)).toBeVisible();
+    await expectAccessible(page);
+  }
+
+  await page.locator('#contact .contact-email').focus();
+  await expect(page.locator('#contact .contact-email')).toBeFocused();
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: 'Switch color theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expectAccessible(page);
+});
+
+test('key commands meet target-size and focus-indicator contracts', async ({ page, isMobile }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+
+  const targets = [
+    page.locator('.header-actions > .contact-link'),
+    page.locator('#work [data-cinema-prev]'),
+    page.locator('#work [data-cinema-next]'),
+    page.locator('#work [data-demo-hotspot]').first(),
+    page.locator('#casework [data-case-prev]'),
+    page.locator('#casework [data-case-next]'),
+    page.locator('#contact .contact-email'),
+  ];
+  if (isMobile) targets.push(page.locator('.nav-mobile summary'));
+  else targets.push(page.locator('.header-actions > .resume-link'));
+  for (const target of targets) await expectTargetSize(target);
+
+  await page.keyboard.press('Tab');
+  const skipLink = page.locator('.skip-link');
+  await expect(skipLink).toBeFocused();
+  await expect(skipLink).toHaveCSS('outline-style', 'solid');
+  await expect(skipLink).toHaveCSS('outline-width', '2px');
+  const skipBox = await skipLink.boundingBox();
+  expect(skipBox).not.toBeNull();
+  expect(skipBox!.y).toBeGreaterThanOrEqual(0);
+
+  await page.goto('/work/exploitrank/');
+  const workCommands = page.locator('.summary-block nav a');
+  await expect(workCommands).toHaveCount(3);
+  for (const command of await workCommands.all()) await expectTargetSize(command);
 });
 
 test('homepage leads with identity and orders proof before projects and casework', async ({ page }) => {

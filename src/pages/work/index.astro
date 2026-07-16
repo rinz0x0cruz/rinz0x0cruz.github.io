@@ -1,0 +1,95 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Nav from '@/components/PortfolioHeader.astro';
+import Footer from '@/components/Footer.astro';
+import Terminal from '@/components/Terminal.astro';
+import WorkImage from '@/components/WorkImage.astro';
+import { formatDate, isoDate } from '@/utils/format';
+import { resolveWorkRecord } from '@/utils/work';
+
+const work = (await getCollection('work'))
+  .filter((entry) => !entry.data.draft)
+  .map((entry) => ({ entry, resolved: resolveWorkRecord(entry.data.kind, entry.data.sourceId) }))
+  .sort((left, right) => {
+    if (left.entry.data.kind !== right.entry.data.kind) return left.entry.data.kind === 'project' ? -1 : 1;
+    return right.entry.data.published.valueOf() - left.entry.data.published.valueOf();
+  });
+---
+
+<BaseLayout
+  title="Work"
+  description="Technical project and investigation details: architecture, evidence, constraints, tradeoffs, and operational outcomes."
+>
+  <Nav />
+  <main id="main">
+    <header class="work-head section">
+      <div class="container">
+        <a class="back mono" href="/#work">← Portfolio</a>
+        <p class="section-label">Selected work · Evidence archive</p>
+        <h1>Systems and investigations, with the decisions exposed.</h1>
+        <p class="lead">Architecture, evidence paths, constraints, and tradeoffs behind the compact portfolio view.</p>
+      </div>
+    </header>
+
+    <section class="work-list section" aria-labelledby="work-list-title">
+      <div class="container">
+        <h2 id="work-list-title" class="visually-hidden">Published work</h2>
+        <div class="work-grid">
+          {work.map(({ entry, resolved }, index) => {
+            const title = resolved.kind === 'project' ? resolved.record.name : resolved.record.title;
+            const summary = resolved.kind === 'project' ? resolved.record.description : resolved.record.summary;
+            const label = resolved.kind === 'project' ? 'Built system' : resolved.record.label;
+            return (
+              <article>
+                <a href={`/work/${entry.id}/`} aria-label={`Read ${title} deep dive`} data-analytics-event="work_detail_open" data-analytics-id={entry.data.sourceId} data-analytics-placement="work_archive">
+                  <WorkImage src={entry.data.heroImage} alt={entry.data.heroAlt} variant="card" priority={index === 0} />
+                  <div class="work-copy">
+                    <div class="work-kicker mono">
+                      <span>{String(index + 1).padStart(2, '0')}</span>
+                      <span>{label}</span>
+                    </div>
+                    <h3>{title}</h3>
+                    <p>{summary}</p>
+                    <footer>
+                      <time datetime={isoDate(entry.data.snapshotDate)}>Evidence {formatDate(entry.data.snapshotDate)}</time>
+                      <span>Deep dive →</span>
+                    </footer>
+                  </div>
+                </a>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+  <Terminal />
+</BaseLayout>
+
+<style>
+  main { background: var(--cp-bg-elevated); }
+  .work-head { padding-bottom: 64px; border-bottom: 1px solid var(--cp-border-strong); background: var(--cp-bg); }
+  .back { display: inline-block; margin-bottom: 48px; color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .work-head h1 { max-width: 14ch; font-size: var(--type-feature); }
+  .lead { max-width: 56ch; margin-top: 28px; color: var(--cp-text-soft); font-size: var(--type-lead); }
+  .work-list { padding-top: 72px; }
+  .work-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 24px; }
+  article { min-width: 0; border-bottom: 1px solid var(--cp-border-strong); }
+  article > a { display: grid; height: 100%; grid-template-rows: auto 1fr; color: var(--cp-text); }
+  article > a:hover h3 { color: var(--cp-accent); }
+  .work-copy { display: flex; min-height: 330px; flex-direction: column; padding: 26px 4px 22px; }
+  .work-kicker { display: flex; justify-content: space-between; gap: 16px; color: var(--cp-accent); font-size: var(--type-label); text-transform: uppercase; }
+  h3 { max-width: 18ch; margin-top: 20px; font-size: var(--type-display); }
+  .work-copy > p { max-width: 58ch; margin-top: 18px; color: var(--cp-text-soft); font-size: var(--type-small); line-height: 1.7; }
+  .work-copy footer { display: flex; justify-content: space-between; gap: 18px; margin-top: auto; padding-top: 30px; color: var(--cp-text-muted); font-family: var(--font-mono); font-size: var(--type-label); text-transform: uppercase; }
+  .work-copy footer span { color: var(--cp-accent); font-weight: 700; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; clip-path: inset(50%); }
+  @media (max-width: 720px) {
+    .work-head h1 { font-size: 3.25rem; }
+    .work-list { padding-top: 48px; }
+    .work-copy { min-height: 300px; }
+    .work-copy footer { align-items: flex-start; flex-direction: column; }
+  }
+</style>

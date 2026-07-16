@@ -1,0 +1,69 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Nav from '@/components/PortfolioHeader.astro';
+import Footer from '@/components/Footer.astro';
+import Terminal from '@/components/Terminal.astro';
+import { site } from '@/data/site';
+---
+
+<BaseLayout
+  title="Privacy"
+  description="Privacy and aggregate analytics policy for Mohit Sharma's portfolio."
+>
+  <Nav />
+  <main id="main" class="section">
+    <article class="container policy">
+      <a class="back mono" href="/">← Portfolio</a>
+      <p class="section-label">Privacy · Analytics</p>
+      <h1>Measure the work, not the visitor.</h1>
+      <div class="prose">
+        <p>
+          This is a static portfolio. It has no account system, advertising network,
+          session replay, fingerprinting, or contact form database.
+        </p>
+        <h2>Aggregate analytics</h2>
+        <p>
+          When the production site is configured for analytics, it uses the hosted
+          Plausible Analytics script. Plausible states that its service uses no cookies
+          or persistent identifiers and reports aggregate traffic rather than individual
+          visitor histories. If the site-specific script URL is not configured, no
+          analytics provider request is made.
+        </p>
+        <p>The site limits custom measurement to these commands:</p>
+        <ul>
+          <li>contact and résumé actions;</li>
+          <li>project live-site and source-code actions;</li>
+          <li>work-detail and blog opens.</li>
+        </ul>
+        <p>
+          Event properties are limited to the current route, a stable content ID, and
+          the command's placement. Query strings, URL fragments, email addresses,
+          free-form text, résumé contents, and user IDs are not sent as event properties.
+        </p>
+        <h2>Privacy signals</h2>
+        <p>
+          If your browser sends Global Privacy Control or Do Not Track, this site skips
+          analytics initialization and does not load the provider script. Analytics is
+          also disabled during local development and remains non-essential: blocking the
+          provider cannot change any page, command, download, or contact path.
+        </p>
+        <h2>Contact</h2>
+        <p>
+          Questions about this policy can be sent to
+          <a href={`mailto:${site.email}`}>{site.email}</a>.
+        </p>
+      </div>
+    </article>
+  </main>
+  <Footer />
+  <Terminal />
+</BaseLayout>
+
+<style>
+  main { background: var(--cp-bg-elevated); }
+  .policy { max-width: 900px; }
+  .back { display: inline-block; margin-bottom: 48px; color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  h1 { max-width: 14ch; margin-bottom: 56px; font-size: var(--type-feature); }
+  .prose { margin-inline: auto; }
+  @media (max-width: 620px) { h1 { font-size: 3.25rem; } }
+</style>

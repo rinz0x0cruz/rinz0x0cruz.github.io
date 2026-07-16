@@ -1,7 +1,9 @@
 # Deployment and Operations
 
 The portfolio is a static Astro site deployed to GitHub Pages. There is no
-runtime server, database, secret, CMS, external content fetch, or AI dependency.
+runtime server, database, secret, CMS, build-time content fetch, or AI
+dependency. Optional Plausible analytics is a client-side enrichment and cannot
+affect site behavior.
 
 ## Release path
 
@@ -11,11 +13,13 @@ runtime server, database, secret, CMS, external content fetch, or AI dependency.
 4. The workflow uploads the already-tested `dist/` directory and deploys it.
 5. **Verify live deployment** waits for `build-meta.json` to report the merged
    commit, then checks the home page, writeup archive, RSS, sitemap, robots file,
-   and résumé PDF.
+  work/archive routes, generated social cards, privacy page, and résumé PDF.
 
 The same deployment can be started manually from **Actions -> Portfolio CI and
 Deploy -> Run workflow**. A scheduled deployment runs at 06:00 UTC on the first
-day of each month to refresh current-role experience.
+day of each month to refresh current-role experience and enforce the 180-day
+evidence-snapshot ceiling. Ordinary pull requests warn after 90 days without
+blocking unrelated work.
 
 ## Local release check
 
@@ -30,8 +34,45 @@ npm audit
 ```
 
 `verify:build` parses the generated HTML, JSON-LD, RSS, and sitemaps; verifies
-required assets and route consistency; writes `dist/build-meta.json`; and
-enforces first-party JavaScript/CSS gzip budgets.
+required work/privacy routes, social-card dimensions/uniqueness, image alt and
+intrinsic dimensions, analytics event taxonomy, and route consistency; writes
+`dist/build-meta.json`; and enforces JavaScript, CSS, source-image, generated
+image, and social-card budgets.
+
+Scheduled and manually dispatched runs also execute three Lighthouse audits for
+the home page, one work detail, and one article. The Actions summary reports the
+median performance score, LCP, CLS, and TBT. Threshold misses are advisory and
+cannot block upload or deployment; field Core Web Vitals take precedence when
+enough traffic exists.
+
+## Visual baselines
+
+Visual comparisons use reduced motion, fixed desktop/mobile viewports, local
+fonts, a screenshot stylesheet, CSS-pixel scaling, and platform-specific
+baselines. Generate candidates with **Actions -> Generate visual baselines ->
+Run workflow**. Download the `visual-baselines-<sha>` artifact and inspect every
+Ubuntu Chromium PNG before adding the Linux files under
+`e2e/visual.spec.ts-snapshots/`.
+
+Windows baseline files are ignored because rendering differs by OS. Never
+promote a baseline only to make a failed comparison green; tie it to an
+intentional reviewed UI change. The manual generator never writes back to the
+repository. Once the first reviewed Linux set is committed, add
+`npm run test:visual` to the required Ubuntu validation job.
+
+## Optional analytics configuration
+
+After creating the site in Plausible, add the repository Actions variable
+`PUBLIC_PLAUSIBLE_SCRIPT_URL` with the personalized HTTPS `pa-*.js` URL from the
+Plausible installation screen. Do not store it as a secret and do not add a
+hardcoded fallback. A missing variable intentionally produces no analytics
+script. DNT/GPC visitors also receive no provider request.
+
+The allowed custom events are `contact_click`, `resume_download`,
+`project_live`, `project_source`, `work_detail_open`, and `blog_open`. Properties
+are restricted to route, stable content ID, and placement. Verify activation in
+the provider's live dashboard without sending test events from real visitor
+sessions.
 
 ## Repository settings
 
@@ -77,7 +118,8 @@ a separate rollback workflow that can deploy untested historical dependencies.
 
 ## Content recovery
 
-Writeups live only in `src/content/writeups/` and are versioned with the site.
-Restore a deleted or damaged post from git history and use the normal pull
-request path. The old `rinz0x0cruz/writeups` repository is deprecated and must
-not be reintroduced as a build-time source.
+Writeups live in `src/content/writeups/`; long-form project/case evidence lives
+in `src/content/work/`; canonical work images live in `src/assets/work/`. Restore
+deleted or damaged content from git history and use the normal pull-request
+path. The old `rinz0x0cruz/writeups` repository is deprecated and must not be
+reintroduced as a build-time source.

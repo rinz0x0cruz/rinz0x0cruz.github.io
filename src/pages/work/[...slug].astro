@@ -1,0 +1,200 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Nav from '@/components/PortfolioHeader.astro';
+import Footer from '@/components/Footer.astro';
+import Terminal from '@/components/Terminal.astro';
+import WorkImage from '@/components/WorkImage.astro';
+import { formatDate, isoDate } from '@/utils/format';
+import { resolveWorkRecord } from '@/utils/work';
+
+export const getStaticPaths = (async () => {
+  const work = (await getCollection('work')).filter((entry) => !entry.data.draft);
+  return work.map((entry) => ({ params: { slug: entry.id }, props: { work: entry } }));
+}) satisfies GetStaticPaths;
+
+const { work } = Astro.props as { work: CollectionEntry<'work'> };
+const { Content } = await render(work);
+const resolved = resolveWorkRecord(work.data.kind, work.data.sourceId);
+const isProject = resolved.kind === 'project';
+const title = isProject ? resolved.record.name : resolved.record.title;
+const description = isProject ? resolved.record.description : resolved.record.summary;
+const label = isProject ? 'Built system' : resolved.record.label;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site).href;
+const socialImage = `/social/work/${work.id}.png`;
+const socialImageURL = new URL(socialImage, Astro.site).href;
+const socialImageAlt = `${title} technical deep-dive preview with supporting visual evidence.`;
+const imageSchema = {
+  '@type': 'ImageObject',
+  url: socialImageURL,
+  width: 1200,
+  height: 630,
+  caption: socialImageAlt,
+};
+const pageStructuredData = isProject
+  ? {
+      '@type': 'SoftwareSourceCode',
+      '@id': `${canonicalURL}#work`,
+      name: resolved.record.name,
+      description: resolved.record.description,
+      url: canonicalURL,
+      mainEntityOfPage: canonicalURL,
+      creator: { '@id': 'https://rinz0x0cruz.github.io/#person' },
+      datePublished: work.data.published.toISOString(),
+      ...(work.data.updated ? { dateModified: work.data.updated.toISOString() } : {}),
+      image: imageSchema,
+      codeRepository: resolved.record.links.repo,
+      programmingLanguage: [...resolved.record.stack],
+      codeSampleType: 'Full solution',
+      creativeWorkStatus: resolved.record.status,
+      keywords: [...resolved.record.tags],
+    }
+  : {
+      '@type': 'CreativeWork',
+      '@id': `${canonicalURL}#work`,
+      name: resolved.record.title,
+      abstract: resolved.record.summary,
+      description: resolved.record.outcome,
+      url: canonicalURL,
+      mainEntityOfPage: canonicalURL,
+      creator: { '@id': 'https://rinz0x0cruz.github.io/#person' },
+      datePublished: work.data.published.toISOString(),
+      ...(work.data.updated ? { dateModified: work.data.updated.toISOString() } : {}),
+      contentReferenceTime: work.data.snapshotDate.toISOString(),
+      image: imageSchema,
+      keywords: [resolved.record.label, ...resolved.record.approach],
+      isAccessibleForFree: true,
+    };
+const facts = isProject
+  ? [
+      ['Status', resolved.record.status],
+      ['Stack', resolved.record.stack.join(' · ')],
+      ['Focus', resolved.record.tags.join(' · ')],
+    ]
+  : [
+      ['Role', resolved.record.role],
+      ['Constraints', resolved.record.constraints],
+    ];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  image={socialImage}
+  imageAlt={socialImageAlt}
+  pageStructuredData={pageStructuredData}
+>
+  <Nav />
+  <main id="main">
+    <article>
+      <header class="detail-head section">
+        <div class="container">
+          <a class="back mono" href="/work/">← Work archive</a>
+          <div class="detail-grid">
+            <div>
+              <p class="section-label">{label} · Deep dive</p>
+              <h1>{title}</h1>
+            </div>
+            <div class="summary-block">
+              <p>{description}</p>
+              <nav aria-label={`${title} actions`}>
+                {isProject && resolved.record.links.live && <a class="btn btn-primary" href={resolved.record.links.live} target="_blank" rel="noreferrer" data-analytics-event="project_live" data-analytics-id={resolved.record.sourceId} data-analytics-placement="work_detail">Live project ↗</a>}
+                {isProject && resolved.record.links.repo && <a class="btn" href={resolved.record.links.repo} target="_blank" rel="noreferrer" data-analytics-event="project_source" data-analytics-id={resolved.record.sourceId} data-analytics-placement="work_detail">Source ↗</a>}
+                <a class="btn" href="/#contact" data-analytics-event="contact_click" data-analytics-id="contact" data-analytics-placement="work_detail">Contact</a>
+              </nav>
+            </div>
+          </div>
+          <dl class="dates mono">
+            <div><dt>Published</dt><dd><time datetime={isoDate(work.data.published)}>{formatDate(work.data.published)}</time></dd></div>
+            {work.data.updated && <div><dt>Updated</dt><dd><time datetime={isoDate(work.data.updated)}>{formatDate(work.data.updated)}</time></dd></div>}
+            <div><dt>Evidence snapshot</dt><dd><time datetime={isoDate(work.data.snapshotDate)}>{formatDate(work.data.snapshotDate)}</time></dd></div>
+          </dl>
+        </div>
+      </header>
+
+      <section class="visual-band" aria-label={`${title} visual evidence`}>
+        <div class="container"><WorkImage src={work.data.heroImage} alt={work.data.heroAlt} priority /></div>
+      </section>
+
+      <section class="evidence-band section" aria-labelledby="evidence-title">
+        <div class="container">
+          <header>
+            <p class="eyebrow">Evidence at a glance</p>
+            <h2 id="evidence-title">What the compact view leaves out.</h2>
+          </header>
+          <ol>
+            {work.data.evidence.map((evidence, index) => (
+              <li>
+                <span class="mono">{String(index + 1).padStart(2, '0')}</span>
+                <h3>{evidence.label}</h3>
+                <p>{evidence.detail}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section class="narrative section">
+        <div class="container narrative-grid">
+          <div class="prose"><Content /></div>
+          <aside aria-labelledby="facts-title">
+            <p class="eyebrow" id="facts-title">At a glance</p>
+            <dl>
+              {facts.map(([term, value]) => <div><dt>{term}</dt><dd>{value}</dd></div>)}
+            </dl>
+            {work.data.kind === 'case-study' && <p class="confidentiality"><strong>Disclosure boundary</strong>{work.data.confidentialityNote}</p>}
+          </aside>
+        </div>
+      </section>
+    </article>
+  </main>
+  <Footer />
+  <Terminal />
+</BaseLayout>
+
+<style>
+  main { background: var(--cp-bg-elevated); }
+  .detail-head { padding-bottom: 64px; border-bottom: 1px solid var(--cp-border-strong); background: var(--cp-bg); }
+  .back { display: inline-block; margin-bottom: 48px; color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .detail-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: 64px; align-items: end; }
+  h1 { max-width: 12ch; font-size: var(--type-feature); }
+  .summary-block > p { color: var(--cp-text-soft); font-size: var(--type-lead); line-height: 1.65; }
+  .summary-block nav { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+  .dates { display: flex; flex-wrap: wrap; gap: 28px 52px; margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--cp-border); }
+  .dates div { display: grid; gap: 4px; }
+  .dates dt { color: var(--cp-text-muted); font-size: var(--type-label); text-transform: uppercase; }
+  .dates dd { color: var(--cp-text); font-size: var(--type-small); }
+  .visual-band { padding-block: 56px; background: var(--cp-surface-soft); }
+  .evidence-band { border-block: 1px solid var(--cp-border-strong); background: var(--cp-bg); }
+  .evidence-band > .container { display: grid; grid-template-columns: minmax(240px, .7fr) minmax(0, 1.3fr); gap: 64px; }
+  .eyebrow { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .evidence-band h2 { max-width: 14ch; margin-top: 14px; font-size: var(--type-display); }
+  .evidence-band ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); border-top: 1px solid var(--cp-border-strong); list-style: none; }
+  .evidence-band li { min-height: 230px; border-right: 1px solid var(--cp-border); border-bottom: 1px solid var(--cp-border); padding: 20px; }
+  .evidence-band li:last-child { border-right: 0; }
+  .evidence-band li > span { color: var(--cp-accent); font-size: var(--type-label); }
+  .evidence-band h3 { margin-top: 38px; font-size: 1.45rem; }
+  .evidence-band li p { margin-top: 12px; color: var(--cp-text-soft); font-size: var(--type-small); line-height: 1.6; }
+  .narrative-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 80px; align-items: start; }
+  .narrative aside { position: sticky; top: calc(var(--nav-h) + 28px); border-top: 2px solid var(--cp-accent); padding-top: 18px; }
+  .narrative aside dl { margin-top: 12px; }
+  .narrative aside dl div { padding-block: 14px; border-bottom: 1px solid var(--cp-border); }
+  .narrative aside dt { color: var(--cp-text-muted); font-family: var(--font-mono); font-size: var(--type-label); text-transform: uppercase; }
+  .narrative aside dd { margin-top: 6px; color: var(--cp-text-soft); font-size: var(--type-small); line-height: 1.55; }
+  .confidentiality { margin-top: 26px; color: var(--cp-text-muted); font-size: var(--type-small); line-height: 1.6; }
+  .confidentiality strong { display: block; margin-bottom: 6px; color: var(--cp-text); font-family: var(--font-mono); font-size: var(--type-label); text-transform: uppercase; }
+  @media (max-width: 900px) {
+    .detail-grid,
+    .evidence-band > .container,
+    .narrative-grid { grid-template-columns: 1fr; gap: 42px; }
+    .narrative aside { position: static; }
+  }
+  @media (max-width: 620px) {
+    .detail-head { padding-bottom: 48px; }
+    h1 { font-size: 3.25rem; }
+    .dates { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .visual-band { padding-block: 24px; }
+    .evidence-band li { min-height: 0; }
+  }
+</style>

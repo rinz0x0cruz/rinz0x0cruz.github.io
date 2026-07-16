@@ -4,6 +4,7 @@
 export type ProjectStatus = 'live' | 'active' | 'research';
 
 export interface Project {
+  sourceId: string;
   name: string;
   tagline: string;
   description: string;
@@ -20,7 +21,8 @@ export interface Project {
 
 export const projects: Project[] = [
   {
-    name: 'exploitrank',
+    sourceId: 'exploitrank',
+    name: 'ExploitRank',
     tagline: 'Exploitability-aware CVE prioritizer.',
     description:
       'Fuses CVSS, EPSS, CISA KEV, and public-PoC signals into a single SSVC-style act / track / defer verdict, so teams patch what is actually being exploited first, not just what scores high. Ships an offline threat board and runs completely key-free.',
@@ -39,6 +41,7 @@ export const projects: Project[] = [
     ],
   },
   {
+    sourceId: 'ikhor',
     name: 'Ikhor',
     tagline: 'Async command-and-control framework.',
     description:
@@ -57,7 +60,8 @@ export const projects: Project[] = [
     ],
   },
   {
-    name: 'malscope-dashboard',
+    sourceId: 'malscope-dashboard',
+    name: 'malscope',
     tagline: 'Public dashboard for a private malware-analysis pipeline.',
     description:
       'A Nuxt SPA that renders redacted, defanged malware-analysis reports from the (private) malscope tool. Indicators are defanged (hxxp, [.]) and hashes-only, so triage findings, imphash / TLSH clusters, and auto-generated detections stay shareable without ever exposing a live sample.',
@@ -77,6 +81,7 @@ export const projects: Project[] = [
     ],
   },
   {
+    sourceId: 'quorum',
     name: 'quorum',
     tagline: 'Put several AI models in a room and make them debate.',
     description:
@@ -95,6 +100,7 @@ export const projects: Project[] = [
     ],
   },
   {
+    sourceId: 'jobscope',
     name: 'jobscope',
     tagline: 'Resume-driven job scout, enricher, and application-prep tool.',
     description:
@@ -113,6 +119,7 @@ export const projects: Project[] = [
     ],
   },
   {
+    sourceId: 'claudebudget',
     name: 'claudebudget',
     tagline: 'Local-first monitor for the Claude Pro usage limits.',
     description:

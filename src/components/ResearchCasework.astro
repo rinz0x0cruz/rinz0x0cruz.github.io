@@ -1,5 +1,12 @@
 ---
+import { getCollection } from 'astro:content';
 import { caseStudies as studies } from '@/data/portfolio';
+
+const caseWorkPaths = new Map(
+  (await getCollection('work'))
+    .filter((entry) => !entry.data.draft && entry.data.kind === 'case-study')
+    .map((entry) => [entry.data.sourceId, `/work/${entry.id}/`]),
+);
 ---
 
 <section id="casework" class="casework section" data-casework>
@@ -34,6 +41,9 @@ import { caseStudies as studies } from '@/data/portfolio';
               <p class="mono">Outcome</p>
               <strong>{study.metric}</strong>
               <span>{study.outcome}</span>
+              {caseWorkPaths.has(study.sourceId) && (
+                <a class="case-detail-link mono" href={caseWorkPaths.get(study.sourceId)} data-analytics-event="work_detail_open" data-analytics-id={study.sourceId} data-analytics-placement="casework">Read case detail <span aria-hidden="true">→</span></a>
+              )}
             </div>
 
             <div class="case-story">
@@ -176,6 +186,8 @@ import { caseStudies as studies } from '@/data/portfolio';
   .case-result > p { color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
   .case-result strong { display: block; max-width: 10ch; margin-top: 15px; font-size: 3.15rem; line-height: .9; }
   .case-result > span { display: block; max-width: 34ch; margin-top: 20px; color: var(--cp-text-soft); font-size: .84rem; line-height: 1.6; }
+  .case-detail-link { display: inline-flex; min-height: 32px; align-items: center; gap: 8px; margin-top: 18px; color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .case-detail-link:hover { color: var(--cp-accent-hover); }
   .case-story h3 { max-width: 24ch; font-size: 2rem; line-height: 1.04; }
   .case-summary { max-width: 65ch; margin-top: 14px; color: var(--cp-text-soft); font-size: .9rem; line-height: 1.62; }
   .case-role { display: grid; grid-template-columns: 72px 1fr; gap: 12px; margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: .78rem; line-height: 1.5; }

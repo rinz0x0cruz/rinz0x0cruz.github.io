@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" role="img" aria-labelledby="title description">
+  <title id="title">Redacted intrusion timeline</title>
+  <desc id="description">A technical timeline linking identity access, endpoint execution, exfiltration, and containment.</desc>
+  <rect width="1440" height="900" fill="#121416"/>
+  <g stroke="#2b3035" stroke-width="1">
+    <path d="M0 150H1440M0 300H1440M0 450H1440M0 600H1440M0 750H1440"/>
+    <path d="M180 0V900M360 0V900M540 0V900M720 0V900M900 0V900M1080 0V900M1260 0V900"/>
+  </g>
+  <text x="96" y="112" fill="#f1f4f5" font-family="monospace" font-size="24" font-weight="700">EVIDENCE TIMELINE / REDACTED</text>
+  <text x="96" y="151" fill="#98a2aa" font-family="monospace" font-size="16">IDENTITY + ENDPOINT + NETWORK / CONFIRMED EVENTS ONLY</text>
+  <path d="M150 464H1290" stroke="#65717a" stroke-width="4"/>
+  <g font-family="monospace">
+    <g transform="translate(210 464)">
+      <circle r="22" fill="#121416" stroke="#f6c945" stroke-width="6"/>
+      <path d="M0-22V-105" stroke="#f6c945" stroke-width="3"/>
+      <text x="-72" y="-138" fill="#f6c945" font-size="15">01 / IDENTITY</text>
+      <text x="-72" y="-108" fill="#f1f4f5" font-size="20" font-weight="700">ACCESS PIVOT</text>
+      <text x="-72" y="-79" fill="#98a2aa" font-size="14">credential sequence</text>
+    </g>
+    <g transform="translate(545 464)">
+      <circle r="22" fill="#121416" stroke="#62c4a7" stroke-width="6"/>
+      <path d="M0 22V105" stroke="#62c4a7" stroke-width="3"/>
+      <text x="-72" y="141" fill="#62c4a7" font-size="15">02 / ENDPOINT</text>
+      <text x="-72" y="171" fill="#f1f4f5" font-size="20" font-weight="700">EXECUTION CHAIN</text>
+      <text x="-72" y="200" fill="#98a2aa" font-size="14">process ancestry</text>
+    </g>
+    <g transform="translate(880 464)">
+      <circle r="22" fill="#121416" stroke="#ef737c" stroke-width="6"/>
+      <path d="M0-22V-105" stroke="#ef737c" stroke-width="3"/>
+      <text x="-72" y="-138" fill="#ef737c" font-size="15">03 / NETWORK</text>
+      <text x="-72" y="-108" fill="#f1f4f5" font-size="20" font-weight="700">RCLONE EGRESS</text>
+      <text x="-72" y="-79" fill="#98a2aa" font-size="14">hands-on transfer</text>
+    </g>
+    <g transform="translate(1215 464)">
+      <circle r="22" fill="#121416" stroke="#7da8f5" stroke-width="6"/>
+      <path d="M0 22V105" stroke="#7da8f5" stroke-width="3"/>
+      <text x="-104" y="141" fill="#7da8f5" font-size="15">04 / RESPONSE</text>
+      <text x="-104" y="171" fill="#f1f4f5" font-size="20" font-weight="700">CONTAINMENT</text>
+      <text x="-104" y="200" fill="#98a2aa" font-size="14">indicator handoff</text>
+    </g>
+  </g>
+  <g transform="translate(96 790)" font-family="monospace">
+    <rect width="1248" height="58" fill="#1b1f23" stroke="#353b40"/>
+    <text x="24" y="36" fill="#98a2aa" font-size="15">RAW TELEMETRY, IDENTIFIERS, INFRASTRUCTURE, AND EXACT TIMESTAMPS WITHHELD</text>
+  </g>
+</svg>

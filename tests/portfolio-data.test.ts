@@ -11,6 +11,7 @@ import {
 } from '../src/data/portfolio';
 import { projects } from '../src/data/projects';
 import { site } from '../src/data/site';
+import { resolveWorkRecord } from '../src/utils/work';
 
 function expectUnique(values: readonly string[]) {
   expect(new Set(values).size).toBe(values.length);
@@ -48,13 +49,12 @@ describe('plug-and-play portfolio content', () => {
 
   it('defines self-contained interactive project demos', () => {
     expect(projectDemos.length).toBeGreaterThanOrEqual(2);
+    expectUnique(projects.map((project) => project.sourceId));
+    expect(projects.every((project) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(project.sourceId))).toBe(true);
     expectUnique(projectDemos.map((demo) => demo.name.toLowerCase()));
-    expectUnique(projectDemos.map((demo) => demo.catalogProject));
+    expectUnique(projectDemos.map((demo) => demo.projectSourceId));
     for (const demo of projectDemos) {
-      expect(projects.some((project) => project.name === demo.catalogProject)).toBe(true);
-      expect(demo.image).toMatch(/^\/[a-z0-9-]+\.png$/);
-      expect(demo.imageWidth).toBeGreaterThan(0);
-      expect(demo.imageHeight).toBeGreaterThan(0);
+      expect(projects.some((project) => project.sourceId === demo.projectSourceId)).toBe(true);
       expect(demo.theme.accent).toMatch(/^#[0-9a-f]{6}$/i);
       expect(demo.theme.media).toHaveLength(3);
       expect(demo.telemetry.length).toBeGreaterThan(0);
@@ -72,12 +72,24 @@ describe('plug-and-play portfolio content', () => {
 
   it('defines complete professional case studies', () => {
     expect(caseStudies.length).toBeGreaterThanOrEqual(3);
+    expectUnique(caseStudies.map((study) => study.sourceId));
+    expect(caseStudies.every((study) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(study.sourceId))).toBe(true);
     expectUnique(caseStudies.map((study) => study.title));
     for (const study of caseStudies) {
       expect(study.approach.length).toBeGreaterThan(0);
       expect(study.outcome.length).toBeGreaterThan(30);
       expect(study.metric.trim()).not.toBe('');
     }
+  });
+
+  it('resolves stable work IDs through one canonical lookup', () => {
+    for (const project of projects) {
+      expect(resolveWorkRecord('project', project.sourceId).record).toBe(project);
+    }
+    for (const study of caseStudies) {
+      expect(resolveWorkRecord('case-study', study.sourceId).record).toBe(study);
+    }
+    expect(() => resolveWorkRecord('project', 'missing-project')).toThrow('Unknown project sourceId');
   });
 
   it('keeps public profiles extensible', () => {
@@ -88,6 +100,7 @@ describe('plug-and-play portfolio content', () => {
       expect(profile.metrics.length).toBeGreaterThan(0);
       expectUnique(profile.metrics.map((metric) => metric.label));
       expect(profile.verifiedAt).toContain('2026');
+      expect(profile.snapshotDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
   });
 
@@ -98,8 +111,12 @@ describe('plug-and-play portfolio content', () => {
     expect(publishedFiles.length).toBeGreaterThanOrEqual(2);
     for (const file of publishedFiles) {
       const source = readFileSync(new URL(file, contentDirectory), 'utf8');
+      const frontmatter = matter(source).data;
       expect(source).toContain('ExploitRank');
       expect(source).toContain('2026-07');
+      expect(frontmatter.snapshotDate).toBeInstanceOf(Date);
+      expect(frontmatter.sources.length).toBeGreaterThan(0);
+      expect(frontmatter.sources.every((entry: { url: string }) => entry.url.startsWith('https://'))).toBe(true);
     }
   });
 });

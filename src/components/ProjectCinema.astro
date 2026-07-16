@@ -1,5 +1,27 @@
 ---
+import { getCollection } from 'astro:content';
+import { Picture } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
 import { projectDemos as slides } from '@/data/portfolio';
+
+const imageModules = import.meta.glob<{ default: ImageMetadata }>(
+  '../assets/work/*/hero.{avif,jpeg,jpg,png,webp}',
+  { eager: true },
+);
+const imagesByProjectId = new Map(
+  Object.entries(imageModules).map(([path, module]) => [path.split('/').at(-2), module.default]),
+);
+const demoSlides = slides.map((slide) => {
+  const image = imagesByProjectId.get(slide.projectSourceId);
+  if (!image) throw new Error(`Missing work hero image for ${slide.projectSourceId}`);
+  return { ...slide, image };
+});
+
+const projectWorkPaths = new Map(
+  (await getCollection('work'))
+    .filter((entry) => !entry.data.draft && entry.data.kind === 'project')
+    .map((entry) => [entry.data.sourceId, `/work/${entry.id}/`]),
+);
 
 function hexToRgb(hex: string) {
   const channels = hex.match(/[a-f\d]{2}/gi);
@@ -10,7 +32,7 @@ function hexToRgb(hex: string) {
 
 <section id="work" class="cinema" data-cinema>
   <nav class="project-tabs" aria-label="Project reel">
-    {slides.map((slide, index) => (
+    {demoSlides.map((slide, index) => (
       <button type="button" data-cinema-jump={index} aria-pressed={index === 0 ? 'true' : 'false'}>
         {slide.name}
       </button>
@@ -18,12 +40,12 @@ function hexToRgb(hex: string) {
   </nav>
 
   <div class="stage" aria-live="polite">
-    {slides.map((slide, index) => (
+    {demoSlides.map((slide, index) => (
       <article
         class:list={['slide', `slide-${index + 1}`, { 'is-active': index === 0 }]}
         data-cinema-slide={index}
         aria-hidden={index === 0 ? 'false' : 'true'}
-        style={`--demo-accent:${slide.theme.accent};--demo-accent-rgb:${hexToRgb(slide.theme.accent)};--demo-media-start:${slide.theme.media[0]};--demo-media-middle:${slide.theme.media[1]};--demo-media-end:${slide.theme.media[2]};--demo-image-ratio:${slide.imageWidth}/${slide.imageHeight}`}
+        style={`--demo-accent:${slide.theme.accent};--demo-accent-rgb:${hexToRgb(slide.theme.accent)};--demo-media-start:${slide.theme.media[0]};--demo-media-middle:${slide.theme.media[1]};--demo-media-end:${slide.theme.media[2]};--demo-image-ratio:${slide.image.width}/${slide.image.height}`}
       >
         <div class="slide-media">
             <span class="slide-count mono">{String(index + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}</span>
@@ -34,13 +56,13 @@ function hexToRgb(hex: string) {
                 <span class="demo-mode"><i></i> Interactive preview</span>
               </div>
               <div class="demo-surface" aria-label={`${slide.name} interactive feature preview`}>
-                <img
+                <Picture
                   src={slide.image}
+                  formats={['avif', 'webp']}
+                  widths={[480, 960, 1440]}
+                  sizes="(max-width: 600px) calc(100vw - 40px), (max-width: 1280px) 76vw, 1200px"
                   alt={slide.alt}
-                  width={slide.imageWidth}
-                  height={slide.imageHeight}
-                  decoding="async"
-                  fetchpriority={index === 0 ? 'high' : 'auto'}
+                  priority={index === 0}
                 />
                 <span class="demo-light" aria-hidden="true"></span>
                 <span class="demo-scan" aria-hidden="true"></span>
@@ -104,6 +126,9 @@ function hexToRgb(hex: string) {
           <div class="caption-title">
             <p>{slide.label}</p>
             <h2>{slide.name}</h2>
+            {projectWorkPaths.has(slide.projectSourceId) && (
+              <a class="caption-link mono" href={projectWorkPaths.get(slide.projectSourceId)} data-analytics-event="work_detail_open" data-analytics-id={slide.projectSourceId} data-analytics-placement="project_cinema">Deep dive <span aria-hidden="true">→</span></a>
+            )}
           </div>
           <p class="caption-copy">{slide.description}</p>
           <dl class="caption-meta">
@@ -116,7 +141,7 @@ function hexToRgb(hex: string) {
 
   <div class="reel-controls">
     <button type="button" data-cinema-prev aria-label="Previous project" title="Previous project">←</button>
-    <span class="reel-progress mono" data-cinema-progress>01 / {String(slides.length).padStart(2, '0')}</span>
+    <span class="reel-progress mono" data-cinema-progress>01 / {String(demoSlides.length).padStart(2, '0')}</span>
     <button type="button" data-cinema-next aria-label="Next project" title="Next project">→</button>
   </div>
 </section>
@@ -344,7 +369,8 @@ function hexToRgb(hex: string) {
   .demo-mode { display: flex; align-items: center; gap: 6px; }
   .demo-mode i { width: 6px; height: 6px; border-radius: 50%; background: var(--demo-accent); box-shadow: 0 0 10px var(--demo-accent); animation: demo-status 2.2s ease-in-out infinite; }
   .demo-surface { --pointer-x: 50%; --pointer-y: 50%; --active-x: 50%; --active-y: 50%; position: relative; overflow: clip; }
-  .demo-surface img { display: block; width: 100%; height: auto; aspect-ratio: var(--demo-image-ratio); object-fit: cover; user-select: none; pointer-events: none; }
+  .demo-surface :global(picture) { display: block; }
+  .demo-surface :global(img) { display: block; width: 100%; height: auto; aspect-ratio: var(--demo-image-ratio); object-fit: cover; user-select: none; pointer-events: none; }
   .demo-light { position: absolute; z-index: 2; inset: 0; opacity: 0; background: radial-gradient(circle 180px at var(--pointer-x) var(--pointer-y), rgba(var(--demo-accent-rgb), .2), transparent 68%); pointer-events: none; transition: opacity 220ms var(--ease); }
   .demo-surface:hover .demo-light,
   .demo-surface:focus-within .demo-light { opacity: 1; }
@@ -416,6 +442,8 @@ function hexToRgb(hex: string) {
   .caption { display: grid; grid-template-columns: minmax(190px, .7fr) minmax(280px, 1.15fr) minmax(210px, .72fr); align-items: center; gap: clamp(28px, 4vw, 64px); border-top: 1px solid var(--cp-border); background: var(--cp-surface); padding: 22px clamp(24px, 3vw, 42px); }
   .caption-title p { margin-bottom: 9px; color: var(--cp-accent); font-size: .7rem; font-weight: 700; text-transform: uppercase; }
   .caption-title h2 { font-size: var(--type-display); line-height: .94; }
+  .caption-link { display: inline-flex; min-height: 28px; align-items: center; gap: 8px; margin-top: 12px; color: var(--cp-accent); font-size: var(--type-label); font-weight: 700; text-transform: uppercase; }
+  .caption-link:hover { color: var(--cp-accent-hover); }
   .caption-copy { max-width: 58ch; color: var(--cp-text-soft); font-size: .94rem; line-height: 1.58; }
   .caption-meta { border-top: 1px solid var(--cp-border-strong); }
   .caption-meta div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--cp-border); padding: 8px 0; font-size: .72rem; }

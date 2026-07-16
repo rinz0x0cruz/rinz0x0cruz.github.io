@@ -33,15 +33,18 @@ if (existsSync(file)) {
 const body = `---
 title: ${JSON.stringify(title)}
 date: ${date}
+snapshotDate: ${date}
 summary: ''
 tags: []
+sources: []
 draft: true
 ---
 
 Write your writeup here in Markdown.
 
-When it is ready: add a one-line \`summary\`, a few \`tags\`, flip \`draft: false\`,
-then commit and push. GitHub Actions rebuilds and publishes it automatically.
+When it is ready: add a one-line \`summary\`, a few \`tags\`, at least one
+structured evidence source, flip \`draft: false\`, then commit and push. GitHub
+Actions rebuilds and publishes it automatically.
 `;
 
 writeFileSync(file, body, 'utf8');

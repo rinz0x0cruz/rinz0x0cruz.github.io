@@ -1,0 +1,17 @@
+*,
+*::before,
+*::after {
+  animation: none !important;
+  caret-color: transparent !important;
+  scroll-behavior: auto !important;
+  transition: none !important;
+}
+
+.edge-tracker,
+.page-progress,
+.intro-pulse,
+.demo-light,
+.demo-scan,
+.demo-focus {
+  display: none !important;
+}

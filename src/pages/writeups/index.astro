@@ -29,7 +29,7 @@ const writeups = (await getCollection('writeups'))
         {
           writeups.map((w, index) => (
             <li>
-              <a href={`/writeups/${w.id}`}>
+              <a href={`/writeups/${w.id}`} data-analytics-event="blog_open" data-analytics-id={w.id} data-analytics-placement="writeup_archive">
                 <span class="index mono">{String(index + 1).padStart(2, '0')}</span>
                 <div class="body">
                   <time class="mono" datetime={isoDate(w.data.date)}>{formatDate(w.data.date)}</time>

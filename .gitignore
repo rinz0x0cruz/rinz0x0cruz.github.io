@@ -1,5 +1,6 @@
 # build output
 dist/
+public/social/
 
 # dependencies
 node_modules/
@@ -19,6 +20,8 @@ npm-debug.log*
 # browser tests
 playwright-report/
 test-results/
+.lighthouseci/
+e2e/visual.spec.ts-snapshots/*-win32.png
 
 # os / editor cruft
 .DS_Store

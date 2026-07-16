@@ -17,7 +17,7 @@ const writeups = (await getCollection('writeups'))
 
     <div class="writing-grid">
       {writeups.map((writeup, index) => (
-        <a class="writing-card" href={`/writeups/${writeup.id}/`} style={`--writing-order:${index}`}>
+        <a class="writing-card" href={`/writeups/${writeup.id}/`} style={`--writing-order:${index}`} data-analytics-event="blog_open" data-analytics-id={writeup.id} data-analytics-placement="homepage">
           <time datetime={isoDate(writeup.data.date)}>{formatDate(writeup.data.date)}</time>
           <h3>{writeup.data.title}</h3>
           <p>{writeup.data.summary}</p>
@@ -34,9 +34,9 @@ const writeups = (await getCollection('writeups'))
       </div>
       <div class="contact-actions">
         <p>Security research roles, threat-intelligence products, malware analysis, and difficult intrusion questions.</p>
-        <a class="contact-email" href={`mailto:${site.email}`}><span>{site.email}</span><b aria-hidden="true">↗</b></a>
+        <a class="contact-email" href={`mailto:${site.email}`} data-analytics-event="contact_click" data-analytics-id="email" data-analytics-placement="contact_section"><span>{site.email}</span><b aria-hidden="true">↗</b></a>
         <div class="contact-buttons">
-          <a class="btn" href={site.resumeUrl} download>Download resume</a>
+          <a class="btn" href={site.resumeUrl} download data-analytics-event="resume_download" data-analytics-id="resume" data-analytics-placement="contact_section">Download resume</a>
           <button class="btn" type="button" data-open-terminal>Open terminal</button>
         </div>
         <nav aria-label="Social links">{site.socials.filter((social) => social.icon !== 'email').map((social) => <a href={social.url} target="_blank" rel="me noopener">{social.name} <span aria-hidden="true">↗</span></a>)}</nav>

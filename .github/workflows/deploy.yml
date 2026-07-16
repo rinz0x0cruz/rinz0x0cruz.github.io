@@ -45,9 +45,13 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
       - name: Validate source contracts
+        env:
+          STRICT_FRESHNESS: ${{ github.event_name == 'schedule' }}
         run: npm run validate
 
       - name: Build static site
+        env:
+          PUBLIC_PLAUSIBLE_SCRIPT_URL: ${{ vars.PUBLIC_PLAUSIBLE_SCRIPT_URL }}
         run: npm run build
 
       - name: Verify build artifact
@@ -58,6 +62,11 @@ jobs:
 
       - name: Test browser behavior and accessibility
         run: npm run test:e2e
+
+      - name: Run advisory Lighthouse medians
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        run: npm run test:lighthouse
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'

@@ -17,12 +17,9 @@ export interface DemoHotspot {
 }
 
 export interface ProjectDemo {
-  catalogProject: string;
+  projectSourceId: string;
   name: string;
   label: string;
-  image: string;
-  imageWidth: number;
-  imageHeight: number;
   alt: string;
   theme: {
     accent: string;
@@ -36,6 +33,7 @@ export interface ProjectDemo {
 }
 
 export interface CaseStudy {
+  sourceId: string;
   label: string;
   title: string;
   summary: string;
@@ -52,6 +50,7 @@ export interface PublicProfile {
   url: string;
   summary: string;
   verifiedAt: string;
+  snapshotDate: string;
   metrics: readonly {
     value: string;
     label: string;
@@ -121,12 +120,9 @@ export const achievements = [
 
 export const projectDemos = [
   {
-    catalogProject: 'exploitrank',
+    projectSourceId: 'exploitrank',
     name: 'ExploitRank',
     label: 'Vulnerability intelligence',
-    image: '/work-exploitrank.png',
-    imageWidth: 1440,
-    imageHeight: 900,
     alt: 'ExploitRank vulnerability prioritization interface',
     theme: {
       accent: '#ffc400',
@@ -183,12 +179,9 @@ export const projectDemos = [
     ],
   },
   {
-    catalogProject: 'malscope-dashboard',
+    projectSourceId: 'malscope-dashboard',
     name: 'malscope',
     label: 'Malware analysis',
-    image: '/work-malscope.png',
-    imageWidth: 1440,
-    imageHeight: 900,
     alt: 'malscope malware analysis interface',
     theme: {
       accent: '#ff5664',
@@ -259,6 +252,7 @@ export const projectDemos = [
 
 export const caseStudies = [
   {
+    sourceId: 'midnight-blizzard',
     label: 'Nation-state intrusion',
     title: 'Reconstructing a Midnight Blizzard intrusion',
     summary:
@@ -275,6 +269,7 @@ export const caseStudies = [
     metric: 'Full kill chain',
   },
   {
+    sourceId: 'detection-false-positives',
     label: 'Detection quality',
     title: 'Finding the data defects behind false positives',
     summary:
@@ -291,6 +286,7 @@ export const caseStudies = [
     metric: '47% fewer',
   },
   {
+    sourceId: 'turla-hunting',
     label: 'Threat hunting + malware RE',
     title: 'Turning Turla research into repeatable detection',
     summary:
@@ -316,6 +312,7 @@ export const publicProfiles = [
     summary:
       'Hands-on security practice spanning offensive fundamentals, threat intelligence, SOC, DFIR, malware analysis, and SIEM.',
     verifiedAt: 'Public profile snapshot / July 2026',
+    snapshotDate: '2026-07-16',
     metrics: [
       { value: 'Top 3%', label: 'global standing' },
       { value: '91', label: 'rooms completed' },
@@ -329,6 +326,7 @@ export const publicProfiles = [
     summary:
       'Algorithm practice across C++, dynamic programming, divide and conquer, union-find, hashing, and graph-oriented problem solving.',
     verifiedAt: 'Public profile snapshot / July 2026',
+    snapshotDate: '2026-07-16',
     metrics: [
       { value: '460', label: 'problems solved' },
       { value: '1,562', label: 'contest rating' },

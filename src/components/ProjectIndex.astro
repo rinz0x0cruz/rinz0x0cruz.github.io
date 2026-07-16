@@ -2,8 +2,8 @@
 import { projectDemos } from '@/data/portfolio';
 import { projects } from '@/data/projects';
 
-const demoNames = new Set(projectDemos.map((demo) => demo.catalogProject));
-const otherProjects = projects.filter((project) => !demoNames.has(project.name));
+const demoProjectIds = new Set(projectDemos.map((demo) => demo.projectSourceId));
+const otherProjects = projects.filter((project) => !demoProjectIds.has(project.sourceId));
 ---
 
 <section id="systems" class="systems section" aria-labelledby="systems-title">
@@ -30,8 +30,8 @@ const otherProjects = projects.filter((project) => !demoNames.has(project.name))
         <div class="project-meta">
           <ul class="stack mono">{project.stack.map((item) => <li>{item}</li>)}</ul>
           <nav aria-label={`${project.name} links`}>
-            {project.links.live && <a href={project.links.live} target="_blank" rel="noopener">Live <span aria-hidden="true">↗</span></a>}
-            {project.links.repo && <a href={project.links.repo} target="_blank" rel="noopener">Source <span aria-hidden="true">↗</span></a>}
+            {project.links.live && <a href={project.links.live} target="_blank" rel="noopener" data-analytics-event="project_live" data-analytics-id={project.sourceId} data-analytics-placement="system_index">Live <span aria-hidden="true">↗</span></a>}
+            {project.links.repo && <a href={project.links.repo} target="_blank" rel="noopener" data-analytics-event="project_source" data-analytics-id={project.sourceId} data-analytics-placement="system_index">Source <span aria-hidden="true">↗</span></a>}
           </nav>
         </div>
       </article>

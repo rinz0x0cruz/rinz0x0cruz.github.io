@@ -1,0 +1,74 @@
+---
+const configuredScriptUrl = import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT_URL?.trim();
+let scriptUrl: string | undefined;
+
+if (configuredScriptUrl) {
+  const parsed = new URL(configuredScriptUrl);
+  if (parsed.protocol !== 'https:' || !parsed.pathname.endsWith('.js')) {
+    throw new Error('PUBLIC_PLAUSIBLE_SCRIPT_URL must be an HTTPS JavaScript URL.');
+  }
+  scriptUrl = parsed.href;
+}
+
+const enabled = import.meta.env.PROD && Boolean(scriptUrl);
+---
+
+{enabled && (
+  <script is:inline define:vars={{ scriptUrl }} data-analytics-provider="plausible">
+    (() => {
+      const privacyRequested =
+        navigator.globalPrivacyControl === true ||
+        navigator.doNotTrack === '1' ||
+        window.doNotTrack === '1';
+      if (privacyRequested) return;
+
+      const allowedEvents = new Set([
+        'contact_click',
+        'resume_download',
+        'project_live',
+        'project_source',
+        'work_detail_open',
+        'blog_open',
+      ]);
+
+      window.plausible = window.plausible || function () {
+        (window.plausible.q = window.plausible.q || []).push(arguments);
+      };
+      window.plausible.init = window.plausible.init || function (options) {
+        window.plausible.o = options || {};
+      };
+      window.plausible.init({ autoCapturePageviews: true, captureOnLocalhost: false });
+
+      const provider = document.createElement('script');
+      provider.async = true;
+      provider.src = scriptUrl;
+      provider.dataset.analyticsProvider = 'plausible';
+      document.head.append(provider);
+
+      if (window.__portfolioAnalyticsBound) return;
+      window.__portfolioAnalyticsBound = true;
+
+      const track = (event) => {
+        if (event.type === 'auxclick' && event.button !== 1) return;
+        const target = event.target instanceof Element
+          ? event.target.closest('[data-analytics-event]')
+          : null;
+        if (!target) return;
+        const name = target.dataset.analyticsEvent;
+        const contentId = target.dataset.analyticsId;
+        const placement = target.dataset.analyticsPlacement;
+        if (!allowedEvents.has(name) || !contentId || !placement) return;
+        window.plausible(name, {
+          props: {
+            route: window.location.pathname,
+            content_id: contentId,
+            placement,
+          },
+        });
+      };
+
+      document.addEventListener('click', track);
+      document.addEventListener('auxclick', track);
+    })();
+  </script>
+)}

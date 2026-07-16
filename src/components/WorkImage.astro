@@ -1,0 +1,43 @@
+---
+import { Image, Picture } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  priority?: boolean;
+  variant?: 'card' | 'hero';
+}
+
+const { src, alt, priority = false, variant = 'hero' } = Astro.props;
+const raster = src.format !== 'svg';
+---
+
+<div class:list={['work-image', variant]}>
+  {raster ? (
+    <Picture
+      src={src}
+      formats={['avif', 'webp']}
+      widths={[480, 960, 1440]}
+      sizes="(max-width: 720px) calc(100vw - 40px), (max-width: 1280px) calc(100vw - 128px), 1152px"
+      alt={alt}
+      priority={priority}
+    />
+  ) : (
+    <Image src={src} alt={alt} priority={priority} />
+  )}
+</div>
+
+<style>
+  .work-image {
+    overflow: hidden;
+    border: 1px solid var(--cp-border-strong);
+    border-radius: 8px;
+    background: #121416;
+    box-shadow: var(--cp-shadow);
+  }
+  .work-image :global(picture) { display: block; }
+  .work-image :global(img) { width: 100%; height: 100%; object-fit: cover; }
+  .hero { aspect-ratio: 8 / 5; }
+  .card { aspect-ratio: 16 / 9; border-radius: 6px; box-shadow: none; }
+</style>

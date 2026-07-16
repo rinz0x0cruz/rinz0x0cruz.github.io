@@ -5,6 +5,7 @@ import '@fontsource-variable/ibm-plex-sans/wght.css';
 import '@fontsource/ibm-plex-mono/latin-400.css';
 import '@fontsource/ibm-plex-mono/latin-700.css';
 import '@/styles/global.css';
+import Analytics from '@/components/Analytics.astro';
 import MotionLayer from '@/components/MotionLayer.astro';
 import { site } from '@/data/site';
 
@@ -12,9 +13,18 @@ interface Props {
   title?: string;
   description?: string;
   image?: string;
+  imageAlt?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   article?: boolean;
   publishedTime?: string;
+  modifiedTime?: string;
   articleTags?: readonly string[];
+  articleSnapshotTime?: string;
+  articleSources?: readonly { label: string; url: string }[];
+  profilePage?: boolean;
+  profileHasPart?: readonly string[];
+  pageStructuredData?: Record<string, unknown>;
   noindex?: boolean;
 }
 
@@ -22,15 +32,31 @@ const {
   title,
   description = site.tagline,
   image = site.ogImage,
+  imageAlt = `${site.name} portfolio preview`,
+  imageWidth = 1200,
+  imageHeight = 630,
   article = false,
   publishedTime,
+  modifiedTime,
   articleTags = [],
+  articleSnapshotTime,
+  articleSources = [],
+  profilePage = false,
+  profileHasPart = [],
+  pageStructuredData,
   noindex = false,
 } = Astro.props;
 
 const pageTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.role}`;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site).href;
 const ogImageURL = new URL(image, Astro.site).href;
+const imageSchema = {
+  '@type': 'ImageObject',
+  url: ogImageURL,
+  width: imageWidth,
+  height: imageHeight,
+  caption: imageAlt,
+};
 
 const personSchema = {
   '@type': 'Person',
@@ -47,6 +73,19 @@ const structuredData = {
   '@context': 'https://schema.org',
   '@graph': [
     personSchema,
+    ...(profilePage
+      ? [
+          {
+            '@type': 'ProfilePage',
+            '@id': canonicalURL,
+            url: canonicalURL,
+            name: `${site.name} · ${site.role}`,
+            description,
+            mainEntity: { '@id': `${site.url}/#person` },
+            hasPart: profileHasPart.map((path) => ({ '@id': new URL(path, Astro.site).href })),
+          },
+        ]
+      : []),
     ...(article
       ? [
           {
@@ -54,13 +93,25 @@ const structuredData = {
             headline: title,
             description,
             datePublished: publishedTime,
+            ...(modifiedTime ? { dateModified: modifiedTime } : {}),
             mainEntityOfPage: canonicalURL,
-            image: ogImageURL,
+            image: imageSchema,
             keywords: [...articleTags],
-            author: { '@id': `${site.url}/#person` },
+            ...(articleSnapshotTime ? { contentReferenceTime: articleSnapshotTime } : {}),
+            ...(articleSources.length
+              ? {
+                  citation: articleSources.map((source) => ({
+                    '@type': 'CreativeWork',
+                    name: source.label,
+                    url: source.url,
+                  })),
+                }
+              : {}),
+            author: { '@type': 'Person', '@id': `${site.url}/#person`, name: site.name, url: site.url },
           },
         ]
       : []),
+    ...(pageStructuredData ? [pageStructuredData] : []),
   ],
 };
 const structuredDataJson = JSON.stringify(structuredData).replace(/</g, '\\u003c');
@@ -104,17 +155,22 @@ const structuredDataJson = JSON.stringify(structuredData).replace(/</g, '\\u003c
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:site_name" content={site.name} />
     <meta property="og:image" content={ogImageURL} />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content={String(imageWidth)} />
+    <meta property="og:image:height" content={String(imageHeight)} />
+    <meta property="og:image:alt" content={imageAlt} />
     {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+    {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageURL} />
+    <meta name="twitter:image:alt" content={imageAlt} />
 
     <script is:inline type="application/ld+json" set:html={structuredDataJson}></script>
+    <Analytics />
 
   </head>
   <body>
