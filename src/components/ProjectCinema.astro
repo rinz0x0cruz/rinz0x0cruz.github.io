@@ -30,7 +30,7 @@ function hexToRgb(hex: string) {
 }
 ---
 
-<section id="work" class="cinema" data-cinema>
+<section id="work" class="cinema" data-cinema data-analytics-section="work">
   <nav class="project-tabs" aria-label="Project reel">
     {demoSlides.map((slide, index) => (
       <button type="button" data-cinema-jump={index} aria-pressed={index === 0 ? 'true' : 'false'}>
@@ -44,6 +44,7 @@ function hexToRgb(hex: string) {
       <article
         class:list={['slide', `slide-${index + 1}`, { 'is-active': index === 0 }]}
         data-cinema-slide={index}
+        data-analytics-content-id={slide.projectSourceId}
         aria-hidden={index === 0 ? 'false' : 'true'}
         style={`--demo-accent:${slide.theme.accent};--demo-accent-rgb:${hexToRgb(slide.theme.accent)};--demo-media-start:${slide.theme.media[0]};--demo-media-middle:${slide.theme.media[1]};--demo-media-end:${slide.theme.media[2]};--demo-image-ratio:${slide.image.width}/${slide.image.height}`}
       >
@@ -96,6 +97,7 @@ function hexToRgb(hex: string) {
                         aria-label={`Inspect ${hotspot.title}`}
                         aria-expanded="false"
                         data-demo-hotspot
+                        data-analytics-hotspot={hotspot.id}
                         data-spot-x={hotspot.x}
                         data-spot-y={hotspot.y}
                       >
@@ -161,6 +163,12 @@ function hexToRgb(hex: string) {
       let timer: number | undefined;
       let syncDemo = () => {};
 
+      const emitInteraction = (contentId: string, placement: string) => {
+        document.dispatchEvent(new CustomEvent('portfolio:analytics', {
+          detail: { name: 'content_interaction', contentId, placement },
+        }));
+      };
+
       const schedule = () => {
         window.clearTimeout(timer);
         root.dataset.autoplay = 'false';
@@ -186,17 +194,25 @@ function hexToRgb(hex: string) {
         schedule();
       };
 
-      root.querySelector('[data-cinema-prev]')?.addEventListener('click', () => show(current - 1));
-      root.querySelector('[data-cinema-next]')?.addEventListener('click', () => show(current + 1));
-      tabs.forEach((tab) => tab.addEventListener('click', () => show(Number(tab.dataset.cinemaJump))));
+      const selectManual = (index: number) => {
+        const next = (index + slides.length) % slides.length;
+        if (next === current) return;
+        show(index);
+        const contentId = slides[next]?.dataset.analyticsContentId;
+        if (contentId) emitInteraction(contentId, 'cinema_select');
+      };
+
+      root.querySelector('[data-cinema-prev]')?.addEventListener('click', () => selectManual(current - 1));
+      root.querySelector('[data-cinema-next]')?.addEventListener('click', () => selectManual(current + 1));
+      tabs.forEach((tab) => tab.addEventListener('click', () => selectManual(Number(tab.dataset.cinemaJump))));
       root.addEventListener('keydown', (event) => {
         if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          show(current - 1);
+          selectManual(current - 1);
         }
         if (event.key === 'ArrowRight') {
           event.preventDefault();
-          show(current + 1);
+          selectManual(current + 1);
         }
       });
 
@@ -317,6 +333,11 @@ function hexToRgb(hex: string) {
             candidate.setAttribute('aria-expanded', 'false');
           });
           hotspot.setAttribute('aria-expanded', String(shouldOpen));
+          if (shouldOpen) {
+            const contentId = hotspot.closest<HTMLElement>('[data-cinema-slide]')?.dataset.analyticsContentId;
+            const hotspotId = hotspot.dataset.analyticsHotspot;
+            if (contentId && hotspotId) emitInteraction(contentId, `hotspot_${hotspotId}`);
+          }
         });
       });
       const refreshMotion = () => {

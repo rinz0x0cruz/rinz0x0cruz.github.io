@@ -52,6 +52,7 @@ jobs:
       - name: Build static site
         env:
           PUBLIC_ANALYTICS_ENDPOINT: ${{ vars.PUBLIC_ANALYTICS_ENDPOINT }}
+          PUBLIC_ANALYTICS_ENGAGEMENT: ${{ vars.PUBLIC_ANALYTICS_ENGAGEMENT }}
         run: npm run build
 
       - name: Verify build artifact

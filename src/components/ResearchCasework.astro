@@ -9,7 +9,7 @@ const caseWorkPaths = new Map(
 );
 ---
 
-<section id="casework" class="casework section" data-casework>
+<section id="casework" class="casework section" data-casework data-analytics-section="casework">
   <header class="casework-head container">
     <div>
       <p class="eyebrow">Professional investigations</p>
@@ -30,7 +30,7 @@ const caseWorkPaths = new Map(
 
     <div class="case-stage" aria-live="polite">
       {studies.map((study, index) => (
-        <article class:list={['case-slide', { 'is-active': index === 0 }]} data-case-slide={index} aria-hidden={index === 0 ? 'false' : 'true'}>
+        <article class:list={['case-slide', { 'is-active': index === 0 }]} data-case-slide={index} data-analytics-content-id={study.sourceId} aria-hidden={index === 0 ? 'false' : 'true'}>
           <header class="case-kicker">
             <span class="mono">Case {String(index + 1).padStart(2, '0')}</span>
             <p>{study.label}</p>
@@ -84,6 +84,12 @@ const caseWorkPaths = new Map(
       let paused = false;
       let timer: number | undefined;
 
+      const emitInteraction = (contentId: string) => {
+        document.dispatchEvent(new CustomEvent('portfolio:analytics', {
+          detail: { name: 'content_interaction', contentId, placement: 'casework_select' },
+        }));
+      };
+
       const schedule = () => {
         window.clearTimeout(timer);
         root.dataset.caseAutoplay = 'false';
@@ -116,17 +122,25 @@ const caseWorkPaths = new Map(
         schedule();
       };
 
-      root.querySelector('[data-case-prev]')?.addEventListener('click', () => show(current - 1));
-      root.querySelector('[data-case-next]')?.addEventListener('click', () => show(current + 1));
-      tabs.forEach((tab) => tab.addEventListener('click', () => show(Number(tab.dataset.caseJump))));
+      const selectManual = (nextIndex: number) => {
+        const next = (nextIndex + slides.length) % slides.length;
+        if (next === current) return;
+        show(nextIndex);
+        const contentId = slides[next]?.dataset.analyticsContentId;
+        if (contentId) emitInteraction(contentId);
+      };
+
+      root.querySelector('[data-case-prev]')?.addEventListener('click', () => selectManual(current - 1));
+      root.querySelector('[data-case-next]')?.addEventListener('click', () => selectManual(current + 1));
+      tabs.forEach((tab) => tab.addEventListener('click', () => selectManual(Number(tab.dataset.caseJump))));
       root.addEventListener('keydown', (event) => {
         if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          show(current - 1);
+          selectManual(current - 1);
         }
         if (event.key === 'ArrowRight') {
           event.preventDefault();
-          show(current + 1);
+          selectManual(current + 1);
         }
       });
       root.addEventListener('pointerenter', () => { paused = true; schedule(); });

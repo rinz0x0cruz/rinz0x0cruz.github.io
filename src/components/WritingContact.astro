@@ -10,23 +10,25 @@ const writeups = (await getCollection('writeups'))
 
 <section id="writing" class="writing section">
   <div class="container">
-    <header class="writing-head">
-      <div><p class="eyebrow">Blogs</p><h2>Evidence turned into a readable decision.</h2></div>
-      <a href="/writeups">All blogs ↗</a>
-    </header>
+    <div data-analytics-section="writing">
+      <header class="writing-head">
+        <div><p class="eyebrow">Blogs</p><h2>Evidence turned into a readable decision.</h2></div>
+        <a href="/writeups">All blogs ↗</a>
+      </header>
 
-    <div class="writing-grid">
-      {writeups.map((writeup, index) => (
-        <a class="writing-card" href={`/writeups/${writeup.id}/`} style={`--writing-order:${index}`} data-analytics-event="blog_open" data-analytics-id={writeup.id} data-analytics-placement="homepage">
-          <time datetime={isoDate(writeup.data.date)}>{formatDate(writeup.data.date)}</time>
-          <h3>{writeup.data.title}</h3>
-          <p>{writeup.data.summary}</p>
-          <span>{writeup.data.tags.join(' · ')}</span>
-        </a>
-      ))}
+      <div class="writing-grid">
+        {writeups.map((writeup, index) => (
+          <a class="writing-card" href={`/writeups/${writeup.id}/`} style={`--writing-order:${index}`} data-analytics-event="blog_open" data-analytics-id={writeup.id} data-analytics-placement="homepage">
+            <time datetime={isoDate(writeup.data.date)}>{formatDate(writeup.data.date)}</time>
+            <h3>{writeup.data.title}</h3>
+            <p>{writeup.data.summary}</p>
+            <span>{writeup.data.tags.join(' · ')}</span>
+          </a>
+        ))}
+      </div>
     </div>
 
-    <div id="contact" class="contact">
+    <div id="contact" class="contact" data-analytics-section="contact">
       <div class="contact-copy">
         <p class="eyebrow">Contact</p>
         <p class="contact-status mono"><i aria-hidden="true"></i> Open to the right investigation or research team</p>

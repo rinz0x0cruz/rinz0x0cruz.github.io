@@ -61,7 +61,9 @@ describe('plug-and-play portfolio content', () => {
       expect(demo.activity.length).toBeGreaterThan(0);
       expect(demo.hotspots.length).toBeGreaterThan(0);
       expectUnique(demo.hotspots.map((hotspot) => hotspot.title));
+      expectUnique(demo.hotspots.map((hotspot) => hotspot.id));
       for (const hotspot of demo.hotspots) {
+        expect(hotspot.id).toMatch(/^[a-z0-9]+(?:_[a-z0-9]+)*$/);
         expect(hotspot.x).toBeGreaterThan(0);
         expect(hotspot.x).toBeLessThan(100);
         expect(hotspot.y).toBeGreaterThan(0);

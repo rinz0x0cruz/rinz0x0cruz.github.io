@@ -155,6 +155,139 @@ test('configured owned analytics emits only bounded aggregate events', async ({ 
   await context.close();
 });
 
+test('nuanced analytics records deliberate evidence interactions and broad landing attribution', async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium', 'One isolated browser context covers engagement interactions.');
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  const payloads: Array<Record<string, unknown>> = [];
+  await page.route('**/api/event', async (route) => {
+    payloads.push(JSON.parse(route.request().postData() ?? '{}'));
+    await route.fulfill({ status: 202, headers: { 'access-control-allow-origin': '*' } });
+  });
+  await page.goto('/?src=linkedin');
+  const engagementConfigured = await page.locator('script').evaluateAll((scripts) =>
+    scripts.some((script) => script.textContent?.includes('section_engaged')),
+  );
+  test.skip(!engagementConfigured, 'Nuanced analytics is not enabled in this build.');
+  await expect.poll(() => payloads.some((payload) => payload.name === 'campaign_visit')).toBe(true);
+  expect(new URL(page.url()).searchParams.has('src')).toBe(false);
+  expect(payloads).toContainEqual({ name: 'campaign_visit', route: '/', content_id: 'linkedin', placement: 'landing' });
+
+  await page.locator('[data-cinema-jump="1"]').click();
+  await expect.poll(() => payloads.filter((payload) => payload.name === 'content_interaction').length).toBe(1);
+  expect(payloads).toContainEqual({ name: 'content_interaction', route: '/', content_id: 'malscope-dashboard', placement: 'cinema_select' });
+  await page.locator('[data-cinema-jump="1"]').click();
+  expect(payloads.filter((payload) => payload.name === 'content_interaction')).toHaveLength(1);
+
+  await page.locator('[data-cinema-slide="1"] [data-demo-hotspot]').first().evaluate((element: HTMLElement) => element.click());
+  await expect.poll(() => payloads.filter((payload) => payload.name === 'content_interaction').length).toBe(2);
+  expect(payloads.some((payload) => payload.content_id === 'malscope-dashboard' && payload.placement === 'hotspot_report_count')).toBe(true);
+
+  await page.locator('#casework').scrollIntoViewIfNeeded();
+  await page.locator('[data-case-jump="1"]').click();
+  await expect.poll(() => payloads.filter((payload) => payload.name === 'content_interaction').length).toBe(3);
+  expect(payloads.some((payload) => payload.content_id === 'detection-false-positives' && payload.placement === 'casework_select')).toBe(true);
+
+  await page.locator('.header-actions > .contact-link').evaluate((element: HTMLElement) => element.click());
+  await expect.poll(() => payloads.some((payload) => payload.name === 'campaign_action' && payload.placement === 'contact')).toBe(true);
+  const requestCount = payloads.length;
+  await page.goto('/?src=company_acme');
+  await expect.poll(() => payloads.length).toBeGreaterThan(requestCount);
+  expect(new URL(page.url()).searchParams.has('src')).toBe(false);
+  expect(payloads.some((payload) => payload.content_id === 'company_acme')).toBe(false);
+  expect(await context.cookies()).toEqual([]);
+  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({ local: 0, session: 0 });
+  await context.close();
+});
+
+test('attention milestones accumulate in foreground and emit once', async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium', 'One controlled clock covers the attention state machine.');
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.clock.install();
+  await page.addInitScript(() => {
+    Object.defineProperty(Document.prototype, 'hasFocus', { configurable: true, value: () => true });
+    Object.defineProperty(window, '__analyticsHidden', { configurable: true, writable: true, value: true });
+    Object.defineProperty(Document.prototype, 'hidden', {
+      configurable: true,
+      get: () => (window as unknown as Window & { __analyticsHidden: boolean }).__analyticsHidden,
+    });
+    window.IntersectionObserver = class {
+      callback: IntersectionObserverCallback;
+      constructor(callback: IntersectionObserverCallback) { this.callback = callback; }
+      observe(target: Element) { this.callback([{ target, isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver); }
+      unobserve() {}
+      disconnect() {}
+      takeRecords() { return []; }
+      root = null;
+      rootMargin = '0px';
+      thresholds = [0];
+    };
+  });
+  const payloads: Array<Record<string, unknown>> = [];
+  await page.route('**/api/event', async (route) => {
+    payloads.push(JSON.parse(route.request().postData() ?? '{}'));
+    await route.fulfill({ status: 202, headers: { 'access-control-allow-origin': '*' } });
+  });
+  await page.goto('/');
+  const engagementConfigured = await page.locator('script').evaluateAll((scripts) =>
+    scripts.some((script) => script.textContent?.includes('section_engaged')),
+  );
+  test.skip(!engagementConfigured, 'Nuanced analytics is not enabled in this build.');
+  await page.clock.fastForward(35_000);
+  expect(payloads.some((payload) => payload.name === 'section_engaged')).toBe(false);
+  await page.evaluate(() => {
+    (window as unknown as Window & { __analyticsHidden: boolean }).__analyticsHidden = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.clock.fastForward(10_500);
+  await expect.poll(() => payloads.filter((payload) => payload.name === 'section_engaged' && payload.content_id === 'top').length).toBeGreaterThanOrEqual(2);
+  await page.clock.fastForward(20_000);
+  await expect.poll(() => payloads.some((payload) => payload.name === 'section_engaged' && payload.content_id === 'top' && payload.placement === '30s')).toBe(true);
+  const topMilestones = payloads.filter((payload) => payload.name === 'section_engaged' && payload.content_id === 'top');
+  expect(topMilestones.map((payload) => payload.placement).sort()).toEqual(['10s', '30s', '3s']);
+  await page.clock.fastForward(10_000);
+  expect(payloads.filter((payload) => payload.name === 'section_engaged' && payload.content_id === 'top')).toHaveLength(3);
+  expect(await context.cookies()).toEqual([]);
+  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({ local: 0, session: 0 });
+  await context.close();
+});
+
+test('writeup progression and source-ledger exploration emit once', async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium', 'One article covers progression and ledger deduplication.');
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  const payloads: Array<Record<string, unknown>> = [];
+  await page.route('**/api/event', async (route) => {
+    payloads.push(JSON.parse(route.request().postData() ?? '{}'));
+    await route.fulfill({ status: 202, headers: { 'access-control-allow-origin': '*' } });
+  });
+  await page.goto('/writeups/patch-by-exploitability-not-cvss/');
+  const engagementConfigured = await page.locator('script').evaluateAll((scripts) =>
+    scripts.some((script) => script.textContent?.includes('article_progress')),
+  );
+  test.skip(!engagementConfigured, 'Nuanced analytics is not enabled in this build.');
+
+  await page.locator('[data-analytics-article]').evaluate((article) => {
+    window.scrollTo(0, article.getBoundingClientRect().top + window.scrollY + article.scrollHeight);
+  });
+  await expect.poll(() => payloads.filter((payload) => payload.name === 'article_progress').length).toBe(3);
+  expect(payloads.filter((payload) => payload.name === 'article_progress').map((payload) => payload.placement).sort()).toEqual(['p25', 'p50', 'p90']);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.locator('[data-analytics-article]').evaluate((article) => window.scrollTo(0, article.scrollHeight + article.getBoundingClientRect().top + window.scrollY));
+  expect(payloads.filter((payload) => payload.name === 'article_progress')).toHaveLength(3);
+
+  const summary = page.locator('[data-analytics-source-ledger] > summary');
+  await summary.click();
+  await expect.poll(() => payloads.filter((payload) => payload.name === 'content_interaction' && payload.placement === 'source_ledger_open').length).toBe(1);
+  await summary.click();
+  await summary.click();
+  expect(payloads.filter((payload) => payload.name === 'content_interaction' && payload.placement === 'source_ledger_open')).toHaveLength(1);
+  expect(await context.cookies()).toEqual([]);
+  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({ local: 0, session: 0 });
+  await context.close();
+});
+
 test('all home surfaces render on the initial load without motion overrides', async ({ page }) => {
   await page.goto('/');
   for (const id of ['top', 'achievements', 'work', 'systems', 'casework', 'about', 'trajectory', 'writing']) {

@@ -28,24 +28,49 @@ import { site } from '@/data/site';
           Cloudflare D1. There is no third-party analytics product or public dashboard.
           If the collector endpoint is not configured, no analytics request is made.
         </p>
-        <p>The site limits custom measurement to these commands:</p>
+        <p>The site limits command measurement to:</p>
         <ul>
           <li>contact and résumé actions;</li>
           <li>project live-site and source-code actions;</li>
           <li>work-detail and blog opens.</li>
         </ul>
+        <p>When the optional engagement layer is enabled, it also counts:</p>
+        <ul>
+          <li>foreground section milestones at 3, 10, and 30 seconds;</li>
+          <li>manual project or case selection and explicitly opened feature hotspots;</li>
+          <li>article progress at 25%, 50%, and 90%, plus evidence-ledger opening;</li>
+          <li>allowlisted broad landing sources such as LinkedIn, GitHub, a job board, or a role-level résumé variant.</li>
+        </ul>
+        <p>
+          Foreground milestones accrue only while the section intersects the middle of
+          the viewport, the page is visible and focused, and the browser has not been
+          idle for 60 seconds. They are coarse gates, not exact reading time. Autoplay,
+          hover previews, and scripted carousel motion are not counted as interest.
+          Landing-source attribution ends on that page and is never propagated into a
+          cross-page journey. Unknown, company-specific, vacancy-specific, recipient,
+          and application identifiers are not accepted.
+        </p>
         <p>
           Event properties are limited to the current route, a stable content ID, and
           the command's placement. The collector may add coarse country and device class
           and stores only a referrer's hostname. Query strings, URL fragments, IP
           addresses, full user agents, email addresses, free-form text, résumé contents,
           cookies, persistent identifiers, and individual visitor records are not stored.
-          Aggregate rows are deleted after 24 months.
+          Engagement, article-progress, and landing-source rows deliberately discard
+          country, device, and referrer context before storage. Aggregate rows are deleted
+          after 24 months.
+        </p>
+        <p>
+          The dashboard cannot identify unique visitors, reconstruct sessions or
+          cross-page funnels, report exact time on a section, or reveal who viewed an
+          item. Percentages are shown only after their denominator reaches 20; smaller
+          samples remain counts rather than implied conclusions.
         </p>
         <h2>Privacy signals</h2>
         <p>
           If your browser sends Global Privacy Control or Do Not Track, this site skips
-          analytics initialization. Analytics is also disabled during local development
+          analytics initialization, and the collector independently treats those request
+          headers as a successful no-op. Analytics is also disabled during local development
           and remains non-essential: blocking or losing the collector cannot change any
           page, command, download, or contact path.
         </p>

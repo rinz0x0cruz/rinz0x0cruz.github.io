@@ -88,7 +88,7 @@ const facts = isProject
   <Nav />
   <main id="main">
     <article>
-      <header class="detail-head section">
+      <header class="detail-head section" data-analytics-section="summary">
         <div class="container">
           <a class="back mono" href="/work/">← Work archive</a>
           <div class="detail-grid">
@@ -113,11 +113,11 @@ const facts = isProject
         </div>
       </header>
 
-      <section class="visual-band" aria-label={`${title} visual evidence`}>
+      <section class="visual-band" aria-label={`${title} visual evidence`} data-analytics-section="visual_evidence">
         <div class="container"><WorkImage src={work.data.heroImage} alt={work.data.heroAlt} priority /></div>
       </section>
 
-      <section class="evidence-band section" aria-labelledby="evidence-title">
+      <section class="evidence-band section" aria-labelledby="evidence-title" data-analytics-section="evidence">
         <div class="container">
           <header>
             <p class="eyebrow">Evidence at a glance</p>
@@ -135,7 +135,7 @@ const facts = isProject
         </div>
       </section>
 
-      <section class="narrative section">
+      <section class="narrative section" data-analytics-section="narrative">
         <div class="container narrative-grid">
           <div class="prose"><Content /></div>
           <aside aria-labelledby="facts-title">

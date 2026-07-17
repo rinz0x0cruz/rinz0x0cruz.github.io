@@ -190,6 +190,13 @@ collector, create a repository Actions variable named `PUBLIC_ANALYTICS_ENDPOINT
 containing its HTTPS `/api/event` URL. It is not a secret. Production then tracks
 pageviews and only the six documented aggregate command events with route, stable
 content ID, and placement. DNT/GPC prevents collection; no feature depends on it.
+Set the separate non-secret variable `PUBLIC_ANALYTICS_ENGAGEMENT=true` to add
+coarse foreground section milestones, deliberate evidence interactions, article
+progress gates, and allowlisted broad landing-source codes. Set it to `false` to
+roll back that layer without disabling pageviews or commands. Derived engagement
+rows omit country, device, and referrer dimensions; no visitor/session identity,
+exact timing, or cross-page campaign state is created. Dashboard rates remain
+unavailable until their denominator reaches 20.
 See `/privacy/` and
 [`ACCESSIBILITY.md`](ACCESSIBILITY.md).
 

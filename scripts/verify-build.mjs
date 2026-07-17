@@ -102,6 +102,28 @@ const allowedAnalyticsEvents = new Set([
   'work_detail_open',
   'blog_open',
 ]);
+const allowedAnalyticsSections = new Set([
+  'top',
+  'achievements',
+  'work',
+  'systems',
+  'casework',
+  'about',
+  'trajectory',
+  'writing',
+  'contact',
+  'summary',
+  'visual_evidence',
+  'evidence',
+  'narrative',
+  'article_intro',
+  'article_body',
+]);
+const expectedSections = {
+  '/': ['top', 'achievements', 'work', 'systems', 'casework', 'about', 'trajectory', 'writing', 'contact'],
+  work: ['summary', 'visual_evidence', 'evidence', 'narrative'],
+  writeup: ['article_intro', 'article_body'],
+};
 
 function socialImageForRoute(route) {
   if (route.startsWith('/work/') && route !== '/work/') {
@@ -146,6 +168,28 @@ for (const path of htmlFiles) {
     const analyticsAttributes = Object.keys(element.attribs).filter((name) => name.startsWith('data-analytics-'));
     if (analyticsAttributes.some((name) => !['data-analytics-event', 'data-analytics-id', 'data-analytics-placement'].includes(name))) {
       throw new Error(`${route}: analytics command includes an unapproved property.`);
+    }
+  }
+  const sections = $('[data-analytics-section]').toArray().map((element) => $(element).attr('data-analytics-section'));
+  if (sections.some((section) => !allowedAnalyticsSections.has(section))) {
+    throw new Error(`${route}: engagement analytics includes an unapproved section marker.`);
+  }
+  if (new Set(sections).size !== sections.length) {
+    throw new Error(`${route}: engagement analytics section markers must be unique per page.`);
+  }
+  const requiredSections = route === '/'
+    ? expectedSections['/']
+    : route.startsWith('/work/') && route !== '/work/'
+      ? expectedSections.work
+      : route.startsWith('/writeups/') && route !== '/writeups/'
+        ? expectedSections.writeup
+        : [];
+  if (requiredSections.some((section) => !sections.includes(section))) {
+    throw new Error(`${route}: engagement analytics section coverage is incomplete.`);
+  }
+  for (const hotspot of $('[data-analytics-hotspot]').toArray()) {
+    if (!/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test($(hotspot).attr('data-analytics-hotspot') || '')) {
+      throw new Error(`${route}: analytics hotspot ID is missing or unbounded.`);
     }
   }
   if (route === '/') {

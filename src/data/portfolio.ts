@@ -5,6 +5,7 @@ export interface Achievement {
 }
 
 export interface DemoHotspot {
+  id: string;
   x: number;
   y: number;
   side: 'left' | 'right' | 'above';
@@ -143,6 +144,7 @@ export const projectDemos = [
     activity: ['CVE evidence linked', 'Actor relationship resolved', 'Queue verdict recalculated'],
     hotspots: [
       {
+        id: 'threat_graph',
         x: 66,
         y: 34,
         side: 'left',
@@ -154,6 +156,7 @@ export const projectDemos = [
         event: 'Actor to CVE edge verified',
       },
       {
+        id: 'review_queue',
         x: 55,
         y: 53,
         side: 'left',
@@ -166,6 +169,7 @@ export const projectDemos = [
         event: 'Verdict promoted to ACT',
       },
       {
+        id: 'exploitation_pressure',
         x: 22,
         y: 88,
         side: 'above',
@@ -202,6 +206,7 @@ export const projectDemos = [
     activity: ['New report indexed', 'imphash cluster resolved', 'Sigma coverage refreshed'],
     hotspots: [
       {
+        id: 'report_count',
         x: 29,
         y: 24,
         side: 'right',
@@ -214,6 +219,7 @@ export const projectDemos = [
         event: 'New report safely indexed',
       },
       {
+        id: 'activity_timeline',
         x: 49,
         y: 42,
         side: 'above',
@@ -225,6 +231,7 @@ export const projectDemos = [
         event: 'First-seen marker added',
       },
       {
+        id: 'family_clustering',
         x: 27,
         y: 66,
         side: 'right',
@@ -236,6 +243,7 @@ export const projectDemos = [
         event: 'imphash cluster resolved',
       },
       {
+        id: 'attack_coverage',
         x: 73,
         y: 66,
         side: 'left',

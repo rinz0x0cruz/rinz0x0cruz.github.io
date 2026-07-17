@@ -1,5 +1,8 @@
 ---
+import { analyticsCampaignSources } from '@/data/analytics';
+
 const configuredEndpoint = import.meta.env.PUBLIC_ANALYTICS_ENDPOINT?.trim();
+const configuredEngagement = import.meta.env.PUBLIC_ANALYTICS_ENGAGEMENT?.trim().toLowerCase();
 let endpoint: string | undefined;
 
 if (configuredEndpoint) {
@@ -17,11 +20,16 @@ if (configuredEndpoint) {
   endpoint = parsed.href;
 }
 
+if (configuredEngagement && !['true', 'false'].includes(configuredEngagement)) {
+  throw new Error('PUBLIC_ANALYTICS_ENGAGEMENT must be true or false when configured.');
+}
+
 const enabled = import.meta.env.PROD && Boolean(endpoint);
+const engagementEnabled = enabled && configuredEngagement === 'true';
 ---
 
 {enabled && (
-  <script is:inline define:vars={{ endpoint }} data-analytics-provider="owned">
+  <script is:inline define:vars={{ endpoint, engagementEnabled, analyticsCampaignSources }} data-analytics-provider="owned">
     (() => {
       const privacyRequested =
         navigator.globalPrivacyControl === true ||
@@ -42,6 +50,16 @@ const enabled = import.meta.env.PROD && Boolean(endpoint);
       window.__portfolioAnalyticsBound = true;
 
       const route = window.location.pathname;
+      let campaignSource = '';
+      if (engagementEnabled) {
+        const currentUrl = new URL(window.location.href);
+        const candidate = currentUrl.searchParams.get('src');
+        if (candidate !== null) {
+          currentUrl.searchParams.delete('src');
+          window.history.replaceState(window.history.state, '', `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+        }
+        if (candidate && analyticsCampaignSources.includes(candidate)) campaignSource = candidate;
+      }
       const referrerHost = (() => {
         if (!document.referrer) return '';
         try {
@@ -52,13 +70,13 @@ const enabled = import.meta.env.PROD && Boolean(endpoint);
         }
       })();
 
-      const send = (name, contentId, placement) => {
+      const send = (name, contentId, placement, includeReferrer = true) => {
         const payload = { name, route };
         if (contentId && placement) {
           payload.content_id = contentId;
           payload.placement = placement;
         }
-        if (referrerHost) payload.referrer_host = referrerHost;
+        if (includeReferrer && referrerHost) payload.referrer_host = referrerHost;
         const body = JSON.stringify(payload);
         if (navigator.sendBeacon?.(endpoint, body)) return;
         void fetch(endpoint, {
@@ -72,6 +90,16 @@ const enabled = import.meta.env.PROD && Boolean(endpoint);
       };
 
       send('pageview');
+      if (campaignSource) send('campaign_visit', campaignSource, 'landing', false);
+
+      const campaignActions = {
+        contact_click: 'contact',
+        resume_download: 'resume',
+        project_live: 'live',
+        project_source: 'source',
+        work_detail_open: 'deep_dive',
+        blog_open: 'blog',
+      };
 
       const track = (event) => {
         if (event.type === 'auxclick' && event.button !== 1) return;
@@ -84,10 +112,134 @@ const enabled = import.meta.env.PROD && Boolean(endpoint);
         const placement = target.dataset.analyticsPlacement;
         if (!allowedEvents.has(name) || !contentId || !placement) return;
         send(name, contentId, placement);
+        const campaignAction = campaignActions[name];
+        if (campaignSource && campaignAction) send('campaign_action', campaignSource, campaignAction, false);
       };
 
       document.addEventListener('click', track);
       document.addEventListener('auxclick', track);
+
+      if (!engagementEnabled) return;
+
+      const setupEngagement = () => {
+        const milestones = [
+          [3000, '3s'],
+          [10000, '10s'],
+          [30000, '30s'],
+        ];
+        const states = new Map();
+        let lastTick = performance.now();
+        let lastActivity = Date.now();
+        let progressPending = false;
+
+        const resetClock = () => { lastTick = performance.now(); };
+        const recordActivity = () => {
+          resetClock();
+          lastActivity = Date.now();
+        };
+        const handleVisibility = () => {
+          if (document.hidden) resetClock();
+          else recordActivity();
+        };
+        const foreground = () =>
+          !document.hidden && document.hasFocus() && Date.now() - lastActivity < 60000;
+
+        document.querySelectorAll('[data-analytics-section]').forEach((element) => {
+          const sectionId = element.dataset.analyticsSection;
+          if (sectionId) states.set(element, { sectionId, visible: false, elapsed: 0, sent: new Set() });
+        });
+
+        let observer;
+        if ('IntersectionObserver' in window) {
+          observer = new IntersectionObserver((entries) => {
+            resetClock();
+            entries.forEach((entry) => {
+              const state = states.get(entry.target);
+              if (state) state.visible = entry.isIntersecting;
+            });
+          }, { rootMargin: '-25% 0px -25% 0px', threshold: 0.01 });
+          states.forEach((_state, element) => observer.observe(element));
+        }
+
+        window.setInterval(() => {
+          const now = performance.now();
+          const delta = now - lastTick;
+          lastTick = now;
+          if (!foreground()) return;
+          states.forEach((state) => {
+            if (!state.visible) return;
+            state.elapsed += delta;
+            milestones.forEach(([threshold, placement]) => {
+              if (state.elapsed < threshold || state.sent.has(placement)) return;
+              state.sent.add(placement);
+              send('section_engaged', state.sectionId, placement, false);
+              if (campaignSource && placement === '10s') {
+                send('campaign_attention', campaignSource, state.sectionId, false);
+              }
+            });
+          });
+        }, 250);
+
+        const progressSent = new Set();
+        const measureArticle = () => {
+          progressPending = false;
+          const article = document.querySelector('[data-analytics-article]');
+          if (!article || !foreground()) return;
+          const contentId = article.dataset.analyticsContentId;
+          if (!contentId) return;
+          const bounds = article.getBoundingClientRect();
+          const readingLine = window.innerHeight * 0.72;
+          const progress = Math.max(0, Math.min(1, (readingLine - bounds.top) / Math.max(1, bounds.height)));
+          [[0.25, 'p25'], [0.5, 'p50'], [0.9, 'p90']].forEach(([threshold, placement]) => {
+            if (progress < threshold || progressSent.has(placement)) return;
+            progressSent.add(placement);
+            send('article_progress', contentId, placement, false);
+          });
+        };
+        const scheduleArticleMeasure = () => {
+          recordActivity();
+          if (progressPending) return;
+          progressPending = true;
+          requestAnimationFrame(measureArticle);
+        };
+
+        const sourceLedgers = new WeakSet();
+        const trackLedger = (event) => {
+          const ledger = event.target;
+          if (!(ledger instanceof HTMLDetailsElement) || !ledger.open || !ledger.matches('[data-analytics-source-ledger]') || sourceLedgers.has(ledger)) return;
+          const contentId = ledger.dataset.analyticsContentId;
+          if (!contentId) return;
+          sourceLedgers.add(ledger);
+          send('content_interaction', contentId, 'source_ledger_open', false);
+        };
+
+        const interactionSent = new Set();
+        const trackCustomInteraction = (event) => {
+          const detail = event.detail;
+          if (!detail || detail.name !== 'content_interaction') return;
+          if (!/^[a-z0-9_-]{1,80}$/.test(detail.contentId) || !/^[a-z0-9_-]{1,80}$/.test(detail.placement)) return;
+          const key = `${detail.contentId}:${detail.placement}`;
+          if (interactionSent.has(key)) return;
+          interactionSent.add(key);
+          send('content_interaction', detail.contentId, detail.placement, false);
+        };
+
+        ['pointerdown', 'keydown', 'touchstart'].forEach((name) => window.addEventListener(name, recordActivity, { passive: true }));
+        window.addEventListener('scroll', scheduleArticleMeasure, { passive: true });
+        window.addEventListener('resize', scheduleArticleMeasure, { passive: true });
+        window.addEventListener('focus', recordActivity);
+        window.addEventListener('blur', resetClock);
+        document.addEventListener('visibilitychange', handleVisibility);
+        document.addEventListener('toggle', trackLedger, true);
+        document.addEventListener('portfolio:analytics', trackCustomInteraction);
+        measureArticle();
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupEngagement, { once: true });
+      } else {
+        setupEngagement();
+      }
     })();
   </script>
 )}

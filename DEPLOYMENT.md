@@ -68,11 +68,24 @@ After deploying `portfolio-analytics`, add the repository Actions variable
 a secret and do not add a hardcoded fallback. A missing variable intentionally
 produces no analytics client. DNT/GPC visitors produce no collector request.
 
+Set `PUBLIC_ANALYTICS_ENGAGEMENT=true` only after the Worker version accepting
+the engagement taxonomy is live. This independent flag enables coarse section,
+manual evidence, article-progress, and broad landing-source aggregates. Set it
+to `false` for an immediate rollback that preserves ordinary pageviews and
+commands. Both variables are non-secret repository Actions variables.
+
 The allowed custom events are `contact_click`, `resume_download`,
 `project_live`, `project_source`, `work_detail_open`, and `blog_open`. Properties
 are restricted to route, stable content ID, and placement. Verify activation in
 the provider's live dashboard without sending test events from real visitor
 sessions.
+
+The engagement taxonomy is `section_engaged`, `content_interaction`,
+`article_progress`, `campaign_visit`, `campaign_attention`, and
+`campaign_action`. Campaign values come from the source allowlist in
+`src/data/analytics.ts`; do not add company, vacancy, recipient, or application
+identifiers. Deploy the backend first, validate its immutable Worker version,
+then enable the portfolio flag.
 
 ## Repository settings
 

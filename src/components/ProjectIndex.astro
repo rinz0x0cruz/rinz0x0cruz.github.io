@@ -6,7 +6,7 @@ const demoProjectIds = new Set(projectDemos.map((demo) => demo.projectSourceId))
 const otherProjects = projects.filter((project) => !demoProjectIds.has(project.sourceId));
 ---
 
-<section id="systems" class="systems section" aria-labelledby="systems-title">
+<section id="systems" class="systems section" aria-labelledby="systems-title" data-analytics-section="systems">
   <header class="container systems-head">
     <div>
       <p class="eyebrow mono">Built systems</p>

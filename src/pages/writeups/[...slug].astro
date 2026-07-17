@@ -38,7 +38,7 @@ const socialImageAlt = `Social preview for ${title} with an ExploitRank dashboar
   <main id="main" class="section">
     <article class="container article">
       <a class="back mono" href="/writeups">← Blogs</a>
-      <header class="wh">
+      <header class="wh" data-analytics-section="article_intro">
         <p class="article-dates mono">
           <time datetime={isoDate(date)}>Published {formatDate(date)}</time>
           {updated && <time datetime={isoDate(updated)}>Updated {formatDate(updated)}</time>}
@@ -49,7 +49,7 @@ const socialImageAlt = `Social preview for ${title} with an ExploitRank dashboar
           {tags.map((t) => <li>#{t}</li>)}
         </ul>
       </header>
-      <details class="source-ledger">
+      <details class="source-ledger" data-analytics-source-ledger data-analytics-content-id={writeup.id}>
         <summary class="mono">Evidence sources · {sources.length}</summary>
         <ul>
           {sources.map((source) => (
@@ -60,7 +60,7 @@ const socialImageAlt = `Social preview for ${title} with an ExploitRank dashboar
           ))}
         </ul>
       </details>
-      <div class="prose">
+      <div class="prose" data-analytics-section="article_body" data-analytics-article data-analytics-content-id={writeup.id}>
         <Content />
       </div>
     </article>
