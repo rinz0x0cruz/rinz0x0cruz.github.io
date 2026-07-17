@@ -3,6 +3,7 @@ import { analyticsCampaignSources } from '@/data/analytics';
 
 const configuredEndpoint = import.meta.env.PUBLIC_ANALYTICS_ENDPOINT?.trim();
 const configuredEngagement = import.meta.env.PUBLIC_ANALYTICS_ENGAGEMENT?.trim().toLowerCase();
+const configuredContext = import.meta.env.PUBLIC_ANALYTICS_CONTEXT?.trim().toLowerCase();
 let endpoint: string | undefined;
 
 if (configuredEndpoint) {
@@ -23,13 +24,17 @@ if (configuredEndpoint) {
 if (configuredEngagement && !['true', 'false'].includes(configuredEngagement)) {
   throw new Error('PUBLIC_ANALYTICS_ENGAGEMENT must be true or false when configured.');
 }
+if (configuredContext && !['true', 'false'].includes(configuredContext)) {
+  throw new Error('PUBLIC_ANALYTICS_CONTEXT must be true or false when configured.');
+}
 
 const enabled = import.meta.env.PROD && Boolean(endpoint);
 const engagementEnabled = enabled && configuredEngagement === 'true';
+const contextEnabled = enabled && configuredContext === 'true';
 ---
 
 {enabled && (
-  <script is:inline define:vars={{ endpoint, engagementEnabled, analyticsCampaignSources }} data-analytics-provider="owned">
+  <script is:inline define:vars={{ endpoint, engagementEnabled, contextEnabled, analyticsCampaignSources }} data-analytics-provider="owned">
     (() => {
       const privacyRequested =
         navigator.globalPrivacyControl === true ||
@@ -88,6 +93,22 @@ const engagementEnabled = enabled && configuredEngagement === 'true';
           headers: { 'content-type': 'text/plain;charset=UTF-8' },
         }).catch(() => {});
       };
+
+      let contextSent = false;
+      const sendContext = () => {
+        if (!contextEnabled || contextSent) return;
+        contextSent = true;
+        send('context_visit', 'context', 'granted', false);
+      };
+      const contextChoice = document.cookie
+        .split(';')
+        .map((entry) => entry.trim())
+        .find((entry) => entry.startsWith('pa_context_consent='))
+        ?.slice('pa_context_consent='.length);
+      if (contextChoice === 'granted') sendContext();
+      document.addEventListener('portfolio:analytics-consent', (event) => {
+        if (event.detail?.granted === true) sendContext();
+      });
 
       send('pageview');
       if (campaignSource) send('campaign_visit', campaignSource, 'landing', false);

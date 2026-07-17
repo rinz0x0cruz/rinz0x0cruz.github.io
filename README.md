@@ -198,6 +198,11 @@ roll back that layer without disabling pageviews or commands. Derived engagement
 rows omit country, device, and referrer dimensions; no visitor/session identity,
 exact timing, or cross-page campaign state is created. Dashboard rates remain
 unavailable until their denominator reaches 20.
+Set `PUBLIC_ANALYTICS_CONTEXT=true` only after D1 migration 0002 and the Worker
+context event are live. It displays a balanced optional choice. Acceptance stores
+one literal-valued first-party preference cookie and adds separate country,
+country-region, and ASN/network-organization counters for 90 days. Network owner
+is not represented as employer identity; no route or engagement data is attached.
 See `/privacy/` and
 [`ACCESSIBILITY.md`](ACCESSIBILITY.md).
 

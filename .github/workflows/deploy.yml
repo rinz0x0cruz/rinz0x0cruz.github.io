@@ -53,6 +53,7 @@ jobs:
         env:
           PUBLIC_ANALYTICS_ENDPOINT: ${{ vars.PUBLIC_ANALYTICS_ENDPOINT }}
           PUBLIC_ANALYTICS_ENGAGEMENT: ${{ vars.PUBLIC_ANALYTICS_ENGAGEMENT }}
+          PUBLIC_ANALYTICS_CONTEXT: ${{ vars.PUBLIC_ANALYTICS_CONTEXT }}
         run: npm run build
 
       - name: Verify build artifact

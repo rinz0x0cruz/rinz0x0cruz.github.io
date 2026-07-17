@@ -118,6 +118,8 @@ test('analytics is privacy-signaled and fail-open', async ({ page, context }) =>
   });
   await page.goto('/');
   expect(await context.cookies()).toEqual([]);
+  await expect(page.locator('[data-analytics-consent]')).toBeHidden();
+  await expect(page.locator('[data-open-context-consent]')).toBeHidden();
   await page.locator('.header-actions > .contact-link').click();
   await expect(page).toHaveURL(/\/#contact$/);
   await expect(page.locator('#contact')).toBeVisible();
@@ -727,4 +729,55 @@ test('mobile composition keeps dense UI aligned and unobstructed', async ({ page
   expect(closeBox).not.toBeNull();
   expect(titleBox!.x).toBeGreaterThanOrEqual(lastDotBox!.x + lastDotBox!.width);
   expect(titleBox!.x + titleBox!.width).toBeLessThanOrEqual(closeBox!.x + 1);
+});
+
+test('optional context consent is balanced, persistent, and withdrawable', async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium', 'One isolated context covers the consent contract.');
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const payloads: Array<Record<string, unknown>> = [];
+  await page.route('**/api/event', async (route) => {
+    payloads.push(JSON.parse(route.request().postData() ?? '{}'));
+    await route.fulfill({ status: 202, headers: { 'access-control-allow-origin': '*' } });
+  });
+  await page.goto('/');
+  const banner = page.locator('[data-analytics-consent]');
+  test.skip(!(await banner.count()), 'Optional context consent is not enabled in this build.');
+  await expect(banner).toBeVisible();
+  await expect.poll(() => payloads.some((payload) => payload.name === 'pageview')).toBe(true);
+  expect(payloads.some((payload) => payload.name === 'context_visit')).toBe(false);
+
+  const allow = page.getByRole('button', { name: 'Allow optional context' });
+  const decline = page.getByRole('button', { name: 'Continue without enrichment' });
+  const [allowBox, declineBox] = await Promise.all([allow.boundingBox(), decline.boundingBox()]);
+  expect(allowBox).not.toBeNull();
+  expect(declineBox).not.toBeNull();
+  expect(Math.abs(allowBox!.width - declineBox!.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(allowBox!.height - declineBox!.height)).toBeLessThanOrEqual(1);
+  expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+
+  await decline.click();
+  await expect(banner).toBeHidden();
+  expect(payloads.some((payload) => payload.name === 'context_visit')).toBe(false);
+  let consentCookie = (await context.cookies()).find((cookie) => cookie.name === 'pa_context_consent');
+  expect(consentCookie).toMatchObject({ value: 'denied', secure: true, sameSite: 'Lax' });
+
+  const settings = page.getByRole('button', { name: 'Analytics choices' });
+  await settings.click();
+  await expect(banner).toBeVisible();
+  await allow.click();
+  await expect.poll(() => payloads.filter((payload) => payload.name === 'context_visit').length).toBe(1);
+  expect(payloads).toContainEqual({ name: 'context_visit', route: '/', content_id: 'context', placement: 'granted' });
+  consentCookie = (await context.cookies()).find((cookie) => cookie.name === 'pa_context_consent');
+  expect(consentCookie).toMatchObject({ value: 'granted', secure: true, sameSite: 'Lax' });
+
+  await page.reload();
+  await expect.poll(() => payloads.filter((payload) => payload.name === 'context_visit').length).toBe(2);
+  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({ local: 0, session: 0 });
+
+  await settings.click();
+  await decline.click();
+  consentCookie = (await context.cookies()).find((cookie) => cookie.name === 'pa_context_consent');
+  expect(consentCookie?.value).toBe('denied');
+  await context.close();
 });

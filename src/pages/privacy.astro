@@ -55,10 +55,33 @@ import { site } from '@/data/site';
           the command's placement. The collector may add coarse country and device class
           and stores only a referrer's hostname. Query strings, URL fragments, IP
           addresses, full user agents, email addresses, free-form text, résumé contents,
-          cookies, persistent identifiers, and individual visitor records are not stored.
+          persistent identifiers, and individual visitor records are not stored.
           Engagement, article-progress, and landing-source rows deliberately discard
           country, device, and referrer context before storage. Aggregate rows are deleted
           after 24 months.
+        </p>
+        <h2>Optional context choice</h2>
+        <p>
+          Baseline aggregate analytics remains cookieless. You may separately allow
+          coarse visit context. The choice sets one first-party preference cookie named
+          <code>pa_context_consent</code> whose value is only <code>granted</code> or
+          <code>denied</code>. It expires after 180 days, contains no random identifier,
+          and is not sent to the analytics Worker.
+        </p>
+        <p>
+          After opt-in, each consented pageview lets Cloudflare add three independent
+          counters: country, country-region code, and ASN/network organization. These
+          dimensions are stored in separate rows without route or engagement data, cannot
+          be joined to one another, and are deleted after 90 days. City, precise location,
+          IP address, and a visitor identifier are not stored. A network organization may
+          be an ISP, VPN, university, cloud provider, or corporate network; it does not
+          establish a visitor's employer.
+        </p>
+        <p>
+          “Allow optional context” and “Continue without enrichment” are equally available.
+          You can reopen “Analytics choices” on any page to change or withdraw the choice.
+          Declining does not alter the site and does not stop the existing cookieless
+          aggregate counters described above.
         </p>
         <p>
           The dashboard cannot identify unique visitors, reconstruct sessions or
@@ -70,7 +93,8 @@ import { site } from '@/data/site';
         <p>
           If your browser sends Global Privacy Control or Do Not Track, this site skips
           analytics initialization, and the collector independently treats those request
-          headers as a successful no-op. Analytics is also disabled during local development
+          headers as a successful no-op. Those signals also suppress the optional context
+          prompt and override a previously granted preference. Analytics is also disabled during local development
           and remains non-essential: blocking or losing the collector cannot change any
           page, command, download, or contact path.
         </p>

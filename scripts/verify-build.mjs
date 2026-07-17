@@ -207,6 +207,14 @@ for (const path of htmlFiles) {
       throw new Error(`${route}: analytics hotspot ID is missing or unbounded.`);
     }
   }
+  if ($('[data-analytics-consent]').length) {
+    if ($('[data-context-consent="granted"]').length !== 1 || $('[data-context-consent="denied"]').length !== 1) {
+      throw new Error(`${route}: optional context consent choices are incomplete.`);
+    }
+    if ($('[data-open-context-consent]').length !== 1) {
+      throw new Error(`${route}: optional context consent settings control is missing.`);
+    }
+  }
   if (route === '/') {
     const profilePage = graph.find((entry) => entry['@type'] === 'ProfilePage');
     if (!profilePage || profilePage.mainEntity?.['@id'] !== `${origin}/#person`) {

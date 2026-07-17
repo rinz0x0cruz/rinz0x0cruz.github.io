@@ -1,0 +1,133 @@
+---
+const configuredContext = import.meta.env.PUBLIC_ANALYTICS_CONTEXT?.trim().toLowerCase();
+if (configuredContext && !['true', 'false'].includes(configuredContext)) {
+  throw new Error('PUBLIC_ANALYTICS_CONTEXT must be true or false when configured.');
+}
+const enabled = import.meta.env.PROD && configuredContext === 'true' && Boolean(import.meta.env.PUBLIC_ANALYTICS_ENDPOINT?.trim());
+---
+
+{enabled && (
+  <>
+    <aside class="context-consent" data-analytics-consent hidden aria-labelledby="context-consent-title">
+      <div class="container context-consent-inner">
+        <div>
+          <p class="mono">Optional visit context</p>
+          <h2 id="context-consent-title">Share coarse context?</h2>
+          <p>
+            Baseline analytics stays cookieless. If allowed, one preference cookie remembers this choice and consented pageviews add country, region, and network organization for 90 days. A network owner may be an ISP, VPN, university, or cloud provider — not your employer.
+          </p>
+        </div>
+        <div class="context-consent-actions">
+          <button type="button" data-context-consent="granted">Allow optional context</button>
+          <button type="button" data-context-consent="denied">Continue without enrichment</button>
+          <a href="/privacy/">Privacy details</a>
+        </div>
+      </div>
+    </aside>
+    <button class="context-settings mono" type="button" data-open-context-consent hidden>Analytics choices</button>
+    <script is:inline>
+      (() => {
+        const cookieName = 'pa_context_consent';
+        const lifetimeSeconds = 180 * 24 * 60 * 60;
+        const privacyRequested =
+          navigator.globalPrivacyControl === true ||
+          navigator.doNotTrack === '1' ||
+          window.doNotTrack === '1';
+        const banner = document.querySelector('[data-analytics-consent]');
+        const settings = document.querySelector('[data-open-context-consent]');
+        if (!(banner instanceof HTMLElement) || !(settings instanceof HTMLButtonElement) || privacyRequested) return;
+
+        const choice = () => document.cookie
+          .split(';')
+          .map((entry) => entry.trim())
+          .find((entry) => entry.startsWith(`${cookieName}=`))
+          ?.slice(cookieName.length + 1);
+        const save = (value) => {
+          document.cookie = `${cookieName}=${value}; Path=/; Max-Age=${lifetimeSeconds}; SameSite=Lax; Secure`;
+        };
+        const open = () => {
+          banner.hidden = false;
+          settings.hidden = true;
+          banner.querySelector('button')?.focus();
+        };
+        const close = () => {
+          banner.hidden = true;
+          settings.hidden = false;
+          settings.focus();
+        };
+
+        banner.addEventListener('click', (event) => {
+          const target = event.target instanceof Element ? event.target.closest('[data-context-consent]') : null;
+          if (!(target instanceof HTMLButtonElement)) return;
+          const granted = target.dataset.contextConsent === 'granted';
+          save(granted ? 'granted' : 'denied');
+          document.dispatchEvent(new CustomEvent('portfolio:analytics-consent', { detail: { granted } }));
+          close();
+        });
+        settings.addEventListener('click', open);
+        settings.hidden = false;
+        if (!['granted', 'denied'].includes(choice())) open();
+      })();
+    </script>
+  </>
+)}
+
+<style>
+  .context-consent {
+    position: fixed;
+    z-index: 20;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-top: 1px solid var(--cp-border-strong);
+    background: color-mix(in srgb, var(--cp-bg) 96%, transparent);
+    box-shadow: 0 -18px 40px rgba(0, 0, 0, .16);
+    padding-block: 22px;
+    backdrop-filter: blur(14px);
+  }
+  .context-consent[hidden],
+  .context-settings[hidden] { display: none; }
+  .context-consent-inner { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(300px, .6fr); gap: 34px; align-items: end; }
+  .context-consent .mono { color: var(--cp-accent); font-size: var(--type-label); text-transform: uppercase; }
+  .context-consent h2 { margin-top: 8px; font-size: clamp(1.45rem, 3vw, 2rem); }
+  .context-consent div > p:last-child { max-width: 72ch; margin-top: 10px; color: var(--cp-text-soft); font-size: var(--type-small); line-height: 1.6; }
+  .context-consent-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .context-consent-actions button {
+    min-height: 46px;
+    border: 1px solid var(--cp-border-strong);
+    background: var(--cp-surface);
+    color: var(--cp-text);
+    padding: 10px 14px;
+    font: 700 var(--type-label) var(--font-mono);
+    text-align: center;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .context-consent-actions button:hover,
+  .context-consent-actions button:focus-visible { border-color: var(--cp-accent); color: var(--cp-accent); }
+  .context-consent-actions a { grid-column: 1 / -1; color: var(--cp-text-muted); font-size: var(--type-label); text-align: center; }
+  .context-settings {
+    position: fixed;
+    z-index: 19;
+    right: 16px;
+    bottom: 14px;
+    min-height: 34px;
+    border: 1px solid var(--cp-border);
+    background: var(--cp-bg);
+    color: var(--cp-text-muted);
+    padding: 7px 10px;
+    font-size: var(--type-label);
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .context-settings:hover,
+  .context-settings:focus-visible { border-color: var(--cp-accent); color: var(--cp-accent); }
+  @media (max-width: 760px) {
+    .context-consent-inner { grid-template-columns: 1fr; gap: 18px; }
+  }
+  @media (max-width: 480px) {
+    .context-consent { padding-block: 16px; }
+    .context-consent-actions { grid-template-columns: 1fr; }
+    .context-consent-actions a { grid-column: auto; }
+  }
+</style>

@@ -6,6 +6,7 @@ import '@fontsource/ibm-plex-mono/latin-400.css';
 import '@fontsource/ibm-plex-mono/latin-700.css';
 import '@/styles/global.css';
 import Analytics from '@/components/Analytics.astro';
+import AnalyticsConsent from '@/components/AnalyticsConsent.astro';
 import MotionLayer from '@/components/MotionLayer.astro';
 import { site } from '@/data/site';
 
@@ -177,5 +178,6 @@ const structuredDataJson = JSON.stringify(structuredData).replace(/</g, '\\u003c
     <a class="skip-link" href="#main">Skip to content</a>
     <MotionLayer />
     <slot />
+    <AnalyticsConsent />
   </body>
 </html>

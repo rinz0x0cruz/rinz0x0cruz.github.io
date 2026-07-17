@@ -74,6 +74,13 @@ manual evidence, article-progress, and broad landing-source aggregates. Set it
 to `false` for an immediate rollback that preserves ordinary pageviews and
 commands. Both variables are non-secret repository Actions variables.
 
+Set `PUBLIC_ANALYTICS_CONTEXT=true` only after applying analytics D1 migration
+`0002_consented_context.sql` and deploying the Worker version that accepts
+`context_visit`. The flag renders the optional first-party preference control
+and enables separate 90-day country, region, and ASN/network-owner aggregates.
+Set it to `false` to remove the prompt and enriched requests without affecting
+baseline analytics. It is also a non-secret repository Actions variable.
+
 The allowed custom events are `contact_click`, `resume_download`,
 `project_live`, `project_source`, `work_detail_open`, and `blog_open`. Properties
 are restricted to route, stable content ID, and placement. Verify activation in
