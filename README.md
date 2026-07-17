@@ -17,6 +17,7 @@ Live: <https://rinz0x0cruz.github.io>
 - Shareable project/case details with responsive AVIF/WebP media and generated social cards
 - Sitemap, RSS, and JSON-LD `ProfilePage`, `BlogPosting`, `SoftwareSourceCode`, and `CreativeWork` metadata
 - Optional self-owned aggregate analytics that remains disabled and fail-open until configured
+- Build-generated CSP with exact inline-script hashes and a no-referrer browser policy on every HTML route
 
 ## Develop
 

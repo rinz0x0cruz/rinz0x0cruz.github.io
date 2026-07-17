@@ -44,7 +44,7 @@ for (let attempt = 1; attempt <= attempts; attempt += 1) {
 if (!metadata) throw new Error(`Deployment did not expose commit ${expectedSha} within ${(attempts * delayMs) / 1000}s.`);
 
 const endpoints = [
-  { path: '', includes: ['ProfilePage', '/work/exploitrank/', 'data-analytics-event="work_detail_open"'] },
+  { path: '', includes: ['ProfilePage', '/work/exploitrank/', 'data-analytics-event="work_detail_open"', 'http-equiv="Content-Security-Policy"', 'name="referrer" content="no-referrer"'] },
   { path: 'work/', includes: ['Systems and investigations', '/work/midnight-blizzard/'] },
   { path: 'work/exploitrank/', includes: ['SoftwareSourceCode', '/social/work/exploitrank.png', 'href="/#contact"'] },
   { path: 'work/midnight-blizzard/', includes: ['CreativeWork', 'Disclosure boundary', 'href="/#contact"'] },

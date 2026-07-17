@@ -87,6 +87,20 @@ The engagement taxonomy is `section_engaged`, `content_interaction`,
 identifiers. Deploy the backend first, validate its immutable Worker version,
 then enable the portfolio flag.
 
+## Static security policy
+
+The build post-processes every HTML artifact with a Content Security Policy that
+hashes each inline script, disallows script attributes, limits network access to
+the configured analytics origin, and upgrades insecure requests. It also adds a
+`no-referrer` meta policy. `npm run verify:build` checks every hash and directive,
+and the live smoke requires both policies on the homepage.
+
+GitHub Pages supplies HTTPS and HSTS but does not support repository-defined
+response headers. CSP `frame-ancestors`, X-Frame-Options, nosniff, and
+Permissions-Policy therefore require a custom domain behind a configurable edge
+proxy. The current site is static and unauthenticated; do not claim those headers
+are present on Pages.
+
 ## Repository settings
 
 Configure these after the first pull request has produced the new check names:

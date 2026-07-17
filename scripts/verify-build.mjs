@@ -63,6 +63,15 @@ function routeFor(path) {
   return `/${relativePath}`;
 }
 
+function inlineScriptHashes(html) {
+  const hashes = new Set();
+  for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/giu)) {
+    if (/\bsrc\s*=/iu.test(match[1])) continue;
+    hashes.add(`'sha256-${createHash('sha256').update(match[2], 'utf8').digest('base64')}'`);
+  }
+  return [...hashes];
+}
+
 const files = await filesUnder(dist);
 const htmlFiles = files.filter((path) => extname(path) === '.html');
 const articleFiles = htmlFiles.filter((path) => {
@@ -139,6 +148,20 @@ for (const path of htmlFiles) {
   const html = await readFile(path, 'utf8');
   const route = routeFor(path);
   const $ = cheerio.load(html);
+  const contentSecurityPolicy = $('meta[http-equiv="Content-Security-Policy"]').attr('content');
+  if (!contentSecurityPolicy) throw new Error(`${route}: Content Security Policy meta is missing.`);
+  for (const directive of ["default-src 'self'", "base-uri 'none'", "object-src 'none'", "script-src-attr 'none'", "frame-src 'none'", "upgrade-insecure-requests"]) {
+    if (!contentSecurityPolicy.includes(directive)) throw new Error(`${route}: CSP is missing ${directive}.`);
+  }
+  if (contentSecurityPolicy.includes("script-src 'self' 'unsafe-inline'")) {
+    throw new Error(`${route}: CSP allows unsafe inline scripts.`);
+  }
+  for (const hash of inlineScriptHashes(html)) {
+    if (!contentSecurityPolicy.includes(hash)) throw new Error(`${route}: CSP is missing inline script hash ${hash}.`);
+  }
+  if ($('meta[name="referrer"]').attr('content') !== 'no-referrer') {
+    throw new Error(`${route}: no-referrer meta policy is missing.`);
+  }
   const canonical = $('link[rel="canonical"]').attr('href');
   if (route !== '/404.html') {
     const expectedCanonical = new URL(route, origin).href;
