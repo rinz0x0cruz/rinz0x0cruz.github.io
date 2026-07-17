@@ -3,6 +3,7 @@ export const analyticsCampaignSources = [
   'github',
   'job_board',
   'email',
+  'resume_general',
   'resume_security_researcher',
   'resume_security_engineer',
   'resume_threat_hunter',

@@ -161,29 +161,31 @@ const engagementEnabled = enabled && configuredEngagement === 'true';
           states.forEach((_state, element) => observer.observe(element));
         }
 
-        window.setInterval(() => {
-          const now = performance.now();
-          const delta = now - lastTick;
-          lastTick = now;
-          if (!foreground()) return;
-          states.forEach((state) => {
-            if (!state.visible) return;
-            state.elapsed += delta;
-            milestones.forEach(([threshold, placement]) => {
-              if (state.elapsed < threshold || state.sent.has(placement)) return;
-              state.sent.add(placement);
-              send('section_engaged', state.sectionId, placement, false);
-              if (campaignSource && placement === '10s') {
-                send('campaign_attention', campaignSource, state.sectionId, false);
-              }
+        if (states.size) {
+          window.setInterval(() => {
+            const now = performance.now();
+            const delta = now - lastTick;
+            lastTick = now;
+            if (!foreground()) return;
+            states.forEach((state) => {
+              if (!state.visible) return;
+              state.elapsed += delta;
+              milestones.forEach(([threshold, placement]) => {
+                if (state.elapsed < threshold || state.sent.has(placement)) return;
+                state.sent.add(placement);
+                send('section_engaged', state.sectionId, placement, false);
+                if (campaignSource && placement === '10s') {
+                  send('campaign_attention', campaignSource, state.sectionId, false);
+                }
+              });
             });
-          });
-        }, 250);
+          }, 1000);
+        }
 
         const progressSent = new Set();
+        const article = document.querySelector('[data-analytics-article]');
         const measureArticle = () => {
           progressPending = false;
-          const article = document.querySelector('[data-analytics-article]');
           if (!article || !foreground()) return;
           const contentId = article.dataset.analyticsContentId;
           if (!contentId) return;
@@ -225,14 +227,16 @@ const engagementEnabled = enabled && configuredEngagement === 'true';
         };
 
         ['pointerdown', 'keydown', 'touchstart'].forEach((name) => window.addEventListener(name, recordActivity, { passive: true }));
-        window.addEventListener('scroll', scheduleArticleMeasure, { passive: true });
-        window.addEventListener('resize', scheduleArticleMeasure, { passive: true });
+        if (article) {
+          window.addEventListener('scroll', scheduleArticleMeasure, { passive: true });
+          window.addEventListener('resize', scheduleArticleMeasure, { passive: true });
+        }
         window.addEventListener('focus', recordActivity);
         window.addEventListener('blur', resetClock);
         document.addEventListener('visibilitychange', handleVisibility);
         document.addEventListener('toggle', trackLedger, true);
         document.addEventListener('portfolio:analytics', trackCustomInteraction);
-        measureArticle();
+        if (article) measureArticle();
       };
 
       if (document.readyState === 'loading') {
