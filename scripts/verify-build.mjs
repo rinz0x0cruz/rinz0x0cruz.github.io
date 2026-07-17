@@ -9,6 +9,7 @@ import { Writable } from 'node:stream';
 import * as cheerio from 'cheerio';
 import { XMLParser } from 'fast-xml-parser';
 import sharp from 'sharp';
+import { inlineScriptHashes } from './lib/html-security.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
@@ -61,15 +62,6 @@ function routeFor(path) {
   if (relativePath === 'index.html') return '/';
   if (relativePath.endsWith('/index.html')) return `/${relativePath.slice(0, -'index.html'.length)}`;
   return `/${relativePath}`;
-}
-
-function inlineScriptHashes(html) {
-  const hashes = new Set();
-  for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/giu)) {
-    if (/\bsrc\s*=/iu.test(match[1])) continue;
-    hashes.add(`'sha256-${createHash('sha256').update(match[2], 'utf8').digest('base64')}'`);
-  }
-  return [...hashes];
 }
 
 const files = await filesUnder(dist);

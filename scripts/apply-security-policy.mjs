@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
+import { inlineScriptHashes } from './lib/html-security.mjs';
 
 const dist = resolve('dist');
 const configuredEndpoint = process.env.PUBLIC_ANALYTICS_ENDPOINT?.trim();
@@ -20,16 +20,6 @@ async function filesUnder(directory) {
     const path = join(directory, entry.name);
     return entry.isDirectory() ? filesUnder(path) : [path];
   }))).flat().sort();
-}
-
-function inlineScriptHashes(html) {
-  const hashes = new Set();
-  for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/giu)) {
-    if (/\bsrc\s*=/iu.test(match[1])) continue;
-    const digest = createHash('sha256').update(match[2], 'utf8').digest('base64');
-    hashes.add(`'sha256-${digest}'`);
-  }
-  return [...hashes].sort();
 }
 
 function policyFor(html) {
