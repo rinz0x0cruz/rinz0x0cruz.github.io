@@ -33,7 +33,7 @@
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@fontsource/barlow-semi-condensed": "^5.2.7",
     "@fontsource/ibm-plex-mono": "^5.2.7",
-    "astro": "7.0.9"
+    "astro": "7.1.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
@@ -41,15 +41,15 @@
     "@playwright/test": "^1.61.1",
     "cheerio": "^1.2.0",
     "chrome-launcher": "1.2.1",
-    "fast-xml-parser": "^5.10.0",
+    "fast-xml-parser": "^5.10.1",
     "gray-matter": "^4.0.3",
     "lighthouse": "12.6.1",
     "mdast-util-from-markdown": "^2.0.3",
-    "parse5": "8.0.0",
+    "parse5": "8.0.1",
     "pdf-parse": "^2.4.5",
-    "sharp": "0.34.4",
+    "sharp": "0.35.3",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10",
-    "yaml": "^2.8.3"
+    "yaml": "^2.9.0"
   }
 }
