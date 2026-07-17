@@ -21,6 +21,24 @@ async function fetchFresh(path) {
   });
 }
 
+async function fetchReady(path, maxAttempts = 6) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetchFresh(path);
+      if (response.ok) return response;
+      lastError = new Error(`${new URL(path, baseUrl).href} returned ${response.status}.`);
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < maxAttempts) {
+      console.log(`Attempt ${attempt}/${maxAttempts}: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+      await wait(3_000);
+    }
+  }
+  throw lastError;
+}
+
 let metadata;
 for (let attempt = 1; attempt <= attempts; attempt += 1) {
   try {
@@ -56,9 +74,8 @@ const endpoints = [
   { path: 'Mohit-Sharma-Resume.pdf' },
 ];
 for (const endpoint of endpoints) {
-  const response = await fetchFresh(endpoint.path);
+  const response = await fetchReady(endpoint.path);
   const url = new URL(endpoint.path, baseUrl).href;
-  if (!response.ok) throw new Error(`${url} returned ${response.status}.`);
   const body = await response.arrayBuffer();
   if (!body.byteLength) throw new Error(`${url} returned an empty body.`);
   if (endpoint.includes) {
@@ -75,9 +92,8 @@ const socialCards = [
   'social/writeups/patch-by-exploitability-not-cvss.png',
 ];
 for (const path of socialCards) {
-  const response = await fetchFresh(path);
+  const response = await fetchReady(path);
   const url = new URL(path, baseUrl).href;
-  if (!response.ok) throw new Error(`${url} returned ${response.status}.`);
   if (response.headers.get('content-type') !== 'image/png') throw new Error(`${url} is not served as image/png.`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
