@@ -1,10 +1,8 @@
 ---
-import '@fontsource/barlow-semi-condensed/latin-600.css';
-import '@fontsource/barlow-semi-condensed/latin-700.css';
-import '@fontsource-variable/ibm-plex-sans/wght.css';
-import '@fontsource/ibm-plex-mono/latin-400.css';
-import '@fontsource/ibm-plex-mono/latin-700.css';
+import '@fontsource-variable/jetbrains-mono/wght.css';
 import '@/styles/global.css';
+import '@/styles/trace-system.css';
+import '@/styles/trace-routes.css';
 import Analytics from '@/components/Analytics.astro';
 import AnalyticsConsent from '@/components/AnalyticsConsent.astro';
 import MotionLayer from '@/components/MotionLayer.astro';
@@ -137,7 +135,7 @@ const structuredDataJson = JSON.stringify(structuredData).replace(/</g, '\\u003c
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <meta name="author" content={site.name} />
-    <meta name="theme-color" content="#f7f4ef" />
+    <meta name="theme-color" content="#eee9dc" />
     <meta name="color-scheme" content="light dark" />
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -174,7 +172,7 @@ const structuredDataJson = JSON.stringify(structuredData).replace(/</g, '\\u003c
     <Analytics />
 
   </head>
-  <body>
+  <body class="trace-ui">
     <a class="skip-link" href="#main">Skip to content</a>
     <MotionLayer />
     <slot />

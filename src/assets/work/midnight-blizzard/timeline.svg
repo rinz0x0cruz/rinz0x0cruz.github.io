@@ -6,10 +6,10 @@
     <path d="M0 150H1440M0 300H1440M0 450H1440M0 600H1440M0 750H1440"/>
     <path d="M180 0V900M360 0V900M540 0V900M720 0V900M900 0V900M1080 0V900M1260 0V900"/>
   </g>
-  <text x="96" y="112" fill="#f1f4f5" font-family="monospace" font-size="24" font-weight="700">EVIDENCE TIMELINE / REDACTED</text>
-  <text x="96" y="151" fill="#98a2aa" font-family="monospace" font-size="16">IDENTITY + ENDPOINT + NETWORK / CONFIRMED EVENTS ONLY</text>
+  <text x="96" y="112" fill="#f1f4f5" font-family="JetBrains Mono,monospace" font-size="24" font-weight="700">EVIDENCE TIMELINE / REDACTED</text>
+  <text x="96" y="151" fill="#98a2aa" font-family="JetBrains Mono,monospace" font-size="16">IDENTITY + ENDPOINT + NETWORK / CONFIRMED EVENTS ONLY</text>
   <path d="M150 464H1290" stroke="#65717a" stroke-width="4"/>
-  <g font-family="monospace">
+  <g font-family="JetBrains Mono,monospace">
     <g transform="translate(210 464)">
       <circle r="22" fill="#121416" stroke="#f6c945" stroke-width="6"/>
       <path d="M0-22V-105" stroke="#f6c945" stroke-width="3"/>
@@ -39,7 +39,7 @@
       <text x="-104" y="200" fill="#98a2aa" font-size="14">indicator handoff</text>
     </g>
   </g>
-  <g transform="translate(96 790)" font-family="monospace">
+  <g transform="translate(96 790)" font-family="JetBrains Mono,monospace">
     <rect width="1248" height="58" fill="#1b1f23" stroke="#353b40"/>
     <text x="24" y="36" fill="#98a2aa" font-size="15">RAW TELEMETRY, IDENTIFIERS, INFRASTRUCTURE, AND EXACT TIMESTAMPS WITHHELD</text>
   </g>

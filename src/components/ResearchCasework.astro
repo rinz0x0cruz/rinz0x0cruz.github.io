@@ -103,6 +103,8 @@ const caseWorkPaths = new Map(
         if (!stage) return;
         const active = slides[current];
         const minimum = window.matchMedia('(max-width: 800px)').matches ? 560 : 430;
+        // Measure from the responsive floor so the absolute slide cannot feed back an oversized stage height.
+        stage.style.height = `${minimum}px`;
         stage.style.height = `${Math.max(minimum, active.scrollHeight)}px`;
       };
 
@@ -166,6 +168,7 @@ const caseWorkPaths = new Map(
       }
       window.addEventListener('resize', fitStage);
       requestAnimationFrame(fitStage);
+      void document.fonts.ready.then(fitStage);
       schedule();
     });
   }

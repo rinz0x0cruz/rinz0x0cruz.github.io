@@ -24,9 +24,9 @@
   --cp-sheen: rgba(255, 255, 255, 0.55);
   --cp-highlight: rgba(196, 55, 26, 0.14);
 
-  --font-sans: "IBM Plex Sans Variable", "Segoe UI", sans-serif;
-  --font-display: "Barlow Semi Condensed", "Franklin Gothic Medium", sans-serif;
-  --font-mono: "IBM Plex Mono", "Cascadia Code", monospace;
+  --font-sans: "JetBrains Mono Variable", "Cascadia Code", monospace;
+  --font-display: "JetBrains Mono Variable", "Cascadia Code", monospace;
+  --font-mono: "JetBrains Mono Variable", "Cascadia Code", monospace;
   --type-label: 0.7rem;
   --type-small: 0.84rem;
   --type-body: 1rem;

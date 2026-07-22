@@ -44,7 +44,7 @@ const links = [
     const param = new URLSearchParams(window.location.search).get('scoutTheme');
     const setThemeColor = (theme: string) => {
       const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-      if (meta) meta.content = theme === 'dark' ? '#20201f' : '#f7f4ef';
+      if (meta) meta.content = theme === 'dark' ? '#080908' : '#eee9dc';
     };
 
     if (param === 'light' || param === 'dark') root.dataset.theme = param;

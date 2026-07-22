@@ -9,8 +9,9 @@ Live: <https://rinz0x0cruz.github.io>
 ## Stack
 
 - Astro 7 (static output) + TypeScript
-- No client framework — vanilla JS powers the project reel, theme control, and optional terminal
-- Self-hosted IBM Plex Sans, Barlow Semi Condensed, and IBM Plex Mono typography
+- GSAP + ScrollTrigger orchestrate homepage evidence bands
+- Local motion-aware pirate flag media with a still fallback for mobile and reduced motion
+- Self-hosted JetBrains Mono typography across interface, display, code, and generated social cards
 - Responsive light/dark interface with real, interactive dashboard previews
 - Identity, operational outcomes, systems, carousel casework, concise experience, public practice profiles, credentials, data-backed blogs, and contact
 - Keyboard-accessible project frames with contained telemetry, hotspots, and reduced-motion support
@@ -39,14 +40,22 @@ browser once with `npx playwright install chromium` before running E2E tests.
 ## Structure
 
 - `src/pages/` — routes (`index`, `work/`, `writeups/`, `privacy`, `rss.xml`, `404`)
-- `src/components/` — standalone homepage sections, shared navigation, project cinema, writing/contact, and optional `Terminal`
+- `src/components/` — Astro sections and route chrome, GSAP choreography, and optional `Terminal`
 - `src/content/writeups/` — authoritative Markdown writeups content collection
 - `src/content/work/` — long-form project and professional case evidence
+- `src/assets/hero/` — local still fallback for the homepage background
 - `src/assets/work/<source-id>/` — canonical screenshots and redacted evidence visuals
 - `src/data/portfolio.ts` — authored homepage content (outcomes, demos, casework, and public profiles)
 - `src/data/projects.ts` — broader project/system inventory
 - `src/data/resume.json` — validated résumé-derived roles, skills, credentials, education, and languages
-- `public/` — `robots.txt`, `og.png`, favicon, résumé PDF
+- `public/` — static media, `robots.txt`, `og.png`, favicon, résumé PDF
+
+## Media credit
+
+The homepage background uses [“Flag, pirate, funny”](https://pixabay.com/videos/flag-pirate-funny-roger-vector-24825/)
+by [Gam-Ol](https://pixabay.com/users/gam-ol-2829280/), available under the
+[Pixabay Content License](https://pixabay.com/service/license-summary/). The
+site stores a local 1280×720 MP4 and WebP fallback; it does not hotlink Pixabay.
 
 ## Homepage composition
 

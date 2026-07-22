@@ -13,7 +13,17 @@
 .demo-light,
 .demo-scan,
 .demo-focus,
+.intro-media__video,
 .header,
 .skip-link {
   display: none !important;
+}
+
+.intro-pattern {
+  opacity: .38 !important;
+}
+
+.identity-copy h1,
+.identity-copy .statement {
+  filter: none !important;
 }

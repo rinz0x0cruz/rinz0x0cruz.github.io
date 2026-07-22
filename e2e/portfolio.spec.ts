@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import matter from 'gray-matter';
-import { achievements, caseStudies, projectDemos, publicProfiles } from '../src/data/portfolio';
+import { achievements, caseStudies, intro, projectDemos, publicProfiles } from '../src/data/portfolio';
 import { projects } from '../src/data/projects';
 
 const writeupDirectory = new URL('../src/content/writeups/', import.meta.url);
@@ -74,6 +74,96 @@ test('home, archive, article, and 404 routes stay healthy', async ({ page }) => 
   await page.goto('/does-not-exist/');
   await expect(page.locator('h1')).toContainText('404');
   await expect(page.getByRole('link', { name: /back home/i })).toHaveAttribute('href', '/');
+});
+
+test('hero pirate flag remains decorative and motion-aware', async ({ page }) => {
+  const errors = collectBrowserErrors(page);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+
+  const media = page.locator('[data-hero-media]');
+  const poster = media.locator('[data-hero-poster]');
+  const video = media.locator('video[data-hero-video]');
+  await expect(media).toHaveCount(1);
+  await expect(poster).toBeVisible();
+  await expect(video).toHaveJSProperty('muted', true);
+  await expect(video).toHaveJSProperty('loop', true);
+  await expect(video).toHaveJSProperty('controls', false);
+  const heroBounds = await page.locator('#top').boundingBox();
+  const mediaBounds = await media.boundingBox();
+  expect(heroBounds).not.toBeNull();
+  expect(mediaBounds).not.toBeNull();
+  expect(Math.abs(mediaBounds!.width - heroBounds!.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mediaBounds!.height - heroBounds!.height)).toBeLessThanOrEqual(1);
+
+  if ((page.viewportSize()?.width ?? 0) > 780) {
+    await expect(poster).toHaveCSS('background-image', 'none');
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentSrc), { timeout: 10_000 })
+      .toContain('/media/hero-pirate-flag.mp4');
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.readyState), { timeout: 10_000 })
+      .toBeGreaterThanOrEqual(2);
+    const firstTime = await video.evaluate((element: HTMLVideoElement) => element.currentTime);
+    await page.waitForTimeout(500);
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(firstTime);
+  } else {
+    await expect(video).toHaveJSProperty('currentSrc', '');
+    await expect(poster).toHaveCSS('background-image', /hero-pirate-flag-poster/);
+  }
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  const reducedVideo = page.locator('video[data-hero-video]');
+  await expect(reducedVideo).toBeHidden();
+  await expect(reducedVideo).toHaveJSProperty('currentSrc', '');
+  await expect(reducedVideo).toHaveJSProperty('paused', true);
+  await expect(page.locator('[data-hero-poster]')).toHaveCSS('background-image', /hero-pirate-flag-poster/);
+  expect(errors).toEqual([]);
+});
+
+test('identity thesis rotates tightly and becomes static for reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+
+  const thesis = page.locator('.identity-thesis');
+  const terms = thesis.locator('.identity-thesis__terms span');
+  const fontFamilies = await page.locator('body, #top h1, #top .utility-line').evaluateAll((elements) =>
+    elements.map((element) => getComputedStyle(element).fontFamily),
+  );
+  expect(fontFamilies).toHaveLength(3);
+  expect(fontFamilies.every((family) => family.includes('JetBrains Mono Variable'))).toBe(true);
+  await expect(thesis.locator('.identity-thesis__accessible')).toHaveText(`I make ${intro.signalTerms.join(', ')} actionable.`);
+  await expect(terms).toHaveCount(intro.signalTerms.length);
+  await expect(terms.first()).toHaveClass(/is-active/);
+
+  await expect(terms.nth(1)).toHaveClass(/is-active/, { timeout: 4_000 });
+  const geometry = await thesis.evaluate((element) => {
+    const termRoot = element.querySelector<HTMLElement>('.identity-thesis__terms');
+    const activeTerm = termRoot?.querySelector<HTMLElement>('.is-active');
+    const tail = element.querySelector<HTMLElement>('.identity-thesis__tail');
+    if (!termRoot || !activeTerm || !tail) throw new Error('Active thesis geometry is incomplete.');
+    const termRootBounds = termRoot.getBoundingClientRect();
+    const activeTermBounds = activeTerm.getBoundingClientRect();
+    const tailBounds = tail.getBoundingClientRect();
+    return {
+      activeText: activeTerm.textContent,
+      widthDelta: Math.abs(termRootBounds.width - activeTermBounds.width),
+      predicateGap: tailBounds.x - activeTermBounds.right,
+    };
+  });
+  expect(intro.signalTerms).toContain(geometry.activeText);
+  expect(geometry.widthDelta).toBeLessThanOrEqual(1);
+  expect(geometry.predicateGap).toBeGreaterThanOrEqual(6);
+  expect(geometry.predicateGap).toBeLessThanOrEqual(14);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  const reducedTerms = page.locator('.identity-thesis__terms span');
+  await expect(reducedTerms.first()).toBeVisible();
+  for (let index = 1; index < intro.signalTerms.length; index += 1) {
+    await expect(reducedTerms.nth(index)).toBeHidden();
+  }
 });
 
 test('published work generates an archive, detail routes, and homepage deep links', async ({ page }) => {
@@ -341,6 +431,7 @@ test('repeated homepage layouts absorb an additional item without overflow', asy
 test('motion stays progressive, informative, and reduced-motion safe', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
+  await expect(page.locator('html')).toHaveAttribute('data-motion-engine', 'gsap');
   await expect(page.locator('[data-motion-ambient]')).toHaveCount(0);
   await expect(page.locator('.page-progress span')).toHaveCSS('box-shadow', 'none');
   const outcomes = page.locator('#achievements');
@@ -351,21 +442,12 @@ test('motion stays progressive, informative, and reduced-motion safe', async ({ 
     { timeout: 10_000 },
   ).toEqual(achievements.map((achievement) => achievement.value));
 
-  const persistentMotion = [
-    { id: 'systems', selector: 'article', pseudo: '::before', name: 'system-scan' },
-    { id: 'casework', selector: '.case-stage', pseudo: '::after', name: 'case-scan' },
-    { id: 'about', selector: '.timeline', pseudo: '::after', name: 'timeline-signal' },
-    { id: 'trajectory', selector: '.profile-card', pseudo: '::before', name: 'profile-scan' },
-    { id: 'writing', selector: '.writing-card', pseudo: '::before', name: 'writing-scan' },
-  ];
-  for (const check of persistentMotion) {
-    const section = page.locator(`#${check.id}`);
+  for (const id of ['systems', 'casework', 'about', 'trajectory', 'writing']) {
+    const section = page.locator(`#${id}`);
     await section.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await expect(section).toHaveAttribute('data-motion-inview', '');
-    await expect.poll(() => section.evaluate((element, motion) => {
-      const target = element.querySelector(motion.selector);
-      return target ? getComputedStyle(target, motion.pseudo).animationName : 'missing';
-    }, check)).toContain(check.name);
+    await expect(section).toHaveAttribute('data-gsap-bound', 'true');
+    await expect.poll(async () => Number(await section.getAttribute('data-gsap-progress'))).toBeGreaterThan(0);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   }
@@ -380,6 +462,8 @@ test('motion stays progressive, informative, and reduced-motion safe', async ({ 
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-motion-engine', 'gsap-reduced');
+  await expect(page.locator('#systems')).toHaveAttribute('data-gsap-bound', 'false');
   await expect(page.locator('#top h1')).toHaveCSS('animation-name', 'none');
   await expect(page.locator('[data-outcome-value]')).toHaveText(achievements.map((achievement) => achievement.value));
   await page.locator('#trajectory').evaluate((section) => section.scrollIntoView({ block: 'center' }));
@@ -595,11 +679,11 @@ test('explicit theme selection overrides storage and updates browser chrome', as
   await page.addInitScript(() => localStorage.setItem('portfolio-theme', 'dark'));
   await page.goto('/?scoutTheme=light');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f7f4ef');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#eee9dc');
 
   await page.getByRole('button', { name: 'Switch color theme' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#20201f');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#080908');
 });
 
 test('primary routes have no WCAG A/AA violations', async ({ page }) => {

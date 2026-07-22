@@ -14,14 +14,19 @@ import { inlineScriptHashes } from './lib/html-security.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 const origin = 'https://rinz0x0cruz.github.io';
+const heroVideoRelativePath = 'media/hero-pirate-flag.mp4';
+const expectedHeroVideoSha256 = '98039ded4a02bfffba057e83e195abfad9c2f9d03f8a78553d06173f734189cf';
 const budgets = {
-  jsGzipBytes: 60 * 1024,
+  jsGzipBytes: 320 * 1024,
   cssGzipBytes: 32 * 1024,
-  largestJsGzipBytes: 52 * 1024,
+  largestJsGzipBytes: 215 * 1024,
   sourceWorkImagesBytes: 1024 * 1024,
   largestSourceWorkImageBytes: 350 * 1024,
   generatedWorkImagesBytes: 1536 * 1024,
   largestGeneratedWorkImageBytes: 300 * 1024,
+  sourceHeroImagesBytes: 160 * 1024,
+  generatedHeroImagesBytes: 160 * 1024,
+  heroVideoBytes: 3 * 1024 * 1024,
   socialCardsBytes: 750 * 1024,
   largestSocialCardBytes: 180 * 1024,
 };
@@ -85,6 +90,7 @@ const required = [
   'sitemap-0.xml',
   'robots.txt',
   'Mohit-Sharma-Resume.pdf',
+  heroVideoRelativePath,
 ];
 const relativeFiles = new Set(files.map((path) => relative(dist, path).split(sep).join('/')));
 for (const path of required) {
@@ -166,6 +172,28 @@ for (const path of htmlFiles) {
   }
   const structuredData = JSON.parse($('script[type="application/ld+json"]').first().text());
   const graph = asArray(structuredData['@graph']);
+  const heroMedia = $('[data-hero-media]');
+  if (route === '/') {
+    if (!html.includes('TraceChoreography.')) throw new Error('Homepage must load the isolated GSAP choreography experience.');
+    if (html.includes('/_astro/client.')) throw new Error('Homepage must remain free of client framework runtimes.');
+    if (heroMedia.length !== 1) throw new Error('Homepage must contain exactly one hero media boundary.');
+    const heroVideo = heroMedia.find('video[data-hero-video]');
+    if (heroVideo.length !== 1) throw new Error('Homepage hero must contain exactly one decorative video.');
+    if (heroVideo.attr('src') != null) throw new Error('Homepage video source must be assigned only after motion and viewport checks.');
+    if (heroVideo.attr('data-src') !== `/${heroVideoRelativePath}`) throw new Error('Homepage video must use the local verified media asset.');
+    if (!heroVideo.is('[muted][loop][playsinline]') || heroVideo.attr('preload') !== 'none') {
+      throw new Error('Homepage video must be muted, looping, inline, and deferred.');
+    }
+    const heroPoster = heroMedia.find('[data-hero-poster]');
+    if (heroPoster.length !== 1 || !/hero-pirate-flag-poster\..+\.webp/.test(heroPoster.attr('style') || '')) {
+      throw new Error('Homepage hero must use the local pirate flag WebP fallback.');
+    }
+  } else {
+    if (heroMedia.length) throw new Error(`${route}: homepage hero media leaked into a static route.`);
+    if (html.includes('/_astro/client.') || html.includes('TraceChoreography.')) {
+      throw new Error(`${route}: homepage GSAP experience or a client framework runtime leaked into a static route.`);
+    }
+  }
   for (const image of $('main img').toArray()) {
     const width = Number($(image).attr('width'));
     const height = Number($(image).attr('height'));
@@ -329,9 +357,14 @@ async function imageInventory(paths) {
 }
 
 const sourceWorkImages = await imageInventory(await filesUnder(join(root, 'src', 'assets', 'work')));
-const generatedWorkImages = await imageInventory(
-  files.filter((path) => relative(dist, path).split(sep).join('/').startsWith('_astro/')),
-);
+const sourceHeroImages = await imageInventory(await filesUnder(join(root, 'src', 'assets', 'hero')));
+const generatedAssetPaths = files.filter((path) => relative(dist, path).split(sep).join('/').startsWith('_astro/'));
+const generatedHeroPaths = generatedAssetPaths.filter((path) => path.includes('hero-pirate-flag-poster.'));
+const generatedWorkImages = await imageInventory(generatedAssetPaths.filter((path) => !generatedHeroPaths.includes(path)));
+const generatedHeroImages = await imageInventory(generatedHeroPaths);
+const heroVideoArtifactPath = join(dist, ...heroVideoRelativePath.split('/'));
+const heroVideoBytes = (await stat(heroVideoArtifactPath)).size;
+const heroVideoSha256 = createHash('sha256').update(await readFile(heroVideoArtifactPath)).digest('hex');
 const socialCardPaths = files.filter((path) => {
   const artifactPath = relative(dist, path).split(sep).join('/');
   return artifactPath.startsWith('social/') && extname(path) === '.png';
@@ -349,6 +382,14 @@ if (generatedWorkImages.totalBytes > budgets.generatedWorkImagesBytes) {
 if (generatedWorkImages.largestBytes > budgets.largestGeneratedWorkImageBytes) {
   throw new Error(`Largest generated work image ${generatedWorkImages.largestBytes} exceeds ${budgets.largestGeneratedWorkImageBytes}.`);
 }
+if (sourceHeroImages.files.length !== 1 || sourceHeroImages.totalBytes > budgets.sourceHeroImagesBytes) {
+  throw new Error('Source hero fallback must contain one WebP within its byte budget.');
+}
+if (generatedHeroImages.files.length !== 1 || generatedHeroImages.totalBytes > budgets.generatedHeroImagesBytes) {
+  throw new Error('Build must emit one optimized hero fallback within its byte budget.');
+}
+if (heroVideoBytes > budgets.heroVideoBytes) throw new Error(`Hero video ${heroVideoBytes} exceeds ${budgets.heroVideoBytes}.`);
+if (heroVideoSha256 !== expectedHeroVideoSha256) throw new Error('Hero video checksum does not match the licensed source asset.');
 if (socialCards.files.length !== articleRoutes.size + workRoutes.size) {
   throw new Error('Generated social card count does not match published work and writeup routes.');
 }
@@ -375,7 +416,18 @@ const metadata = {
   writeupCount: articleRoutes.size,
   workCount: workRoutes.size,
   htmlPageCount: htmlFiles.length,
-  assets: { js, css, largestJsGzipBytes, sourceWorkImages, generatedWorkImages, socialCards, files: assets },
+  assets: {
+    js,
+    css,
+    largestJsGzipBytes,
+    sourceWorkImages,
+    generatedWorkImages,
+    sourceHeroImages,
+    generatedHeroImages,
+    heroVideo: { path: heroVideoRelativePath, bytes: heroVideoBytes, sha256: heroVideoSha256 },
+    socialCards,
+    files: assets,
+  },
 };
 await writeFile(join(dist, 'build-meta.json'), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
 

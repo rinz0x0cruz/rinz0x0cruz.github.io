@@ -67,6 +67,7 @@ export const intro = {
   eyebrow: 'Security researcher / threat intelligence / malware analysis',
   statement:
     'I turn exploitation signals, malware behavior, and fragmented telemetry into decisions defenders can explain and act on.',
+  signalTerms: ['exploits', 'malware', 'intrusions'],
   currentFocus: [
     'Exploitability-aware vulnerability intelligence',
     'Malware similarity and detection pipelines',

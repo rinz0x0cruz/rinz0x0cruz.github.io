@@ -1,7 +1,9 @@
 ---
 import { getCollection } from "astro:content";
+import "@/styles/trace-home.css";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import Nav from "@/components/PortfolioHeader.astro";
+import TraceChoreography from "@/components/TraceChoreography.astro";
 import ProfileIntro from "@/components/ProfileIntro.astro";
 import AchievementRail from "@/components/AchievementRail.astro";
 import ProjectCinema from "@/components/ProjectCinema.astro";
@@ -38,6 +40,7 @@ const profileHasPart = [
   <main id="main">
     {homepageSections.map((Section) => <Section />)}
   </main>
+  <TraceChoreography />
   <Footer />
   <Terminal />
 </BaseLayout>

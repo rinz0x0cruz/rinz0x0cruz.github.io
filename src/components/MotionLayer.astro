@@ -42,7 +42,7 @@
         ?.setAttribute('data-motion-lead', '');
 
       const items = section.querySelectorAll<HTMLElement>(
-        '.project-grid > article, .profile-card, .writing-card, .capability-matrix section'
+        '.outcome-grid > article, .project-grid > article, .profile-card, .writing-card, .capability-matrix section, .case-tabs button'
       );
       items.forEach((item, index) => {
         item.dataset.motionItem = '';
@@ -117,26 +117,6 @@
         { rootMargin: '-28% 0px -58% 0px', threshold: [0, 0.25, 0.6] }
       );
       linkedSections.forEach(({ section }) => session.navigationObserver?.observe(section));
-    }
-
-    const hero = document.querySelector<HTMLElement>('[data-motion-hero]');
-    if (hero && !reducedMotion.matches && window.matchMedia('(pointer: fine)').matches) {
-      hero.addEventListener('pointermove', (event) => {
-        const horizontal = event.clientX / window.innerWidth - 0.5;
-        const vertical = event.clientY / window.innerHeight - 0.5;
-        hero.style.setProperty('--hero-grid-x', `${horizontal * -20}px`);
-        hero.style.setProperty('--hero-grid-y', `${vertical * -14}px`);
-        hero.style.setProperty('--hero-copy-x', `${horizontal * 5}px`);
-        hero.style.setProperty('--hero-copy-y', `${vertical * 4}px`);
-        hero.toggleAttribute('data-pointer-active', true);
-      }, { ...listenerOptions, passive: true });
-      hero.addEventListener('pointerleave', () => {
-        hero.style.removeProperty('--hero-grid-x');
-        hero.style.removeProperty('--hero-grid-y');
-        hero.style.removeProperty('--hero-copy-x');
-        hero.style.removeProperty('--hero-copy-y');
-        hero.removeAttribute('data-pointer-active');
-      }, listenerOptions);
     }
 
     reducedMotion.addEventListener('change', initMotionLayer, listenerOptions);

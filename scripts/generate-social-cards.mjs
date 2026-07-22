@@ -8,29 +8,19 @@ import { projects } from '../src/data/projects.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputRoot = join(root, 'public', 'social');
-const titleFont = join(
+const jetBrainsMonoSemibold = join(
   root,
   'node_modules',
-  '@fontsource',
-  'barlow-semi-condensed',
-  'files',
-  'barlow-semi-condensed-latin-700-normal.woff2',
+  '@fontpkg',
+  'jet-brains-mono',
+  'JetBrainsMono-SemiBold.ttf',
 );
-const bodyFont = join(
+const jetBrainsMonoBold = join(
   root,
   'node_modules',
-  '@fontsource',
-  'barlow-semi-condensed',
-  'files',
-  'barlow-semi-condensed-latin-600-normal.woff2',
-);
-const monoFont = join(
-  root,
-  'node_modules',
-  '@fontsource',
-  'ibm-plex-mono',
-  'files',
-  'ibm-plex-mono-latin-700-normal.woff2',
+  '@fontpkg',
+  'jet-brains-mono',
+  'JetBrainsMono-Bold.ttf',
 );
 const projectById = new Map(projects.map((project) => [project.sourceId, project]));
 const caseById = new Map(caseStudies.map((study) => [study.sourceId, study]));
@@ -87,8 +77,8 @@ async function createCard({ output, eyebrow, title, summary, mediaPath, accent }
     cardMedia(mediaPath),
     textOverlay({
       text: eyebrow.toUpperCase(),
-      font: 'IBM Plex Mono',
-      fontfile: monoFont,
+      font: 'JetBrains Mono',
+      fontfile: jetBrainsMonoBold,
       width: 560,
       maxHeight: 32,
       color: accent,
@@ -98,8 +88,8 @@ async function createCard({ output, eyebrow, title, summary, mediaPath, accent }
     }),
     textOverlay({
       text: title,
-      font: 'Barlow Semi Condensed',
-      fontfile: titleFont,
+      font: 'JetBrains Mono',
+      fontfile: jetBrainsMonoBold,
       width: 560,
       maxHeight: 226,
       color: '#f4f1eb',
@@ -110,8 +100,8 @@ async function createCard({ output, eyebrow, title, summary, mediaPath, accent }
     }),
     textOverlay({
       text: summary,
-      font: 'Barlow Semi Condensed',
-      fontfile: bodyFont,
+      font: 'JetBrains Mono',
+      fontfile: jetBrainsMonoSemibold,
       width: 560,
       maxHeight: 116,
       color: '#b8b5ae',
@@ -121,8 +111,8 @@ async function createCard({ output, eyebrow, title, summary, mediaPath, accent }
     }),
     textOverlay({
       text: 'MOHIT SHARMA  /  SECURITY RESEARCHER',
-      font: 'IBM Plex Mono',
-      fontfile: monoFont,
+      font: 'JetBrains Mono',
+      fontfile: jetBrainsMonoBold,
       width: 560,
       maxHeight: 30,
       color: '#8b8881',
@@ -141,7 +131,7 @@ async function createCard({ output, eyebrow, title, summary, mediaPath, accent }
       <path d="M72 72H112" stroke="${accent}" stroke-width="6"/>
       <path d="M72 540H602" stroke="#353835" stroke-width="2"/>
       <circle cx="1104" cy="521" r="7" fill="${accent}"/>
-      <text x="650" y="533" fill="#8b8881" font-family="monospace" font-size="16">rinz0x0cruz.github.io</text>
+      <text x="650" y="533" fill="#8b8881" font-family="JetBrains Mono, monospace" font-size="16">rinz0x0cruz.github.io</text>
     </svg>
   `);
 

@@ -1,0 +1,144 @@
+<script>
+  import { gsap } from 'gsap';
+  import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  type TraceMotionWindow = Window & {
+    __traceChoreography?: {
+      context?: { revert: () => void };
+      media?: { revert: () => void };
+    };
+  };
+
+  function initTraceChoreography() {
+    const traceWindow = window as TraceMotionWindow;
+    traceWindow.__traceChoreography?.media?.revert();
+    traceWindow.__traceChoreography?.context?.revert();
+    const session: NonNullable<TraceMotionWindow['__traceChoreography']> = {};
+    traceWindow.__traceChoreography = session;
+
+    const root = document.documentElement;
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('main > section:not(#top)'));
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    root.dataset.motionEngine = reducedMotion ? 'gsap-reduced' : 'gsap';
+
+    sections.forEach((section) => {
+      section.querySelector<HTMLElement>('.eyebrow, .outcomes-head > .mono, .section-label')?.setAttribute('data-motion-label', '');
+      section.querySelector<HTMLElement>('h2')?.setAttribute('data-motion-heading', '');
+      section
+        .querySelector<HTMLElement>('.systems-head > p, .casework-head > p, .trajectory-head > p')
+        ?.setAttribute('data-motion-lead', '');
+      section.querySelectorAll<HTMLElement>(
+        '.outcome-grid > article, .project-grid > article, .profile-card, .writing-card, .capability-matrix section, .case-tabs button'
+      ).forEach((item) => item.setAttribute('data-motion-item', ''));
+    });
+
+    if (reducedMotion || !sections.length) {
+      sections.forEach((section) => {
+        section.dataset.gsapBound = 'false';
+        section.dataset.gsapProgress = '1';
+      });
+      return;
+    }
+
+    session.context = gsap.context(() => {
+      const media = gsap.matchMedia();
+      session.media = media;
+      media.add({ wide: '(min-width: 800px)', narrow: '(max-width: 799px)' }, (context) => {
+        const wide = Boolean(context.conditions?.wide);
+        sections.forEach((section) => {
+          section.dataset.gsapBound = 'true';
+          section.dataset.gsapProgress = '0';
+          const label = section.querySelector<HTMLElement>('[data-motion-label]');
+          const heading = section.querySelector<HTMLElement>('[data-motion-heading]');
+          const lead = section.querySelector<HTMLElement>('[data-motion-lead]');
+          const items = Array.from(section.querySelectorAll<HTMLElement>('[data-motion-item]'));
+          const revealSection = () => { section.dataset.motionState = 'visible'; };
+          const timeline = gsap.timeline({
+            defaults: { ease: 'power3.out' },
+            scrollTrigger: {
+              trigger: section,
+              start: 'top 84%',
+              end: 'top 34%',
+              toggleActions: 'play none none reverse',
+              onEnter: revealSection,
+              onUpdate: (trigger) => {
+                section.dataset.gsapProgress = trigger.progress.toFixed(3);
+              },
+            },
+          });
+
+          if (label) {
+            timeline.from(label, {
+              autoAlpha: 0,
+              x: wide ? -28 : -14,
+              duration: .5,
+              immediateRender: false,
+              clearProps: 'opacity,visibility,transform',
+            }, 0);
+          }
+          if (heading) {
+            timeline.from(heading, {
+              autoAlpha: 0,
+              y: wide ? 34 : 20,
+              clipPath: 'inset(0 0 36% 0)',
+              duration: .78,
+              immediateRender: false,
+              clearProps: 'opacity,visibility,transform,clipPath',
+            }, .08);
+          }
+          if (lead) {
+            timeline.from(lead, {
+              autoAlpha: 0,
+              y: 20,
+              duration: .62,
+              immediateRender: false,
+              clearProps: 'opacity,visibility,transform',
+            }, .18);
+          }
+          if (items.length) {
+            timeline.from(items, {
+              autoAlpha: 0,
+              y: wide ? 24 : 14,
+              duration: .5,
+              stagger: .065,
+              immediateRender: false,
+              clearProps: 'opacity,visibility,transform',
+            }, .22);
+          }
+
+          if (wide) {
+            section.querySelectorAll<HTMLElement>('picture img, .visual-band img').forEach((image) => {
+              gsap.fromTo(image, { yPercent: -2.5 }, {
+                yPercent: 2.5,
+                ease: 'none',
+                scrollTrigger: {
+                  trigger: image,
+                  start: 'top bottom',
+                  end: 'bottom top',
+                  scrub: .7,
+                },
+              });
+            });
+          }
+        });
+        requestAnimationFrame(() => ScrollTrigger.refresh());
+        return () => {
+          sections.forEach((section) => {
+            delete section.dataset.gsapBound;
+            delete section.dataset.gsapProgress;
+          });
+        };
+      });
+    }, document.body);
+  }
+
+  initTraceChoreography();
+  document.addEventListener('astro:page-load', initTraceChoreography);
+  document.addEventListener('astro:before-swap', () => {
+    const traceWindow = window as TraceMotionWindow;
+    traceWindow.__traceChoreography?.media?.revert();
+    traceWindow.__traceChoreography?.context?.revert();
+  });
+</script>

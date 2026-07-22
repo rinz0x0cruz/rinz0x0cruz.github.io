@@ -21,6 +21,8 @@ describe('plug-and-play portfolio content', () => {
   it('keeps the identity statement and current focus complete', () => {
     expect(intro.eyebrow.length).toBeGreaterThan(10);
     expect(intro.statement.length).toBeGreaterThan(40);
+    expect(intro.signalTerms).toHaveLength(3);
+    expectUnique(intro.signalTerms);
     expect(intro.currentFocus.length).toBeGreaterThan(0);
     expectUnique(intro.currentFocus);
     const featuredSocials = site.socials.filter((social) => social.featured);
