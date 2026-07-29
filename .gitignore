@@ -1,28 +1,28 @@
-# build output
-dist/
-public/social/
-
-# dependencies
-node_modules/
-
-# generated types / cache
-.astro/
-
-# environment
-.env
-.env.production
-.env.*.local
-
-# logs
+# Logs
+logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# browser tests
-playwright-report/
-test-results/
-.lighthouseci/
-e2e/visual.spec.ts-snapshots/*-win32.png
+# Browser test artifacts
+test-results
+playwright-report
 
-# os / editor cruft
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

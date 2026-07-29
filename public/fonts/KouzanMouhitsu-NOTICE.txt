@@ -1,0 +1,14 @@
+Kouzan Mouhitsu Font
+
+Official source: https://opentype.jp/kouzanmouhitufont.htm
+Calligraphy and font creation: Aoyagi Kouzan
+
+The official source permits free use, unrestricted commercial use, use in
+logos, publication in magazines and books, and inclusion on CDs. The font is
+provided without warranty and is used at the user's own risk.
+
+KouzanMouhitsu-Kanji.woff2 is a WOFF2 subset of the official OpenType font. It
+contains only the nine characters used by this project and retains the source
+font's metadata.
+
+Source terms reviewed: 2026-07-25

@@ -1,0 +1,16 @@
+Pixelify Sans
+
+Official source: https://fonts.google.com/specimen/Pixelify+Sans
+Design: Stephanie Lie (originally released through Google Fonts)
+
+Licensed under the SIL Open Font License, Version 1.1. The licence permits use,
+study, modification, and redistribution, including bundling with a website,
+provided the font is not sold on its own and any modified version is not
+released under the reserved name.
+
+PixelifySans-Latin.woff2 is the unmodified latin subset published by Google
+Fonts (unicode-range U+0000-00FF plus common punctuation), served as a variable
+font across weights 400-700. It is used for the rotating quotes in the identity
+card.
+
+Source terms reviewed: 2026-07-29

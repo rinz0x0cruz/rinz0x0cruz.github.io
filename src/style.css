@@ -1,0 +1,2797 @@
+@font-face {
+  font-family: 'Recursive Variable';
+  src: url('/fonts/Recursive-Latin.woff2') format('woff2-variations');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 300 1000;
+}
+
+@font-face {
+  font-family: 'Kiona';
+  src: url('/fonts/Kiona-Regular.woff') format('woff');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Danviska';
+  src: url('/fonts/Danviska-Regular.woff2') format('woff2');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Mackie Pixel';
+  src: url('/fonts/MackiePixel.ttf') format('truetype');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+/* companion face carrying only the highlight cells, stacked over the body face */
+@font-face {
+  font-family: 'Mackie Pixel Shine';
+  src: url('/fonts/MackiePixelShine.ttf') format('truetype');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Pixelify Sans';
+  src: url('/fonts/PixelifySans-Latin.woff2') format('woff2-variations');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400 700;
+}
+
+@font-face {
+  font-family: 'Kouzan Mouhitsu';
+  src: url('/fonts/KouzanMouhitsu-Kanji.woff2') format('woff2');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+  unicode-range: U+5C45, U+591C, U+5F71, U+6708, U+708E, U+98A8, U+9B3C, U+9B42, U+9CE5;
+}
+
+:root {
+  color-scheme: dark;
+  --accent: #d1a35f;
+  --border: #31302d;
+  --surface: rgba(8, 8, 8, 0.88);
+  --text: #f0ede7;
+  --text-muted: #a7a39b;
+  background: #000;
+  font-family: 'Recursive Variable', 'Segoe UI', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  margin: 0;
+  background: #000;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow-x: hidden;
+}
+
+.portfolio {
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #000;
+}
+
+.scene {
+  --scene-media-height: clamp(16rem, 55vh, 34rem);
+  --scene-media-height: clamp(16rem, 55svh, 34rem);
+  --scene-media-top: clamp(1rem, 3vw, 2rem);
+  --scene-inline: clamp(1rem, 3vw, 2.5rem);
+  --scene-drawer-space: 0.25rem;
+  position: relative;
+  display: grid;
+  grid-template-rows: var(--scene-media-height) auto;
+  gap: 4.75rem;
+  align-items: start;
+  padding: var(--scene-media-top) var(--scene-inline) var(--scene-drawer-space);
+  overflow: visible;
+  background: #000;
+  isolation: isolate;
+  /* --scene-drawer-space steps instantly when the dossier opens, which shoved
+     the achievement deck down by 96px in one frame. Custom properties do not
+     interpolate, but the padding they feed does, so transition it here to match
+     the drawer's own timing. */
+  transition: padding-bottom 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scene__texture {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  opacity: 0.2;
+  filter: contrast(0.6) brightness(1);
+  pointer-events: none;
+}
+
+.scene__content {
+  --card-offset-y: 0rem;
+  --card-float-high: -0.55rem;
+  --card-float-low: 0.45rem;
+  position: relative;
+  z-index: 2;
+  width: min(64rem, 100%);
+  justify-self: center;
+  will-change: transform;
+  animation: identity-card-float 10s ease-in-out infinite;
+}
+
+.scene__content:has(.identity-avatar__mask:hover),
+.scene__content:has(.identity-avatar__mask:focus-visible),
+.scene__content:has(.credential-card__turn:hover),
+.scene__content:has(.credential-card__turn:focus-visible) {
+  animation-play-state: paused;
+}
+
+.scene__content--dossier-open {
+  animation-play-state: paused;
+}
+
+.scene:has(.scene__content--dossier-open) {
+  --scene-drawer-space: 7.5rem;
+}
+
+.scene__window {
+  position: relative;
+  z-index: 0;
+  width: auto;
+  height: var(--scene-media-height);
+  /* the scene pads its content; the media ignores that padding sideways so it
+     reaches the page edges instead of sitting in a frame. The top pull is left
+     alone deliberately: raising the media shifts everything below it up, which
+     drags the investigation pipeline into the viewport on load. */
+  margin-inline: calc(-1 * var(--scene-inline));
+  overflow: hidden;
+  isolation: isolate;
+  /* no border, radius or shadow: the edges dissolve into the page instead */
+  mask-image:
+    linear-gradient(to bottom, transparent 0%, #000 12%, #000 68%, transparent 100%),
+    linear-gradient(to right, transparent 0%, #000 11%, #000 89%, transparent 100%);
+  mask-composite: intersect;
+}
+
+.scene__media {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+.scene__landscape,
+.scene__landscape-video {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  filter: grayscale(0.08) saturate(0.82) brightness(0.64) contrast(1.12);
+  opacity: 0.92;
+  pointer-events: none;
+  transform: none;
+  user-select: none;
+}
+
+.scene__landscape {
+  background: url('/background-study-wide-still.webp') center 50% / cover no-repeat;
+}
+
+.scene__landscape-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 50%;
+}
+
+.scene__kanji-layer {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scene__kanji {
+  position: absolute;
+  color: #7d8fa2;
+  font-family: 'Kouzan Mouhitsu', 'Yu Mincho', serif;
+  font-size: 4rem;
+  font-synthesis: none;
+  font-weight: 400;
+  line-height: 0.88;
+  text-orientation: upright;
+  text-shadow:
+    0.025em 0.018em 0 rgba(17, 29, 47, 0.55),
+    0 0 6px rgba(121, 174, 219, 0.28),
+    0 0 18px rgba(65, 119, 176, 0.16);
+  writing-mode: vertical-rl;
+  opacity: 0;
+  user-select: none;
+  transform: translate(-50%, -50%) rotate(var(--kanji-rotation));
+  animation: kanji-ink-fade 9s ease-in-out var(--kanji-delay) infinite;
+}
+
+.scene__kanji--left {
+  top: calc(var(--scene-media-top) + var(--scene-media-height) + 3.5rem);
+  left: max(3.5rem, calc(50% - 38rem));
+}
+
+.scene__kanji--right {
+  top: calc(var(--scene-media-top) + var(--scene-media-height) + 5.75rem);
+  left: min(calc(100% - 3.5rem), calc(50% + 38rem));
+}
+
+.scene__kanji--bottom {
+  top: calc(var(--scene-media-top) + var(--scene-media-height) + 8.75rem);
+  left: max(3.5rem, calc(50% - 38rem));
+}
+
+.identity-card {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-areas:
+    'avatar copy'
+    'quote quote';
+  grid-template-columns: 11.5rem minmax(0, 1fr);
+  column-gap: 3rem;
+  row-gap: 0.9rem;
+  align-items: center;
+  min-height: 21rem;
+  padding: 2rem 2.5rem 1.75rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #080808;
+  box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.58), inset 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.identity-card > .identity-avatar {
+  grid-area: avatar;
+}
+
+.identity-card::before {
+  position: absolute;
+  top: -1px;
+  left: 2.5rem;
+  width: 4.5rem;
+  height: 1px;
+  background: var(--accent);
+  content: '';
+}
+
+.identity-card__copy {
+  position: relative;
+  z-index: 1;
+  grid-area: copy;
+  min-width: 0;
+}
+
+.identity-card__eyebrow,
+.identity-card__role {
+  margin: 0;
+}
+
+/* A status readout dressed as a toggle. It is deliberately inert: no pointer
+   events, no focus stop, and no transition, since the value never changes at
+   runtime. */
+.availability {
+  position: absolute;
+  top: 1.5rem;
+  right: 2.5rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: #9fb0c2;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+}
+
+.availability__switch {
+  position: relative;
+  width: 1.85rem;
+  height: 0.92rem;
+  border: 1px solid #4a4942;
+  border-radius: 0.46rem;
+  background: #131311;
+}
+
+.availability__switch::after {
+  position: absolute;
+  top: 50%;
+  left: 0.17rem;
+  width: 0.54rem;
+  height: 0.54rem;
+  border-radius: 50%;
+  background: #9fb0c2;
+  transform: translateY(-50%);
+  content: '';
+}
+
+.availability[data-open='true'] {
+  color: var(--accent);
+}
+
+.availability[data-open='true'] .availability__switch {
+  border-color: rgba(209, 163, 95, 0.5);
+}
+
+.availability[data-open='true'] .availability__switch::after {
+  left: auto;
+  right: 0.17rem;
+  background: var(--accent);
+}
+
+.identity-card__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--accent);
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.identity-card__sigil {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: 0 0 auto;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 1.25;
+}
+
+.identity-card__sigil-core {
+  fill: currentColor;
+  stroke: none;
+}
+
+h1 {
+  margin: 0.7rem 0 0.65rem;
+  color: var(--text);
+  font-family: 'Danviska', serif;
+  font-size: 3.5rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.identity-card__role {
+  color: var(--text-muted);
+  font-family: 'Kiona', sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.identity-card__separator {
+  margin-inline: 0.25rem 0.5rem;
+  color: #615f59;
+}
+
+.identity-card__company {
+  overflow-wrap: anywhere;
+}
+
+.company-mark {
+  display: inline-grid;
+  grid-template-columns: repeat(2, 0.34rem);
+  gap: 0.06rem;
+  margin-right: 0.2rem;
+  vertical-align: middle;
+  transform: translateY(-0.11rem);
+}
+
+.company-mark i {
+  width: 0.34rem;
+  aspect-ratio: 1;
+}
+
+.discipline-band {
+  position: relative;
+  display: none;
+  width: 100%;
+  max-width: 710px;
+  /* pure text now, so it sizes itself rather than carrying the old SVG's
+     fixed 114px box and the overflow that came with it */
+  height: auto;
+  /* the removed scope line used to open this gap under the role */
+  margin: 1.35rem 0 0;
+  font-family: 'Kiona', sans-serif;
+}
+
+.discipline-band__topline {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  color: #9fb0c2;
+  font-size: 0.625rem;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.discipline-band__topline b {
+  color: #d1a35f;
+  font-weight: 400;
+}
+
+.discipline-band__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* the longest name and detail nearly fill the narrowest cell, so the gap is
+     kept tight to leave slack for font metrics that differ by platform */
+  gap: 1.1rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.discipline-band__cell {
+  display: grid;
+  min-width: 0;
+}
+
+.discipline-band__abbr {
+  color: #f0ede7;
+  font-family: 'Danviska', serif;
+  font-size: 1.95rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.discipline-band__rule {
+  height: 3px;
+  margin: 0.4rem 0 0.45rem;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+/* 10px is the largest size at which every name and detail stays on one line in
+   the narrowest supported cell. Letter-spacing is minimal for the same reason:
+   at 0.04em the GRC expansion had 2px of slack and wrapped on Linux. */
+.discipline-band__name {
+  color: #d7d3cb;
+  font-size: 0.625rem;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.discipline-band__detail {
+  margin-top: 0.26rem;
+  color: #9fb0c2;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.625rem;
+  line-height: 1.4;
+}
+
+.discipline-band--armed:not(.discipline-band--active) .discipline-band__rule {
+  transform: scaleX(0);
+}
+
+.discipline-band--armed:not(.discipline-band--active) .discipline-band__abbr,
+.discipline-band--armed:not(.discipline-band--active) .discipline-band__name,
+.discipline-band--armed:not(.discipline-band--active) .discipline-band__detail {
+  opacity: 0;
+}
+
+/* the abbreviation lands first and the rule then opens its expansion, so the
+   motion explains what TI, GRC and VM stand for rather than just decorating */
+.discipline-band--active .discipline-band__abbr {
+  animation: discipline-band-rise 460ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--cell-index) * 190ms) both;
+}
+
+.discipline-band--active .discipline-band__rule {
+  animation: discipline-band-rule 620ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--cell-index) * 190ms + 180ms) both;
+}
+
+.discipline-band--active .discipline-band__name {
+  animation: discipline-band-rise 460ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--cell-index) * 190ms + 340ms) both;
+}
+
+.discipline-band--active .discipline-band__detail {
+  animation: discipline-band-rise 460ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--cell-index) * 190ms + 430ms) both;
+}
+
+@media (min-width: 1000px) and (min-height: 641px) {
+  .discipline-band {
+    display: block;
+  }
+}
+
+@keyframes discipline-band-rule {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes discipline-band-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.site-footer {
+  position: relative;
+  overflow: hidden;
+  border-top: 4px solid var(--border);
+}
+
+/* The vine art is authored against .achievement-window, so the footer only has
+   to supply the box and re-place the five branches across a wide, short band. */
+.site-footer .achievement-vines {
+  inset: 0;
+}
+
+.site-footer .achievement-vines__branch--crown {
+  top: -3.4rem;
+  left: -1.5rem;
+  width: clamp(15rem, 30%, 24rem);
+}
+
+.site-footer .achievement-vines__branch--runner {
+  top: -2.2rem;
+  right: 26%;
+  width: clamp(13rem, 25%, 20rem);
+}
+
+.site-footer .achievement-vines__branch--drop {
+  top: -1.5rem;
+  right: 19%;
+  width: 3.6rem;
+}
+
+.site-footer .achievement-vines__branch--climb {
+  top: auto;
+  bottom: -1.75rem;
+  left: 24%;
+  width: 3.2rem;
+}
+
+.site-footer .achievement-vines__branch--return {
+  right: -1.5rem;
+  bottom: -2.4rem;
+  width: clamp(13rem, 27%, 21rem);
+}
+
+.site-footer .achievement-vines__growth {
+  display: none;
+}
+
+.font-credit {
+  position: relative;
+  z-index: 1;
+  width: min(72rem, calc(100% - 4rem));
+  margin: 0 auto;
+  padding-block: 3rem;
+  color: #66635d;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.font-credit a {
+  color: #8f897f;
+  text-underline-offset: 0.15em;
+}
+
+.font-credit span {
+  margin-inline: 0.35rem;
+}
+
+.identity-card__statement {
+  display: grid;
+  grid-area: quote;
+  width: min(100%, 48rem);
+  min-height: 1.25em;
+  margin: 0;
+  justify-self: center;
+  color: #b9b2a7;
+  font-family: 'Mackie Pixel', 'Pixelify Sans', ui-monospace, monospace;
+  /* The face is drawn on a 14px grid at 1024 upem, so only multiples of 16px map
+     one design pixel to one screen pixel. 12px trades a little stem evenness for
+     a quote that sits closer to the card's other type. */
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .identity-card__statement {
+    min-height: 2.5em;
+  }
+}
+
+.identity-card__quote-measure,
+.identity-card__quote-measure q,
+.identity-card__quote,
+.identity-card__quote-shine {
+  grid-area: 1 / 1;
+}
+
+/* A monochrome face can only draw ink or nothing, so the notch would show the
+   dark page through the letter. This second layer paints the same cells in a
+   lighter tone, which is what reads as a highlight. */
+.identity-card__quote-shine {
+  color: #f0ede7;
+  font-family: 'Mackie Pixel Shine', monospace;
+  pointer-events: none;
+  user-select: none;
+}
+
+.identity-card__quote-measure {
+  display: grid;
+  visibility: hidden;
+}
+
+.identity-card__quote {
+  /* hard offset only - a blurred shadow smears the pixel edges */
+  text-shadow: 0 0.0625rem 0 rgba(0, 0, 0, 0.96);
+}
+
+/* the browser's default q styling adds quotation marks, so switch them off
+   explicitly rather than relying on the quotes property alone */
+.identity-card__statement q::before,
+.identity-card__statement q::after {
+  content: none;
+}
+
+/* Each letter drops on its own delay in whole-pixel jumps. A single eased slide
+   of the whole line reads as a slide; a stepped per-letter cascade reads as
+   pixel-art motion, and keeps the glyph grid off fractional pixels in flight. */
+.identity-card__quote-word {
+  white-space: nowrap;
+}
+
+.identity-card__quote-letter {
+  display: inline-block;
+}
+
+.quote-page-enter-active .identity-card__quote-letter {
+  /* 12px over 4 steps = 3 whole pixels per jump */
+  animation: quote-letter-drop 240ms steps(4, end) both;
+  animation-delay: calc(var(--letter) * 14ms);
+}
+
+.quote-page-leave-active .identity-card__quote-letter {
+  /* 9px over 3 steps = 3 whole pixels per jump */
+  animation: quote-letter-fall 180ms steps(3, end) both;
+  animation-delay: calc(var(--letter) * 7ms);
+}
+
+@keyframes quote-letter-drop {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes quote-letter-fall {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(0, 9px, 0);
+  }
+}
+
+.credential-card {
+  position: relative;
+  display: grid;
+  width: 100%;
+}
+
+.credential-card__front {
+  position: relative;
+  z-index: 3;
+  grid-area: 1 / 1;
+}
+
+.credential-card__drawer {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 0.55rem);
+  right: 1rem;
+  left: 1rem;
+  height: 5.25rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #080808;
+  box-shadow:
+    0 1rem 3rem rgba(0, 0, 0, 0.5),
+    inset 0 1px rgba(255, 255, 255, 0.04);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transform: translate3d(0, calc(-100% - 0.55rem), 0) scaleY(0.72);
+  transform-origin: center top;
+  transition:
+    opacity 220ms ease,
+    transform 520ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 520ms;
+}
+
+.scene__content--dossier-open .credential-card__drawer {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transform: translate3d(0, 0, 0) scaleY(1);
+  transition-delay: 0s;
+}
+
+.credential-card__turn {
+  position: absolute;
+  z-index: 7;
+  top: 0;
+  right: 2rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  min-width: 9.75rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.8rem 0.48rem;
+  border: 1px solid #615f59;
+  border-radius: 4px;
+  color: #d7d3cb;
+  background: #0d0d0c;
+  box-shadow:
+    0 0.6rem 1.5rem rgba(0, 0, 0, 0.42),
+    inset 0 1px rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  text-align: left;
+  text-transform: uppercase;
+  transform: translateY(calc(-100% - 0.35rem));
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.credential-card__turn > span {
+  grid-column: 1;
+  color: var(--text);
+  font-family: 'Mackie Pixel', 'Kiona', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.credential-card__turn:hover,
+.credential-card__turn:focus-visible {
+  border-color: var(--accent);
+  background: #17140f;
+  transform: translateY(calc(-100% - 0.23rem));
+}
+
+.credential-card__turn:focus-visible {
+  outline: 2px solid #e7c88e;
+  outline-offset: 3px;
+}
+
+.credential-card__records,
+.credential-card__records ol {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.credential-card__records ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: 1fr;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.credential-card__records li {
+  min-width: 0;
+  min-height: 0;
+  opacity: 0;
+  transform: translateY(-0.65rem);
+  transition:
+    opacity 180ms ease,
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scene__content--dossier-open .credential-card__records li {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scene__content--dossier-open .credential-card__records li:nth-child(2) {
+  transition-delay: 35ms;
+}
+
+.scene__content--dossier-open .credential-card__records li:nth-child(3) {
+  transition-delay: 70ms;
+}
+
+.scene__content--dossier-open .credential-card__records li:nth-child(4) {
+  transition-delay: 105ms;
+}
+
+.credential-card__records a {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) 0.9rem;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0.75rem 0.8rem;
+  overflow: hidden;
+  border: 1px solid #3c3a35;
+  border-radius: 4px;
+  color: var(--text);
+  background: #0d0d0c;
+  /* a single top highlight: the old pair of inset rings read as a box drawn
+     inside a box */
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.05);
+  text-decoration: none;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.credential-card__records a::before {
+  position: absolute;
+  top: 0;
+  left: 0.9rem;
+  width: 2.5rem;
+  height: 1px;
+  background: var(--accent);
+  content: '';
+  opacity: 0.45;
+  transform: scaleX(0.35);
+  transform-origin: left;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.credential-card__records a:hover,
+.credential-card__records a:focus-visible {
+  border-color: #5c4b35;
+  background: #17140f;
+  transform: translateY(-0.12rem);
+}
+
+.credential-card__records a:hover::before,
+.credential-card__records a:focus-visible::before {
+  transform: scaleX(1);
+}
+
+.credential-card__records a:focus-visible {
+  outline: 2px solid #e7c88e;
+  outline-offset: -3px;
+}
+
+.credential-card__records a > small {
+  color: var(--accent);
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.7rem;
+  font-variation-settings: 'MONO' 1;
+  font-weight: 650;
+}
+
+.credential-card__records a > span {
+  min-width: 0;
+}
+
+.credential-card__records strong,
+.credential-card__records em {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.credential-card__records strong {
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.credential-card__records em {
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.64rem;
+  font-style: normal;
+  font-variation-settings: 'MONO' 1;
+  line-height: 1.25;
+}
+
+.credential-card__records a > b {
+  color: var(--accent);
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+@media (max-width: 700px), (max-height: 640px) {
+  .credential-card__turn {
+    right: 1rem;
+    min-width: 8.75rem;
+    min-height: 2.75rem;
+    padding: 0.48rem 0.65rem 0.42rem;
+  }
+
+  .credential-card__turn > span {
+    font-size: 0.56rem;
+  }
+
+  .credential-card__records a {
+    grid-template-columns: 1.35rem minmax(0, 1fr) 0.65rem;
+    gap: 0.35rem;
+    padding: 0.5rem 0.58rem;
+    box-shadow:
+      inset 0 0 0 0.24rem #090909,
+      inset 0 0 0 calc(0.24rem + 1px) #292824;
+  }
+
+  .credential-card__records a > small {
+    font-size: 0.54rem;
+  }
+
+  .credential-card__records strong {
+    font-size: 0.62rem;
+  }
+
+  .credential-card__records em {
+    margin-top: 0.2rem;
+    font-size: 0.44rem;
+  }
+}
+
+@media (max-width: 700px) and (min-height: 641px) {
+  .credential-card__drawer {
+    top: calc(100% + 0.45rem);
+    right: 0.5rem;
+    left: 0.5rem;
+    height: 7.5rem;
+    padding: 0.4rem;
+  }
+
+  .credential-card__records ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+}
+
+@media (max-height: 640px) {
+  .credential-card__turn {
+    transform: translateY(-100%);
+  }
+
+  .credential-card__turn:hover,
+  .credential-card__turn:focus-visible {
+    transform: translateY(-100%);
+  }
+
+  .credential-card__drawer {
+    top: calc(100% + 0.2rem);
+    right: 0.5rem;
+    left: 0.5rem;
+    height: 3.5rem;
+    padding: 0.25rem;
+  }
+
+  .credential-card__records ol {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: 1fr;
+    gap: 0.2rem;
+  }
+
+  .credential-card__records em {
+    display: none;
+  }
+
+  .credential-card__records a {
+    grid-template-columns: 1rem minmax(0, 1fr) 0.55rem;
+    padding-inline: 0.45rem;
+  }
+
+  .credential-card__records strong {
+    font-size: 0.56rem;
+  }
+
+}
+
+@media (max-width: 350px) and (max-height: 640px) {
+  .credential-card__records a {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    gap: 0.18rem;
+    justify-items: center;
+    padding: 0.35rem 0.25rem;
+    text-align: center;
+  }
+
+  .credential-card__records a > small {
+    font-size: 0.46rem;
+  }
+
+  .credential-card__records a > span {
+    width: 100%;
+  }
+
+  .credential-card__records strong {
+    overflow-wrap: normal;
+    font-size: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .credential-card__records a > b {
+    display: none;
+  }
+}
+
+.achievement-deck {
+  position: relative;
+  z-index: 2;
+  color: var(--text);
+}
+
+.achievement-deck__inner {
+  width: min(72rem, calc(100% - 4rem));
+  margin-inline: auto;
+  padding-block: 4.5rem 6rem;
+}
+
+.achievement-deck__header {
+  display: flex;
+  gap: 2rem;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+
+.achievement-deck__header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 520;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.achievement-deck__header div > p {
+  margin-bottom: 0.55rem;
+  color: var(--accent);
+}
+
+.achievement-deck h2 {
+  margin: 0;
+  font-family: 'Danviska', serif;
+  font-size: 2.75rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.achievement-deck__header > p {
+  text-align: right;
+}
+
+.achievement-window {
+  --achievement-window-inset: -1.125rem;
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+}
+
+.achievement-window::before,
+.achievement-window__frame,
+.achievement-window__frame::before,
+.achievement-window__frame::after {
+  position: absolute;
+  z-index: 6;
+  content: '';
+  pointer-events: none;
+}
+
+.achievement-window::before,
+.achievement-window__frame {
+  inset: var(--achievement-window-inset);
+}
+
+.achievement-window::before {
+  border-inline: 1px solid rgba(144, 156, 157, 0.74);
+  box-shadow:
+    inset 1px 0 rgba(240, 237, 231, 0.08),
+    inset -1px 0 rgba(240, 237, 231, 0.08);
+  transform: scaleY(0);
+  transform-origin: center;
+}
+
+.achievement-window__frame {
+  opacity: 0;
+  background:
+    linear-gradient(#c1c6c4 0 0) left top / 1.5rem 2px no-repeat,
+    linear-gradient(#c1c6c4 0 0) left top / 2px 1.5rem no-repeat,
+    linear-gradient(#c1c6c4 0 0) right top / 1.5rem 2px no-repeat,
+    linear-gradient(#c1c6c4 0 0) right top / 2px 1.5rem no-repeat,
+    linear-gradient(#737e7e 0 0) left bottom / 1.5rem 2px no-repeat,
+    linear-gradient(#737e7e 0 0) left bottom / 2px 1.5rem no-repeat,
+    linear-gradient(#737e7e 0 0) right bottom / 1.5rem 2px no-repeat,
+    linear-gradient(#737e7e 0 0) right bottom / 2px 1.5rem no-repeat;
+}
+
+.achievement-window__frame::before,
+.achievement-window__frame::after {
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, #252b2c, #7e8988 12%, #424a4b 50%, #7e8988 88%, #252b2c);
+  box-shadow: 0 0.45rem 1rem rgba(0, 0, 0, 0.48);
+  transform: scaleX(0);
+  transform-origin: center;
+}
+
+.achievement-window__frame::before {
+  top: 0;
+}
+
+.achievement-window__frame::after {
+  bottom: 0;
+}
+
+.achievement-window--active::before {
+  animation: achievement-window-sides 420ms 80ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.achievement-window--active .achievement-window__frame {
+  animation: achievement-window-corners 160ms 340ms ease-out both;
+}
+
+.achievement-window--active .achievement-window__frame::before,
+.achievement-window--active .achievement-window__frame::after {
+  animation: achievement-window-rails 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.achievement-filigree {
+  position: absolute;
+  z-index: 7;
+  inset: var(--achievement-window-inset);
+  overflow: visible;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 8px, rgba(209, 163, 95, 0.44) 8px 10px, transparent 10px 16px) top / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(95, 63, 32, 0.72) 9px 11px, transparent 11px 17px) bottom / 100% 1px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 8px, rgba(209, 163, 95, 0.36) 8px 10px, transparent 10px 16px) left / 1px 100% no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 9px, rgba(95, 63, 32, 0.72) 9px 11px, transparent 11px 17px) right / 1px 100% no-repeat;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.achievement-filigree__corner {
+  position: absolute;
+  display: block;
+  overflow: visible;
+  color: #d1a35f;
+  filter: drop-shadow(0 0.25rem 0.3rem rgba(0, 0, 0, 0.75));
+}
+
+.achievement-filigree__corner--primary {
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+.achievement-filigree__corner--secondary {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.achievement-filigree__corner--top-left {
+  top: -0.45rem;
+  left: -0.45rem;
+}
+
+.achievement-filigree__corner--top-right {
+  top: -0.3rem;
+  right: -0.3rem;
+  transform: rotate(90deg);
+}
+
+.achievement-filigree__corner--bottom-right {
+  right: -0.45rem;
+  bottom: -0.45rem;
+  transform: rotate(180deg);
+}
+
+.achievement-filigree__corner--bottom-left {
+  bottom: -0.3rem;
+  left: -0.3rem;
+  transform: rotate(-90deg);
+}
+
+.achievement-filigree__path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.achievement-filigree__path--shadow,
+.achievement-filigree__path--stem,
+.achievement-filigree__path--branch {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.achievement-filigree__path--shadow {
+  stroke: #4b3018;
+  stroke-width: 4;
+}
+
+.achievement-filigree__path--stem,
+.achievement-filigree__path--branch {
+  stroke: #d1a35f;
+  stroke-width: 1.6;
+}
+
+.achievement-filigree__path--thread {
+  stroke: #f0dca7;
+  stroke-width: 0.75;
+  stroke-dasharray: 0.035 0.12;
+  opacity: 0;
+}
+
+.achievement-filigree__leaves path {
+  fill: #8a5c2b;
+  stroke: #e3bd7a;
+  stroke-width: 0.8;
+  transform: scale(0);
+  transform-box: fill-box;
+  transform-origin: center;
+  vector-effect: non-scaling-stroke;
+}
+
+.achievement-filigree__stitch {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0.52rem;
+  height: 0.52rem;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  offset-path: border-box;
+  offset-distance: 0%;
+  background: linear-gradient(135deg, #6b4824, #f0dca7 48%, #d1a35f 56%, #6b4824);
+  box-shadow: 0 0 0.7rem rgba(209, 163, 95, 0.68);
+  opacity: 0;
+}
+
+.achievement-window--active .achievement-filigree {
+  animation: achievement-filigree-arrive 160ms 180ms ease-out both;
+}
+
+.achievement-window--active .achievement-filigree__path--shadow,
+.achievement-window--active .achievement-filigree__path--stem,
+.achievement-window--active .achievement-filigree__path--branch {
+  animation: achievement-filigree-grow 680ms var(--filigree-delay) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.achievement-window--active .achievement-filigree__path--thread {
+  animation: achievement-filigree-thread 160ms calc(var(--filigree-delay) + 620ms) steps(4, end) both;
+}
+
+.achievement-window--active .achievement-filigree__leaves path {
+  animation: achievement-filigree-leaf 240ms calc(var(--filigree-delay) + 390ms + var(--leaf-delay)) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.achievement-window--active .achievement-filigree__stitch {
+  animation: achievement-filigree-stitch 360ms 840ms steps(12, end) both;
+}
+
+.achievement-vines {
+  --vine-shadow: #172016;
+  --vine-deep: #293c24;
+  --vine-main: #4f6b38;
+  --vine-light: #8ca45b;
+  --vine-pulse: #b5cd75;
+  position: absolute;
+  z-index: 0;
+  inset: var(--achievement-window-inset);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.achievement-vines__branch,
+.achievement-vines__growth {
+  position: absolute;
+  display: block;
+}
+
+.achievement-vines__branch {
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 0.3rem 0.35rem rgba(0, 0, 0, 0.82));
+}
+
+.achievement-vines__branch--crown {
+  --vine-delay: 240ms;
+  aspect-ratio: 5 / 2;
+  top: -2.15rem;
+  left: -0.65rem;
+  width: clamp(18rem, 32vw, 26rem);
+}
+
+.achievement-vines__branch--runner {
+  --vine-delay: 390ms;
+  aspect-ratio: 25 / 8;
+  top: -2.55rem;
+  right: 4rem;
+  width: clamp(15rem, 27vw, 22rem);
+}
+
+.achievement-vines__branch--drop {
+  --vine-delay: 480ms;
+  aspect-ratio: 1 / 3;
+  top: -0.75rem;
+  right: -2.25rem;
+  width: 6rem;
+}
+
+.achievement-vines__branch--climb {
+  --vine-delay: 560ms;
+  aspect-ratio: 22 / 65;
+  top: 34%;
+  left: -1.35rem;
+  width: 5rem;
+}
+
+.achievement-vines__branch--return {
+  --vine-delay: 620ms;
+  aspect-ratio: 35 / 12;
+  right: 1rem;
+  bottom: -2.85rem;
+  width: clamp(14rem, 28vw, 21rem);
+}
+
+.achievement-vines__stem-shadow,
+.achievement-vines__stem,
+.achievement-vines__stem-light,
+.achievement-vines__tendril {
+  fill: none;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.achievement-vines__stem-shadow {
+  stroke: var(--vine-shadow);
+  stroke-width: 6;
+}
+
+.achievement-vines__stem {
+  stroke: var(--vine-main);
+  stroke-width: 3.2;
+}
+
+.achievement-vines__stem-light {
+  stroke: var(--vine-light);
+  stroke-width: 0.85;
+  opacity: 0.72;
+}
+
+.achievement-vines__tendril {
+  stroke: var(--vine-deep);
+  stroke-width: 1.75;
+}
+
+.achievement-vines__leaf {
+  opacity: 0;
+  transform: scale(0);
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+
+.achievement-vines__leaf-sway {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: achievement-vine-sway 4.2s calc(var(--leaf-delay) * -3) ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.achievement-vines__leaf-shadow {
+  fill: var(--vine-shadow);
+  transform: translate(1px, 2px);
+}
+
+.achievement-vines__leaf-face {
+  fill: var(--vine-main);
+  stroke: var(--vine-deep);
+  stroke-width: 0.65;
+  stroke-linejoin: round;
+}
+
+.achievement-vines__leaf-vein {
+  fill: none;
+  stroke: #d1a35f;
+  stroke-width: 0.55;
+  stroke-linecap: round;
+  opacity: 0.66;
+}
+
+.achievement-vines__branch--crown > g:nth-of-type(3) .achievement-vines__leaf-face,
+.achievement-vines__branch--runner > g:nth-of-type(2) .achievement-vines__leaf-face,
+.achievement-vines__branch--drop > g:nth-of-type(2) .achievement-vines__leaf-face,
+.achievement-vines__branch--climb > g:nth-of-type(2) .achievement-vines__leaf-face,
+.achievement-vines__branch--return > g:nth-of-type(4) .achievement-vines__leaf-face {
+  animation: achievement-vine-pulse 4.8s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.achievement-vines__branch--drop > g:nth-of-type(2) .achievement-vines__leaf-face {
+  animation-delay: -1.6s;
+}
+
+.achievement-vines__branch--return > g:nth-of-type(4) .achievement-vines__leaf-face {
+  animation-delay: -3.2s;
+}
+
+.achievement-vines__growth {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: url('/kudzu-leaves-32x32.png') 0 0 / 400% 100% no-repeat;
+  image-rendering: pixelated;
+  opacity: 0;
+  filter:
+    saturate(0.74)
+    brightness(0.86)
+    drop-shadow(0 0.2rem 0.2rem rgba(0, 0, 0, 0.76));
+}
+
+.achievement-vines__growth--crown {
+  top: -0.9rem;
+  left: 2.8rem;
+  transform: rotate(-12deg);
+}
+
+.achievement-vines__growth--return {
+  right: 8rem;
+  bottom: -1.1rem;
+  transform: rotate(164deg);
+}
+
+:is(.achievement-window--active, .site-footer--grown) .achievement-vines {
+  animation: achievement-vines-arrive 180ms 220ms ease-out both;
+}
+
+:is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem-shadow,
+:is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem,
+:is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem-light {
+  animation: achievement-vine-grow 900ms var(--vine-delay) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+:is(.achievement-window--active, .site-footer--grown) .achievement-vines__tendril {
+  animation: achievement-vine-grow 660ms calc(var(--vine-delay) + 260ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+:is(.achievement-window--active, .site-footer--grown) .achievement-vines__leaf {
+  animation: achievement-vine-unfurl 320ms calc(var(--vine-delay) + var(--leaf-delay)) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.achievement-window--active .achievement-vines__growth--crown {
+  animation: achievement-vine-sprout 520ms 420ms steps(1, end) both;
+}
+
+.achievement-window--active .achievement-vines__growth--return {
+  animation: achievement-vine-sprout 520ms 920ms steps(1, end) both;
+}
+
+:is(.achievement-window--ambient, .site-footer--grown) .achievement-vines__leaf-sway,
+:is(.achievement-window--ambient, .site-footer--grown) .achievement-vines .achievement-vines__branch .achievement-vines__leaf-face {
+  animation-play-state: running;
+}
+
+.achievement-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.1rem;
+}
+
+.achievement-card {
+  --card-x: 50%;
+  --card-y: 50%;
+  --tile-accent: #d1a35f;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  aspect-ratio: 0.65;
+  padding: 1.05rem 1rem 1.1rem;
+  overflow: hidden;
+  border: 2px solid #3c3a35;
+  border-radius: 6px;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.035), transparent 28%),
+    #080808;
+  box-shadow:
+    0 0.45rem 0 #050606,
+    0 1.25rem 2.2rem rgba(0, 0, 0, 0.48),
+    inset 1px 1px rgba(255, 255, 255, 0.06),
+    inset -1px -1px rgba(0, 0, 0, 0.82),
+    inset 0 0 0 0.42rem #0d0d0c,
+    inset 0 0 0 calc(0.42rem + 1px) #292824;
+  transition: border-color 220ms ease, box-shadow 280ms ease;
+}
+
+.achievement-card__effects {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.achievement-card__effects::before,
+.achievement-card__effects::after {
+  position: absolute;
+  z-index: 3;
+  content: '';
+  pointer-events: none;
+}
+
+.achievement-card__effects::before {
+  inset: 0.42rem;
+  border: 1px solid rgba(97, 95, 89, 0.54);
+  border-radius: 3px;
+  box-shadow:
+    inset 1px 1px rgba(255, 255, 255, 0.025),
+    inset -1px -1px rgba(0, 0, 0, 0.72);
+}
+
+.achievement-card__effects::after {
+  top: 0.42rem;
+  left: 1.15rem;
+  width: 2.75rem;
+  height: 1px;
+  background: var(--tile-accent);
+  box-shadow: 0 0 0.45rem color-mix(in srgb, var(--tile-accent) 40%, transparent);
+  opacity: 0.72;
+}
+
+.achievement-card__foil,
+.achievement-card__edge {
+  position: absolute;
+  display: block;
+  inset: 0;
+}
+
+.achievement-card__foil {
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle 8.5rem at var(--card-x) var(--card-y), rgba(218, 245, 255, 0.18), transparent 56%),
+    repeating-linear-gradient(
+      128deg,
+      transparent 0 13%,
+      rgba(209, 163, 95, 0.055) 16%,
+      rgba(118, 153, 158, 0.08) 19%,
+      rgba(82, 111, 59, 0.045) 22%,
+      transparent 26% 43%
+    );
+  background-position: center, var(--card-x) var(--card-y);
+  background-size: auto, 220% 220%;
+  mix-blend-mode: screen;
+  opacity: 0.12;
+  transition: opacity 240ms ease, background-position 80ms linear;
+}
+
+.achievement-card__foil::after {
+  position: absolute;
+  top: -55%;
+  bottom: -55%;
+  left: -62%;
+  width: 38%;
+  content: '';
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(209, 163, 95, 0.03) 18%,
+    rgba(224, 237, 232, 0.24) 50%,
+    rgba(122, 157, 160, 0.06) 76%,
+    transparent
+  );
+  filter: blur(0.12rem);
+  opacity: 0;
+  transform: skewX(-14deg);
+}
+
+.achievement-card__edge {
+  z-index: 2;
+  padding: 1px;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      circle 7rem at var(--card-x) var(--card-y),
+      color-mix(in srgb, var(--tile-accent) 72%, #eef8f4 28%),
+      rgba(209, 163, 95, 0.26) 24%,
+      transparent 68%
+    ),
+    linear-gradient(135deg, rgba(209, 163, 95, 0.38), transparent 28%, transparent 72%, rgba(115, 141, 143, 0.28));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.28;
+  transition: opacity 220ms ease;
+}
+
+.achievement-card__vines {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.achievement-card__vine {
+  position: absolute;
+  display: block;
+  overflow: visible;
+  opacity: 0;
+  filter: drop-shadow(0 0.18rem 0.2rem rgba(0, 0, 0, 0.78));
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.achievement-card__vine--crown {
+  top: -0.15rem;
+  right: -0.1rem;
+  width: 5.75rem;
+}
+
+.achievement-card__vine--climb {
+  bottom: -0.2rem;
+  left: -0.1rem;
+  width: 3rem;
+}
+
+.achievement-card:nth-child(even) .achievement-card__vine--crown {
+  right: auto;
+  left: -0.1rem;
+  transform: scaleX(-1);
+}
+
+.achievement-card:nth-child(even) .achievement-card__vine--climb {
+  right: -0.1rem;
+  left: auto;
+  transform: scaleX(-1);
+}
+
+.achievement-card__vine-shadow,
+.achievement-card__vine-stem,
+.achievement-card__vine-tendril {
+  fill: none;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke-dashoffset 620ms steps(18, end);
+}
+
+.achievement-card__vine-shadow {
+  stroke: #142014;
+  stroke-width: 5;
+}
+
+.achievement-card__vine-stem {
+  stroke: #4f6b38;
+  stroke-width: 2.4;
+}
+
+.achievement-card__vine-tendril {
+  stroke: #789150;
+  stroke-width: 1.2;
+  transition-delay: 190ms;
+}
+
+.achievement-card__vine-leaves path {
+  fill: #5c773f;
+  stroke: rgba(209, 163, 95, 0.72);
+  stroke-width: 0.6;
+  transform: scale(0);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 180ms var(--sprout-delay) steps(3, end);
+}
+
+.achievement-card__vine--climb .achievement-card__vine-shadow,
+.achievement-card__vine--climb .achievement-card__vine-stem {
+  transition-delay: 90ms;
+}
+
+.achievement-card::before,
+.achievement-card::after {
+  position: absolute;
+  content: '';
+  pointer-events: none;
+}
+
+.achievement-card::before {
+  display: none;
+}
+
+.achievement-card::after {
+  z-index: 2;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 22%, rgba(255, 255, 255, 0.045) 46%, transparent 68%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.achievement-card__topline,
+.achievement-card__copy {
+  position: relative;
+  z-index: 4;
+}
+
+.achievement-card__topline {
+  display: flex;
+  gap: 0.42rem;
+  align-items: baseline;
+  min-height: 2.55rem;
+  padding: 0.72rem 0.7rem 0.58rem;
+  border: 1px solid #3c3a35;
+  border-radius: 4px;
+  color: var(--text);
+  background: #0d0d0c;
+  box-shadow:
+    inset 0 0 0 0.28rem #090909,
+    inset 0 0 0 calc(0.28rem + 1px) #292824;
+  font-family: 'Danviska', serif;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.achievement-card__topline strong {
+  color: var(--tile-accent);
+  font-family: Georgia, serif;
+  font-weight: 400;
+}
+
+.achievement-card__topline small {
+  margin-left: auto;
+  color: #747976;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.56rem;
+  font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 560;
+}
+
+.achievement-card__visual {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  min-height: 0;
+  margin: 0.35rem 0;
+  border-inline: 1px solid rgba(97, 95, 89, 0.34);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(125, 143, 162, 0.07), transparent 54%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018), transparent 18% 82%, rgba(0, 0, 0, 0.26));
+  box-shadow: inset 0 0 1.5rem rgba(0, 0, 0, 0.48);
+  pointer-events: none;
+}
+
+.achievement-card__copy {
+  min-width: 0;
+  padding: 0.95rem 0.72rem 0.78rem;
+  border: 1px solid #3c3a35;
+  border-radius: 4px;
+  background: rgba(13, 13, 12, 0.94);
+  box-shadow:
+    inset 0 0 0 0.3rem #090909,
+    inset 0 0 0 calc(0.3rem + 1px) #292824;
+  text-align: center;
+}
+
+.achievement-card__copy::before {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 2.6rem;
+  height: 1px;
+  background: var(--tile-accent);
+  content: '';
+  opacity: 0.58;
+  transform: translateX(-50%);
+}
+
+.achievement-card__copy h3,
+.achievement-card__copy b,
+.achievement-card__copy small {
+  margin: 0;
+}
+
+.achievement-card__copy b {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--tile-accent);
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 1.9rem;
+  font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 660;
+  line-height: 0.95;
+}
+
+.achievement-card__copy h3 {
+  min-height: 2.1em;
+  color: var(--text);
+  font-family: 'Danviska', serif;
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1.05;
+  text-shadow: 0 0.2rem 0.4rem #000;
+}
+
+.achievement-card__copy small {
+  display: block;
+  min-height: 1.45em;
+  margin-top: 0.6rem;
+  color: #858986;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.58rem;
+  font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 440;
+  line-height: 1.45;
+}
+
+@media (max-width: 1279px) {
+  .achievement-card__copy small {
+    min-height: 2.9em;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .achievement-card:hover {
+    border-color: #586163;
+    box-shadow:
+      0 0.55rem 0 #050606,
+      0 1.55rem 2.8rem rgba(0, 0, 0, 0.58),
+      inset 1px 1px rgba(255, 255, 255, 0.075),
+      inset -1px -1px rgba(0, 0, 0, 0.82);
+  }
+
+  .achievement-card:hover::after {
+    opacity: 1;
+  }
+
+  .achievement-card:hover .achievement-card__foil {
+    opacity: 0.72;
+  }
+
+  .achievement-card:hover .achievement-card__foil::after {
+    animation: achievement-card-glare 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .achievement-card:hover .achievement-card__edge {
+    opacity: 0.94;
+  }
+
+  .achievement-card:hover .achievement-card__vine {
+    opacity: 0.92;
+  }
+
+  .achievement-card:hover .achievement-card__vine-shadow,
+  .achievement-card:hover .achievement-card__vine-stem,
+  .achievement-card:hover .achievement-card__vine-tendril {
+    stroke-dashoffset: 0;
+  }
+
+  .achievement-card:hover .achievement-card__vine-leaves path {
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .achievement-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 1rem;
+  }
+
+  .achievement-card {
+    aspect-ratio: 0.78;
+  }
+}
+
+@media (max-width: 700px) {
+  .achievement-deck__inner {
+    width: calc(100% - 2rem);
+    padding-block: 3.5rem 4.5rem;
+  }
+
+  .achievement-deck__header {
+    display: block;
+    margin-bottom: 1.5rem;
+  }
+
+  .achievement-deck h2 {
+    font-size: 2.15rem;
+  }
+
+  .achievement-deck__header > p {
+    margin-top: 0.85rem;
+    text-align: left;
+  }
+
+  .achievement-window {
+    --achievement-window-inset: -0.5rem;
+  }
+
+  .achievement-filigree__corner--primary {
+    width: 2.4rem;
+    height: 2.4rem;
+  }
+
+  .achievement-filigree__corner--secondary {
+    width: 1.65rem;
+    height: 1.65rem;
+  }
+
+  .achievement-filigree__corner--top-left,
+  .achievement-filigree__corner--bottom-right {
+    margin: 0.2rem;
+  }
+
+  .achievement-filigree__corner--top-right {
+    right: -0.25rem;
+  }
+
+  .achievement-filigree__corner--bottom-left {
+    left: -0.25rem;
+  }
+
+  .achievement-filigree__path--branch,
+  .achievement-filigree__leaves path:nth-child(n + 3) {
+    display: none;
+  }
+
+  .achievement-vines__branch--crown {
+    top: -1.4rem;
+    left: 0;
+    width: 13rem;
+  }
+
+  .achievement-vines__branch--runner {
+    top: -1.35rem;
+    right: 0;
+    width: 10.5rem;
+  }
+
+  .achievement-vines__branch--drop {
+    top: -0.15rem;
+    right: 0;
+    width: 3.8rem;
+  }
+
+  .achievement-vines__branch--climb {
+    top: 32%;
+    left: 0;
+    width: 3.5rem;
+  }
+
+  .achievement-vines__branch--return {
+    right: 0;
+    bottom: -2.15rem;
+    width: 11rem;
+  }
+
+  .achievement-vines__branch--crown > g:nth-of-type(n + 6),
+  .achievement-vines__branch--runner > g:nth-of-type(n + 4),
+  .achievement-vines__branch--climb > g:nth-of-type(n + 3),
+  .achievement-vines__branch--return > g:nth-of-type(n + 3) {
+    display: none;
+  }
+
+  .achievement-vines__growth {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .achievement-vines__growth--crown {
+    top: -0.5rem;
+    left: 2rem;
+  }
+
+  .achievement-vines__growth--return {
+    display: none;
+  }
+
+  .achievement-card {
+    padding: 0.78rem 0.68rem 0.85rem;
+  }
+
+  .achievement-card__effects::before {
+    inset: 0.32rem;
+  }
+
+  .achievement-card__effects::after {
+    top: 0.32rem;
+    left: 0.95rem;
+    width: 2.1rem;
+  }
+
+  .achievement-card__topline {
+    min-height: 2.35rem;
+    padding: 0.64rem 0.58rem 0.52rem;
+  }
+
+  .achievement-card__copy {
+    padding: 0.82rem 0.55rem 0.68rem;
+  }
+
+  .achievement-card__vine--crown {
+    width: 4.25rem;
+  }
+
+  .achievement-card__vine--climb {
+    width: 2.3rem;
+  }
+
+  .achievement-card__vine-leaves path:last-child {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .achievement-deck__inner {
+    width: calc(100% - 1.5rem);
+  }
+
+  .achievement-grid {
+    gap: 0.9rem 0.72rem;
+  }
+
+  .achievement-card {
+    min-height: 21.25rem;
+    aspect-ratio: auto;
+  }
+
+  .achievement-card__topline {
+    font-size: 0.88rem;
+  }
+
+  .achievement-card__copy b {
+    font-size: 1.55rem;
+  }
+
+  /* the title column is only 97px here, and h3 is built around two lines.
+     Ease it so a 15-character word pair still fits one line rather than
+     spilling to a third and breaking the equal card heights. */
+  .achievement-card__copy h3 {
+    font-size: 0.86rem;
+  }
+
+  .achievement-card__copy small {
+    font-size: 0.52rem;
+  }
+
+  .achievement-vines__branch--crown {
+    width: 11.5rem;
+  }
+
+  .achievement-vines__branch--runner {
+    width: 9.5rem;
+  }
+
+  .achievement-vines__branch--drop {
+    width: 3.25rem;
+  }
+
+  .achievement-vines__branch--climb {
+    width: 3.15rem;
+  }
+
+  .achievement-vines__branch--return {
+    width: 9.5rem;
+  }
+}
+
+@keyframes achievement-window-rails {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes achievement-window-sides {
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes achievement-window-corners {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes achievement-filigree-arrive {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes achievement-filigree-grow {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes achievement-filigree-thread {
+  to {
+    opacity: 0.76;
+  }
+}
+
+@keyframes achievement-filigree-leaf {
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes achievement-filigree-stitch {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+
+  12%,
+  78% {
+    opacity: 1;
+  }
+
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes achievement-vines-arrive {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes achievement-vine-grow {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes achievement-vine-unfurl {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes achievement-vine-sprout {
+  0%,
+  24% {
+    background-position: 0 0;
+    opacity: 0;
+  }
+
+  25%,
+  49% {
+    background-position: 33.333% 0;
+    opacity: 0.84;
+  }
+
+  50%,
+  74% {
+    background-position: 66.667% 0;
+    opacity: 0.88;
+  }
+
+  75%,
+  100% {
+    background-position: 100% 0;
+    opacity: 0.9;
+  }
+}
+
+@keyframes achievement-vine-sway {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+
+  50% {
+    transform: rotate(var(--sway));
+  }
+}
+
+@keyframes achievement-vine-pulse {
+  0%,
+  72%,
+  100% {
+    fill: var(--vine-main);
+  }
+
+  82% {
+    fill: var(--vine-pulse);
+  }
+}
+
+@keyframes achievement-card-glare {
+  0% {
+    opacity: 0;
+    transform: translateX(0) skewX(-14deg);
+  }
+
+  18%,
+  72% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(440%) skewX(-14deg);
+  }
+}
+
+@keyframes identity-card-float {
+  0%,
+  100% {
+    transform: translate3d(0, calc(var(--card-offset-y) + var(--card-float-low)), 0);
+  }
+
+  50% {
+    transform: translate3d(0, calc(var(--card-offset-y) + var(--card-float-high)), 0);
+  }
+}
+
+@keyframes kanji-ink-fade {
+  0%,
+  12%,
+  88%,
+  100% {
+    opacity: 0;
+  }
+
+  38%,
+  62% {
+    opacity: 0.34;
+  }
+}
+
+@media (min-width: 1280px) and (min-height: 700px) {
+  .scene__kanji-layer {
+    display: block;
+  }
+}
+
+@media (min-width: 1400px) and (min-height: 850px) {
+  .scene__kanji--left,
+  .scene__kanji--right {
+    top: calc(var(--scene-media-top) + var(--scene-media-height) + 5rem);
+  }
+
+  .scene__kanji--left {
+    left: calc(25% - 15.5rem);
+  }
+
+  .scene__kanji--right {
+    left: calc(75% + 15.5rem);
+  }
+
+  .scene__kanji--bottom {
+    top: calc(100vh - 5.5rem);
+    top: calc(100svh - 5.5rem);
+    left: calc(25% - 15.5rem);
+  }
+}
+
+@media (max-width: 999px) {
+  .scene__content {
+    --card-offset-y: 0rem;
+    --card-float-high: -0.35rem;
+    --card-float-low: 0.25rem;
+  }
+}
+
+@media (max-width: 700px), (max-height: 640px) {
+  .scene {
+    --scene-inline: 1rem;
+  }
+
+  .scene__landscape,
+  .scene__landscape-video {
+    filter: grayscale(0.08) saturate(0.82) brightness(0.58) contrast(1.12);
+    opacity: 0.9;
+  }
+
+  .scene__landscape {
+    background-image: url('/background-study-still.webp');
+    background-position: 50% 50%;
+    background-size: cover;
+  }
+
+  .scene__landscape-video {
+    object-fit: cover;
+    object-position: 50% 50%;
+  }
+
+  .scene__content {
+    --card-offset-y: 0rem;
+    --card-float-high: -0.35rem;
+    --card-float-low: 0.25rem;
+    width: calc(100% - 2rem);
+  }
+
+  .identity-card {
+    /* there is no clear top-right corner at this size, so the readout takes a
+       row of its own instead of sitting over the eyebrow */
+    grid-template-areas:
+      'status status'
+      'avatar copy'
+      'quote quote';
+    grid-template-columns: 6.4rem minmax(0, 1fr);
+    column-gap: 1.1rem;
+    row-gap: 0.75rem;
+    min-height: auto;
+    padding: 1.4rem;
+  }
+
+  .availability {
+    position: static;
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .identity-card::before {
+    left: 1.4rem;
+    width: 3rem;
+  }
+
+  .identity-card__eyebrow {
+    font-size: 0.62rem;
+  }
+
+  h1 {
+    margin-block: 0.55rem 0.45rem;
+    font-size: 2rem;
+  }
+
+  .identity-card__role {
+    font-size: 0.8rem;
+  }
+
+  .identity-card__statement {
+    font-size: 0.82rem;
+    line-height: 1.25;
+  }
+
+  .font-credit {
+    width: calc(100% - 2rem);
+  }
+
+  /* There is no room beside a 2-line credit at this width, so the vines keep to
+     the padding above and a sliver below instead of crossing the text. */
+  .site-footer .achievement-vines__branch--drop,
+  .site-footer .achievement-vines__branch--climb {
+    display: none;
+  }
+
+  .site-footer .achievement-vines__branch--crown {
+    top: -2.4rem;
+    left: -1.25rem;
+    width: 8.5rem;
+  }
+
+  .site-footer .achievement-vines__branch--runner {
+    top: -1.9rem;
+    right: -1rem;
+    width: 8rem;
+  }
+
+  .site-footer .achievement-vines__branch--return {
+    right: 22%;
+    bottom: -2rem;
+    width: 8.5rem;
+  }
+
+}
+
+@media (max-width: 700px) and (min-height: 641px) {
+  .scene {
+    --scene-drawer-space: 1.25rem;
+  }
+
+  .scene:has(.scene__content--dossier-open) {
+    --scene-drawer-space: 9rem;
+  }
+}
+
+@media (max-height: 640px) {
+  .scene {
+    --scene-drawer-space: 0.25rem;
+  }
+
+  .scene:has(.scene__content--dossier-open) {
+    --scene-drawer-space: 5.25rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .scene {
+    --scene-drawer-space: 1.25rem;
+  }
+}
+
+@media (max-width: 350px) {
+  .identity-card {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    column-gap: 0.9rem;
+    row-gap: 0.65rem;
+    padding: 1.2rem;
+  }
+
+  .identity-card__statement {
+    font-size: 0.78rem;
+    min-height: 3.75em;
+  }
+
+}
+
+@media (max-width: 350px) and (max-height: 650px) {
+  .scene__landscape {
+    transform: scale(1.35);
+    transform-origin: center bottom;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discipline-band *,
+  .discipline-band *::before,
+  .discipline-band *::after {
+    animation: none;
+    transition: none;
+  }
+
+  .discipline-band__rule {
+    transform: scaleX(1);
+  }
+
+  .discipline-band__abbr,
+  .discipline-band__name,
+  .discipline-band__detail {
+    opacity: 1;
+    transform: none;
+  }
+
+  .scene__content {
+    transform: translateY(var(--card-offset-y));
+    animation: none;
+  }
+
+  .scene {
+    transition: none;
+  }
+
+  .scene__landscape-video {
+    display: none;
+  }
+
+  .scene__kanji {
+    opacity: 0;
+    animation: none;
+  }
+
+  .quote-page-enter-active,
+  .quote-page-leave-active {
+    transition: none;
+  }
+
+  .quote-page-enter-active .identity-card__quote-letter,
+  .quote-page-leave-active .identity-card__quote-letter {
+    animation: none;
+  }
+
+  .credential-card__drawer,
+  .credential-card__turn,
+  .credential-card__records li,
+  .credential-card__records a,
+  .credential-card__records a::before {
+    transition: none;
+  }
+
+  .scene__content--dossier-open .credential-card__drawer {
+    transform: none;
+  }
+
+  .achievement-card,
+  .achievement-card::after,
+  .achievement-card__foil,
+  .achievement-card__edge,
+  .achievement-card__vine,
+  .achievement-card__vine-shadow,
+  .achievement-card__vine-stem,
+  .achievement-card__vine-tendril,
+  .achievement-card__vine-leaves path {
+    transition: none;
+  }
+
+  .achievement-card__foil::after {
+    display: none;
+  }
+
+  .achievement-card__vine {
+    opacity: 0.34;
+  }
+
+  .achievement-card__vine-shadow,
+  .achievement-card__vine-stem,
+  .achievement-card__vine-tendril {
+    stroke-dashoffset: 0;
+  }
+
+  .achievement-card__vine-leaves path {
+    transform: scale(1);
+  }
+
+  .achievement-window--active::before,
+  .achievement-window--active .achievement-window__frame,
+  .achievement-window--active .achievement-window__frame::before,
+  .achievement-window--active .achievement-window__frame::after {
+    animation: none;
+  }
+
+  .achievement-window--active .achievement-filigree,
+  .achievement-window--active .achievement-filigree__path--shadow,
+  .achievement-window--active .achievement-filigree__path--stem,
+  .achievement-window--active .achievement-filigree__path--branch,
+  .achievement-window--active .achievement-filigree__path--thread,
+  .achievement-window--active .achievement-filigree__leaves path,
+  .achievement-window--active .achievement-filigree__stitch,
+  :is(.achievement-window--active, .site-footer--grown) .achievement-vines,
+  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem-shadow,
+  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem,
+  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem-light,
+  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__tendril,
+  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__leaf,
+  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__growth,
+  .achievement-vines__leaf-sway,
+  .achievement-vines__leaf-face {
+    animation: none;
+  }
+
+  /* The pulse rule is selected structurally, so cancelling it here needs to
+     match that specificity or the leaves keep breathing under reduced motion. */
+  .achievement-vines__branch > g:nth-of-type(n) .achievement-vines__leaf-face {
+    animation: none;
+  }
+
+  .achievement-window::before {
+    transform: scaleY(1);
+  }
+
+  .achievement-window__frame {
+    opacity: 1;
+  }
+
+  .achievement-window__frame::before,
+  .achievement-window__frame::after {
+    transform: scaleX(1);
+  }
+
+  .achievement-filigree {
+    opacity: 1;
+  }
+
+  .achievement-filigree__path--shadow,
+  .achievement-filigree__path--stem,
+  .achievement-filigree__path--branch {
+    stroke-dashoffset: 0;
+  }
+
+  .achievement-filigree__path--thread {
+    opacity: 0.76;
+  }
+
+  .achievement-filigree__leaves path {
+    transform: scale(1);
+  }
+
+  .achievement-filigree__stitch {
+    display: none;
+  }
+
+  .achievement-vines {
+    opacity: 1;
+  }
+
+  .achievement-vines__stem-shadow,
+  .achievement-vines__stem,
+  .achievement-vines__stem-light,
+  .achievement-vines__tendril {
+    stroke-dashoffset: 0;
+  }
+
+  .achievement-vines__leaf {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .achievement-vines__growth {
+    background-position: 100% 0;
+    opacity: 0.88;
+  }
+
+}
+
+@media (forced-colors: active) {
+  .scene__window,
+  .scene__kanji-layer {
+    display: none;
+  }
+
+  .identity-card__statement,
+  .identity-card__quote::before,
+  .identity-card__quote::after {
+    color: CanvasText;
+  }
+
+  .identity-card__quote {
+    text-shadow: none;
+  }
+
+  .discipline-band__topline,
+  .discipline-band__topline b,
+  .discipline-band__abbr,
+  .discipline-band__name,
+  .discipline-band__detail {
+    color: CanvasText;
+  }
+
+  .discipline-band__rule {
+    background: CanvasText;
+    transform: scaleX(1);
+  }
+
+  .credential-card__turn {
+    border: 1px solid ButtonText;
+    color: ButtonText;
+    background: ButtonFace;
+    box-shadow: none;
+  }
+
+  .credential-card__drawer,
+  .credential-card__records a {
+    border-color: CanvasText;
+    background: Canvas;
+    box-shadow: none;
+  }
+
+  .credential-card__records a,
+  .credential-card__records a > small,
+  .credential-card__records em,
+  .credential-card__records a > b {
+    color: LinkText;
+  }
+
+  .credential-card__records a:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: -3px;
+  }
+
+  .achievement-window::before,
+  .achievement-window__frame::before,
+  .achievement-window__frame::after {
+    display: none;
+  }
+
+  .achievement-window--active .achievement-window__frame {
+    border: 1px solid CanvasText;
+    background: none;
+    opacity: 1;
+    animation: none;
+  }
+
+  .achievement-filigree,
+  .achievement-vines {
+    display: none;
+  }
+
+  .achievement-card {
+    border-color: CanvasText;
+    background: Canvas;
+    box-shadow: none;
+  }
+
+  .achievement-card::before,
+  .achievement-card::after,
+  .achievement-card__effects {
+    display: none;
+  }
+
+  .achievement-card__visual,
+  .achievement-stage .achievement-stage__canvas {
+    display: none;
+  }
+
+  .achievement-card__copy {
+    border-color: CanvasText;
+  }
+
+  .achievement-card__topline,
+  .achievement-card__topline strong,
+  .achievement-card__topline small,
+  .achievement-card__copy b,
+  .achievement-card__copy h3,
+  .achievement-card__copy small {
+    color: CanvasText;
+  }
+
+}

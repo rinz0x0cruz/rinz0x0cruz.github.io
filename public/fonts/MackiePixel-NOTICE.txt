@@ -1,0 +1,40 @@
+Mackie Pixel
+
+Design: rinzler, drawn for this project.
+
+Origin: the only artefact available was a raster character map
+(fontformackie.jpg), so the font file was reconstructed from it rather than
+exported from a font editor.
+
+Reconstruction, 2026-07-29:
+- The sheet contains 36 glyphs: U+0041-005A (A-Z) and U+0030-0039 (0-9).
+- Glyphs sit on a 14-pixel cap-height grid at roughly 3.93 image pixels per
+  design pixel. Each cell was sampled at grid centres and rebuilt as outlines.
+- The sheet has no lowercase. a-z are mapped to the corresponding capitals so
+  text never falls back to a different family mid-word.
+- The sheet has no punctuation. Full stop, comma, apostrophe, quotation mark,
+  exclamation, question, colon, hyphen and solidus were drawn on the same grid
+  and weight to match. These marks are NOT from the original sheet.
+- The highlight notch ("shine") in each glyph's upper left measures roughly 2x2
+  design pixels in the sheet, which is invisible at a 16px render. It was
+  redrawn as one canonical stepped notch carved at the same offset in every
+  glyph, so the highlight reads identically across the alphabet. Column 0 and
+  row 0 are untouched, so each silhouette keeps its one-pixel outer edge.
+- MackiePixelShine.ttf is a companion face carrying only those highlight cells,
+  with identical advance widths. A monochrome font can only draw ink or nothing,
+  so a carved notch shows the page colour through the letter and reads as a hole
+  rather than a glint. Stacking the shine face over the body face in a lighter
+  tone supplies the second value that makes it read as a highlight.
+- M, N, H and W traced with a counter only two pixels wide, leaving no room for
+  their diagonals, so all four collapsed to the same "two stems" silhouette and
+  were unreadable at small sizes. With the designer's agreement the four were
+  redrawn as a consistent set with five-pixel stems and a wider counter: a
+  crossbar for H, a full diagonal for N, a V descending from the top for M, and
+  its mirror rising from the bottom for W. Widths are unchanged, so advances and
+  line lengths match the traced alphabet.
+- Built at 1024 units/em with a 896-unit cap height, so multiples of 16px map
+  one design pixel to one screen pixel.
+
+Licence: used with the designer's permission for this project. The nine
+punctuation marks listed above were added during reconstruction and are not
+part of the original artwork.

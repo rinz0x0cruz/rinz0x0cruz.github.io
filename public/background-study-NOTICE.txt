@@ -1,0 +1,53 @@
+User-supplied animated rainy-night study loop
+
+Source file: newbackground.mp4 (provided by the user)
+Download-origin host: not recorded by the project owner
+Source media: 2560 x 1440 H.264, 60 fps, 64.0 seconds, AAC audio track
+Source SHA-256:
+4A59D508AF6C81AA877120A56B372718D82E3A76A8B6F35B31F7E396312C2568
+
+The source file contains no author, exact asset URL, or license metadata. Public
+deployment assumes the project owner holds the rights required to use and
+publish this video. Keep purchase or license evidence outside the repository.
+
+Both derivatives are trimmed to the first 16.25 seconds. The scene holds a fixed
+subject under a slow camera push, and the framing returns to its opening
+position at 16.25 s: measured against blurred 96 x 54 samples, that frame
+differs from the first by 0.353 mean absolute error, against an adjacent-frame
+noise floor of 0.275 and a 1.090 difference at the source's own 64 s loop point.
+The short cut therefore repeats more cleanly than the full-length file while
+carrying a quarter of the data. Audio is dropped from both; the element is muted
+and decorative.
+
+background-study-loop-hd.mp4 is a 1280 x 720 H.264 derivative with no audio:
+488 frames at 30 fps (16.27 seconds), CRF 30. It serves viewports 700 px wide
+and narrower, where the element never renders wider than about 360 CSS pixels,
+so the source is downscaled with Lanczos rather than preserved at full height.
+
+background-study-loop-wide.mp4 is a 2200 x 800 H.264 desktop derivative with no
+audio: 488 frames at 30 fps (16.27 seconds), CRF 30. The source is 16:9 and the
+container is about 2.75:1, so a 1422 x 800 sharp center carries the whole frame
+with no vertical crop, and a synchronized copy scaled to cover, box-blurred and
+darkened fills the outer 389 pixels on each side, feathered 180 pixels into the
+sharp scene. The output uses square pixels at an 11:4 display aspect ratio.
+
+background-study-still.webp and background-study-wide-still.webp are matching
+first-frame loading and reduced-motion fallbacks, quality 72.
+
+Unlike the sakura artwork this replaced, the source is smooth flat-shaded
+animation rather than pixel art, so image-rendering: pixelated was removed from
+.scene__landscape and .scene__landscape-video.
+
+HD H.264 MP4 (823382 bytes) SHA-256:
+2407E493929623DE7402BD68468F84EDB02AA2A34DC78EE21B0B1E6271D50615
+
+Wide H.264 MP4 (996162 bytes) SHA-256:
+E680AA1CD2BC457CC14D1A6F5715746B9C67FF79DA93D6F7DCB19BB8D6BE98B3
+
+Static WebP (72944 bytes) SHA-256:
+9C36AA3BD345D3C35E51ADA475A89F7A7A66B38C72F8E15C452E94A2EE09B468
+
+Wide static WebP (78250 bytes) SHA-256:
+9DEBCD304D43393877ED129392827ACC594BB628B9849925B69A0EA35E6C5708
+
+Derivatives generated and validated: 2026-07-29

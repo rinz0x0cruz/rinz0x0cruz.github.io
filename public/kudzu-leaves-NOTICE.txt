@@ -1,0 +1,7 @@
+Kudzu Leaves Pixel Art
+Author: hatmix
+Source: https://opengameart.org/content/kudzu-leaves-pixel-art
+License: CC0 1.0 Universal
+
+The portfolio uses the 32x32 four-stage PNG spritesheet as a decorative
+growth accent around the achievement frame.
