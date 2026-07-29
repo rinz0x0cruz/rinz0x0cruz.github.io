@@ -1174,6 +1174,51 @@ test('the cluster lags a fast scroll and springs back', async ({ page }) => {
   expect(Math.max(...quiet.map(Math.abs))).toBe(0)
 })
 
+test('the rail reads wheel deltas in lines as well as pixels', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(400)
+
+  // Firefox reports wheel deltas in lines, so one notch arrives as about 3
+  // rather than about 100. Treated as pixels it is a 30x weaker shove and the
+  // rail is effectively immovable there, which no Chrome test would ever catch.
+  const travel = (deltaY, deltaMode) =>
+    page.evaluate(
+      ([dy, dm]) =>
+        new Promise((done) => {
+          const rail = document.querySelector('.experience__rail')
+          rail.scrollLeft = 0
+          let n = 0
+          const tick = () => {
+            if (n === 2) {
+              rail.dispatchEvent(
+                new WheelEvent('wheel', {
+                  deltaY: dy,
+                  deltaMode: dm,
+                  bubbles: true,
+                  cancelable: true,
+                }),
+              )
+            }
+            if (++n < 120) requestAnimationFrame(tick)
+            else done(rail.scrollLeft)
+          }
+          requestAnimationFrame(tick)
+        }),
+      [deltaY, deltaMode],
+    )
+
+  const pixels = await travel(100, 0)
+  const lines = await travel(3, 1)
+
+  expect(pixels).toBeGreaterThan(140)
+  // the same physical gesture has to move the rail a comparable distance
+  expect(lines / pixels).toBeGreaterThan(0.5)
+  expect(lines / pixels).toBeLessThan(2)
+})
+
 test('sticky note flips on click and returns on the second', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 900 })

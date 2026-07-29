@@ -99,6 +99,17 @@ function handleRailKeydown(event) {
   railGlide.push(impulseFor(steps[event.key], RAIL_DRAG))
 }
 
+// Wheel deltas are not always pixels. Firefox reports lines, so one notch
+// arrives as about 3 instead of about 100, and a rail tuned in pixels would be
+// almost immovable there. Page mode is rarer but scales by the viewport.
+const WHEEL_LINE = 40
+
+function wheelPixels(event, rail) {
+  if (event.deltaMode === 1) return event.deltaY * WHEEL_LINE
+  if (event.deltaMode === 2) return event.deltaY * rail.clientWidth
+  return event.deltaY
+}
+
 function handleRailWheel(event) {
   // a vertical wheel over the rail should move it sideways, but only while it
   // still has somewhere to go, so the page keeps scrolling at either end
@@ -110,15 +121,16 @@ function handleRailWheel(event) {
   if (atStart || atEnd) return
 
   event.preventDefault()
+  const pixels = wheelPixels(event, rail)
   if (reducedMotionMedia?.matches) {
-    rail.scrollLeft += event.deltaY
+    rail.scrollLeft += pixels
     return
   }
 
   // Reach is shove / (1 - drag), so 0.16 of a notch against a drag of 0.94
   // carries about 265px: further than the notch itself, which is the momentum.
   // The ramp spreads it over time rather than spending it at once.
-  railGlide.push(event.deltaY * 0.16)
+  railGlide.push(pixels * 0.16)
 }
 
 // how much of the rail has been revealed, so the axis under it can say where you are
@@ -146,18 +158,26 @@ let lagFrame = 0
 let lagOffset = 0
 let lagSpeed = 0
 let lastY = 0
+let lagAt = 0
 let railVisibleObserver = null
 
-function lagTick() {
+function lagTick(now) {
+  // Per 60fps frame, like the rail's own integrator. Fixed per-frame constants
+  // would make this stiffer on a 120Hz display and slacker on a slow one, and a
+  // motion model that changes with the refresh rate is not a model.
+  const frames = lagAt ? Math.min(4, Math.max(0.2, (now - lagAt) / 16.667)) : 1
+  lagAt = now
+
   const y = window.scrollY
-  const moved = y - lastY
+  const moved = (y - lastY) / frames
   lastY = y
 
   // how far behind the cards would like to be, capped so a flung scroll cannot
   // pull them off their own cluster
   const target = Math.max(-30, Math.min(30, -moved * 0.75))
-  lagSpeed = (lagSpeed + (target - lagOffset) * 0.22) * 0.74
-  lagOffset += lagSpeed
+  lagSpeed += (target - lagOffset) * (1 - Math.pow(1 - 0.22, frames))
+  lagSpeed *= Math.pow(0.74, frames)
+  lagOffset += lagSpeed * frames
 
   experienceSection.value?.style.setProperty('--lag', `${lagOffset.toFixed(2)}px`)
 
@@ -165,6 +185,7 @@ function lagTick() {
   if (moved === 0 && Math.abs(lagOffset) < 0.05 && Math.abs(lagSpeed) < 0.05) {
     experienceSection.value?.style.setProperty('--lag', '0px')
     lagFrame = 0
+    lagAt = 0
     return
   }
   lagFrame = requestAnimationFrame(lagTick)
@@ -175,6 +196,7 @@ function startLag() {
   // has already moved, so re-reading the position on wake would throw away the
   // very delta this is trying to measure and the spring would never fire.
   if (lagFrame || reducedMotionMedia?.matches) return
+  lagAt = 0
   lagFrame = requestAnimationFrame(lagTick)
 }
 
@@ -192,6 +214,7 @@ function stopLag() {
   lagFrame = 0
   lagOffset = 0
   lagSpeed = 0
+  lagAt = 0
   experienceSection.value?.style.setProperty('--lag', '0px')
 }
 
