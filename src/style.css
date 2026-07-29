@@ -1045,7 +1045,7 @@ h1 {
       scale: 1.08;
       animation: frame-drift linear both;
       animation-timeline: --experience-pass;
-      animation-range: cover;
+      animation-range: entry 0% entry 100%;
     }
 
     @keyframes frame-drift {
@@ -1055,6 +1055,53 @@ h1 {
 
       to {
         translate: 0 2.8%;
+      }
+    }
+
+    /* Depth. The cards are what can actually move: they have room around them,
+       and unlike the photographs nothing has to be cropped to make space. Each
+       one declares how far back it sits, so they arrive at different rates and
+       the cluster gains thickness instead of landing as one flat sheet.
+
+       The range is entry rather than cover because this section is the last
+       thing before the footer: it never leaves through the top of the viewport,
+       so most of a cover range is scroll that does not exist. */
+    .chapter__marquee {
+      --depth: 0.18;
+    }
+
+    .chapter__learnt {
+      --depth: 0.34;
+    }
+
+    .chapter__outcome {
+      --depth: 0.52;
+    }
+
+    .chapter__photo,
+    .chapter__scene {
+      --depth: 0.76;
+    }
+
+    .chapter__notable {
+      --depth: 1;
+    }
+
+    .chapter > article,
+    .chapter__photo,
+    .chapter__scene {
+      animation: card-settle linear both;
+      animation-timeline: --experience-pass;
+      animation-range: entry 8% entry 96%;
+    }
+
+    @keyframes card-settle {
+      from {
+        translate: 0 calc(var(--depth, 0.5) * 46px);
+      }
+
+      to {
+        translate: 0 0;
       }
     }
   }

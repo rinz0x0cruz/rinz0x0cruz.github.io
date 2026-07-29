@@ -1063,18 +1063,35 @@ test('pictures drift against vertical scroll, and hold still when asked', async 
   const supported = await page.evaluate(() => CSS.supports('animation-timeline: view()'))
 
   if (supported) {
-    const drift = () => frame.evaluate((el) => getComputedStyle(el).translate)
-    const near = await drift()
-    await page.evaluate(() => scrollBy(0, -350))
-    await page.waitForTimeout(350)
-    const far = await drift()
+    // Sample the whole reachable scroll range and measure how far each card
+    // actually travels. Asserting only that a value changed is what let a 7px
+    // effect ship: it was technically animating and visibly nothing.
+    const maxY = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight)
+    const samples = []
+    for (let y = Math.max(0, maxY - 800); y <= maxY; y += 100) {
+      await page.evaluate((to) => scrollTo(0, to), y)
+      await page.waitForTimeout(150)
+      samples.push(
+        await page.evaluate(() => {
+          const chapter = document.querySelector('.chapter')
+          const base = chapter.getBoundingClientRect().top
+          const at = (sel) => chapter.querySelector(sel).getBoundingClientRect().top - base
+          return { front: at('.chapter__marquee'), back: at('.chapter__notable') }
+        }),
+      )
+    }
 
-    // the picture has to actually move against the page, which is the whole
-    // point: an ancestor that clips with overflow hidden becomes a scrollport
-    // with no scroll range and silently pins this to a single frame
-    expect(far).not.toBe(near)
+    const span = (key) => {
+      const values = samples.map((s) => s[key])
+      return Math.max(...values) - Math.min(...values)
+    }
+    // the cards must separate as the section arrives, or there is no depth
+    expect(span('back') - span('front')).toBeGreaterThan(20)
+    // and the range has to be reachable: this section never leaves the top of
+    // the viewport, so a range that assumes it does is mostly unscrollable
+    expect(samples.at(-1).back).toBeLessThan(2)
 
-    // and the page itself is never the thing being animated
+    // the page itself is never the thing being animated
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
   }
 
@@ -1087,6 +1104,13 @@ test('pictures drift against vertical scroll, and hold still when asked', async 
   }))
   expect(still.animation).toBe('none')
   expect(still.scale).toBe('none')
+
+  const cards = await page.locator('.chapter__notable').first().evaluate((el) => ({
+    animation: getComputedStyle(el).animationName,
+    translate: getComputedStyle(el).translate,
+  }))
+  expect(cards.animation).toBe('none')
+  expect(cards.translate).toBe('none')
 })
 
 test('sticky note flips on click and returns on the second', async ({ page }) => {
