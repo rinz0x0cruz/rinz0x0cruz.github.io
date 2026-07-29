@@ -119,7 +119,6 @@ function handleRailWheel(event) {
 
 // how much of the rail has been revealed, so the axis under it can say where you are
 const railSeen = ref(0)
-
 const railProgress = computed(() => ({
   width: `${Math.min(1, railSeen.value || 0.001) * 100}%`,
 }))
@@ -132,6 +131,81 @@ function handleRailScroll(event) {
 
 onMounted(() => {
   if (experienceRail.value) handleRailScroll({ currentTarget: experienceRail.value })
+})
+
+// Weight on the vertical axis. Scrolling stays entirely the browser's, and this
+// only reads how fast it moved: the cluster falls behind a quick scroll and a
+// spring pulls it back, which is the part a scroll-position animation cannot do
+// because position mapping has no memory of speed.
+const experienceSection = ref(null)
+let lagFrame = 0
+let lagOffset = 0
+let lagSpeed = 0
+let lastY = 0
+let railVisibleObserver = null
+
+function lagTick() {
+  const y = window.scrollY
+  const moved = y - lastY
+  lastY = y
+
+  // how far behind the cards would like to be, capped so a flung scroll cannot
+  // pull them off their own cluster
+  const target = Math.max(-30, Math.min(30, -moved * 0.75))
+  lagSpeed = (lagSpeed + (target - lagOffset) * 0.22) * 0.74
+  lagOffset += lagSpeed
+
+  experienceSection.value?.style.setProperty('--lag', `${lagOffset.toFixed(2)}px`)
+
+  // idle costs nothing: the loop only survives while something is still settling
+  if (moved === 0 && Math.abs(lagOffset) < 0.05 && Math.abs(lagSpeed) < 0.05) {
+    experienceSection.value?.style.setProperty('--lag', '0px')
+    lagFrame = 0
+    return
+  }
+  lagFrame = requestAnimationFrame(lagTick)
+}
+
+function startLag() {
+  // lastY is deliberately not reset here. A scroll event fires after the page
+  // has already moved, so re-reading the position on wake would throw away the
+  // very delta this is trying to measure and the spring would never fire.
+  if (lagFrame || reducedMotionMedia?.matches) return
+  lagFrame = requestAnimationFrame(lagTick)
+}
+
+function watchLag() {
+  // the loop parks itself once everything has settled, so a scroll has to be
+  // what wakes it again; passive, because it never blocks or cancels scrolling
+  lastY = window.scrollY
+  window.addEventListener('scroll', startLag, { passive: true })
+  startLag()
+}
+
+function stopLag() {
+  window.removeEventListener('scroll', startLag)
+  if (lagFrame) cancelAnimationFrame(lagFrame)
+  lagFrame = 0
+  lagOffset = 0
+  lagSpeed = 0
+  experienceSection.value?.style.setProperty('--lag', '0px')
+}
+
+onMounted(() => {
+  if (!experienceSection.value) return
+
+  // the spring only runs while the rail is on screen, so scrolling the rest of
+  // the page costs no frames at all
+  railVisibleObserver = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) watchLag()
+    else stopLag()
+  })
+  railVisibleObserver.observe(experienceSection.value)
+})
+
+onBeforeUnmount(() => {
+  railVisibleObserver?.disconnect()
+  stopLag()
 })
 
 const achievementDeck = ref(null)
@@ -653,7 +727,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="experience" aria-labelledby="experience-title">
+    <section ref="experienceSection" class="experience" aria-labelledby="experience-title">
       <div class="experience__head">
         <div>
           <p>Career / {{ String(profile.experience.length).padStart(2, '0') }}</p>

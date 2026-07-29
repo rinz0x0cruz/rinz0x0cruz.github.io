@@ -1060,12 +1060,9 @@ h1 {
 
     /* Depth. The cards are what can actually move: they have room around them,
        and unlike the photographs nothing has to be cropped to make space. Each
-       one declares how far back it sits, so they arrive at different rates and
-       the cluster gains thickness instead of landing as one flat sheet.
-
-       The range is entry rather than cover because this section is the last
-       thing before the footer: it never leaves through the top of the viewport,
-       so most of a cover range is scroll that does not exist. */
+       one declares how far back it sits, so both the arrival and the spring
+       below act on them by different amounts and the cluster gains thickness
+       instead of behaving as one flat sheet. */
     .chapter__marquee {
       --depth: 0.18;
     }
@@ -1087,21 +1084,39 @@ h1 {
       --depth: 1;
     }
 
+    /* The spring. --lag is written by one rAF loop that reads how fast the page
+       is scrolling and never changes it. This is on transform while the arrival
+       below is on translate, so the two compose rather than one replacing the
+       other. */
     .chapter > article,
     .chapter__photo,
     .chapter__scene {
-      animation: card-settle linear both;
-      animation-timeline: --experience-pass;
-      animation-range: entry 8% entry 96%;
+      transform: translateY(calc(var(--lag, 0px) * var(--depth, 0.5)));
+      will-change: transform;
     }
 
-    @keyframes card-settle {
-      from {
-        translate: 0 calc(var(--depth, 0.5) * 46px);
+    /* The range is entry rather than cover because this section is the last
+       thing before the footer: it never leaves through the top of the viewport,
+       so most of a cover range is scroll that does not exist. It ends early in
+       the entry so the arrival is spent over a few hundred pixels rather than
+       smeared across every pixel left on the page. */
+    @supports (animation-timeline: view()) {
+      .chapter > article,
+      .chapter__photo,
+      .chapter__scene {
+        animation: card-settle linear both;
+        animation-timeline: --experience-pass;
+        animation-range: entry 10% entry 58%;
       }
 
-      to {
-        translate: 0 0;
+      @keyframes card-settle {
+        from {
+          translate: 0 calc(var(--depth, 0.5) * 46px);
+        }
+
+        to {
+          translate: 0 0;
+        }
       }
     }
   }

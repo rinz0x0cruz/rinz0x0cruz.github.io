@@ -1113,6 +1113,62 @@ test('pictures drift against vertical scroll, and hold still when asked', async 
   expect(cards.translate).toBe('none')
 })
 
+test('the cluster lags a fast scroll and springs back', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(500)
+
+  // sampled inside the page: a round trip per frame would miss the response
+  const lags = await page.evaluate(
+    () =>
+      new Promise((done) => {
+        const section = document.querySelector('.experience')
+        const out = []
+        let n = 0
+        const tick = () => {
+          out.push(
+            Number.parseFloat(getComputedStyle(section).getPropertyValue('--lag')) || 0,
+          )
+          if (n < 6) scrollBy(0, -55)
+          if (++n < 40) requestAnimationFrame(tick)
+          else done(out)
+        }
+        requestAnimationFrame(tick)
+      }),
+  )
+
+  // it has to fall meaningfully behind, or there is no weight to feel
+  expect(Math.max(...lags.map(Math.abs))).toBeGreaterThan(15)
+  // and it is a spring, not an ease: it passes through rest and comes back
+  expect(lags.some((v) => v > 1) && lags.some((v) => v < -1)).toBe(true)
+  // and it must actually come to rest, not hum forever
+  expect(Math.abs(lags.at(-1))).toBeLessThan(2)
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  const quiet = await page.evaluate(
+    () =>
+      new Promise((done) => {
+        const section = document.querySelector('.experience')
+        const out = []
+        let n = 0
+        const tick = () => {
+          out.push(
+            Number.parseFloat(getComputedStyle(section).getPropertyValue('--lag')) || 0,
+          )
+          if (n < 6) scrollBy(0, -55)
+          if (++n < 20) requestAnimationFrame(tick)
+          else done(out)
+        }
+        requestAnimationFrame(tick)
+      }),
+  )
+  expect(Math.max(...quiet.map(Math.abs))).toBe(0)
+})
+
 test('sticky note flips on click and returns on the second', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 900 })
