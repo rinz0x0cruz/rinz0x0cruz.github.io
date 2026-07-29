@@ -104,9 +104,9 @@ function handleRailKeydown(event) {
 // almost immovable there. Page mode is rarer but scales by the viewport.
 const WHEEL_LINE = 40
 
-function wheelPixels(event, rail) {
+function wheelPixels(event, pageSize) {
   if (event.deltaMode === 1) return event.deltaY * WHEEL_LINE
-  if (event.deltaMode === 2) return event.deltaY * rail.clientWidth
+  if (event.deltaMode === 2) return event.deltaY * pageSize
   return event.deltaY
 }
 
@@ -121,7 +121,7 @@ function handleRailWheel(event) {
   if (atStart || atEnd) return
 
   event.preventDefault()
-  const pixels = wheelPixels(event, rail)
+  const pixels = wheelPixels(event, rail.clientWidth)
   if (reducedMotionMedia?.matches) {
     rail.scrollLeft += pixels
     return
@@ -131,6 +131,42 @@ function handleRailWheel(event) {
   // carries about 265px: further than the notch itself, which is the momentum.
   // The ramp spreads it over time rather than spending it at once.
   railGlide.push(pixels * 0.16)
+}
+
+// The page moved 100px in a single frame per notch, and everything keyed to
+// scrolling was being handed that step whole, which is what made the cards jump.
+// It now carries the same weight as the rail. Only the wheel is intercepted:
+// keyboard, scrollbar, anchors, find-in-page and touch stay entirely native.
+let pageCarry = 0
+
+const pageGlide = glide({
+  pickup: 0.16,
+  drag: 0.91,
+  max: 90,
+  step(dy) {
+    const total = dy + pageCarry
+    const whole = Math.trunc(total)
+    pageCarry = total - whole
+    if (whole === 0) return true
+
+    const before = window.scrollY
+    window.scrollBy(0, whole)
+    return window.scrollY !== before
+  },
+})
+
+function handlePageWheel(event) {
+  // the rail consumed it, or it is a pinch-zoom, or a sideways trackpad gesture
+  if (event.defaultPrevented || event.ctrlKey || event.deltaX !== 0) return
+  if (reducedMotionMedia?.matches) return
+
+  const limit = document.documentElement.scrollHeight - window.innerHeight
+  const atTop = window.scrollY <= 0 && event.deltaY < 0
+  const atEnd = window.scrollY >= limit - 1 && event.deltaY > 0
+  if (atTop || atEnd) return
+
+  event.preventDefault()
+  pageGlide.push(wheelPixels(event, window.innerHeight) * 0.13)
 }
 
 // how much of the rail has been revealed, so the axis under it can say where you are
@@ -147,6 +183,8 @@ function handleRailScroll(event) {
 
 onMounted(() => {
   if (experienceRail.value) handleRailScroll({ currentTarget: experienceRail.value })
+  // non-passive because it has to be able to take the wheel over
+  window.addEventListener('wheel', handlePageWheel, { passive: false })
 })
 
 // Weight on the vertical axis. Scrolling stays entirely the browser's, and this
@@ -420,6 +458,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   landscapeVideoStopping = true
   railGlide.stop()
+  pageGlide.stop()
+  window.removeEventListener('wheel', handlePageWheel)
   document.removeEventListener('visibilitychange', syncPageState)
   if (startLandscapeVideo) window.removeEventListener('load', startLandscapeVideo)
   reducedMotionMedia?.removeEventListener('change', syncPageState)

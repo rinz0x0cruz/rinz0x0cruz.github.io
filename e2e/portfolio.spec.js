@@ -1219,6 +1219,76 @@ test('the rail reads wheel deltas in lines as well as pixels', async ({ page }) 
   expect(lines / pixels).toBeLessThan(2)
 })
 
+test('the page carries the wheel instead of jumping a notch at a time', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.waitForTimeout(300)
+
+  const run = await page.evaluate(
+    () =>
+      new Promise((done) => {
+        scrollTo(0, 300)
+        const ys = []
+        let n = 0
+        const tick = () => {
+          ys.push(scrollY)
+          if (n === 2) {
+            dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }))
+          }
+          if (++n < 110) requestAnimationFrame(tick)
+          else done(ys)
+        }
+        requestAnimationFrame(tick)
+      }),
+  )
+
+  const steps = run.slice(1).map((v, i) => Math.abs(v - run[i])).filter((v) => v > 0)
+  expect(run.at(-1) - run[0]).toBeGreaterThan(60)
+  // a native wheel notch lands the whole 100px in one frame, which is what made
+  // everything keyed to scrolling jump. Spread over frames, no step is large.
+  expect(Math.max(...steps)).toBeLessThan(40)
+  expect(steps.length).toBeGreaterThan(8)
+})
+
+test('smooth page scroll never takes over anything but the wheel', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+
+  // programmatic scrolling, anchors, find-in-page and scroll restoration all
+  // depend on these staying exactly as the browser defines them
+  const behaviour = await page.evaluate(
+    () => getComputedStyle(document.documentElement).scrollBehavior,
+  )
+  expect(behaviour).toBe('auto')
+  await page.evaluate(() => scrollTo(0, 0))
+  await page.waitForTimeout(100)
+  await page.evaluate(() => scrollBy(0, 400))
+  expect(await page.evaluate(() => scrollY)).toBe(400)
+
+  // and reduced motion gets the browser's own scrolling back
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.waitForTimeout(200)
+  const still = await page.evaluate(
+    () =>
+      new Promise((done) => {
+        scrollTo(0, 300)
+        const start = scrollY
+        dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }))
+        let n = 0
+        const tick = () => {
+          if (++n < 30) requestAnimationFrame(tick)
+          else done(scrollY - start)
+        }
+        requestAnimationFrame(tick)
+      }),
+  )
+  // a synthetic event does no native scrolling, so nothing of ours may move it
+  expect(still).toBe(0)
+})
+
 test('sticky note flips on click and returns on the second', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 900 })
