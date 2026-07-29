@@ -6,6 +6,8 @@ import CursorFollower from './components/CursorFollower.vue'
 import HireHint from './components/HireHint.vue'
 import IdentityAvatar from './components/IdentityAvatar.vue'
 import DisciplineBand from './components/DisciplineBand.vue'
+import CompanyMark from './components/CompanyMark.vue'
+import StickyNote from './components/StickyNote.vue'
 import profile from './profile.js'
 
 const loadAchievementInstrument = () => import('./components/AchievementInstrument.vue')
@@ -28,6 +30,73 @@ const activeQuoteWords = computed(() => {
 })
 const dossierOpen = ref(false)
 const dossierToggle = ref(null)
+const experienceRail = ref(null)
+
+// profile lists roles newest first; the rail runs forward through time
+const careerOrder = computed(() => [...profile.experience].reverse())
+
+const careerYears = computed(() => {
+  const years = careerOrder.value.map((role) => Number(role.start.slice(0, 4)))
+  const first = Math.min(...years)
+  const last = new Date().getFullYear()
+  return Array.from({ length: last - first + 1 }, (_, index) => first + index)
+})
+
+const careerSpan = computed(() => {
+  const first = careerYears.value[0]
+  const years = careerYears.value.at(-1) - first
+  return years <= 1 ? 'a year' : `${years} years`
+})
+
+function handleRailKeydown(event) {
+  const step = event.key === 'Home' || event.key === 'End' ? experienceRail.value.scrollWidth : 320
+  const moves = {
+    ArrowLeft: -step,
+    ArrowRight: step,
+    Home: -step,
+    End: step,
+  }
+  if (!(event.key in moves)) return
+
+  // the rail is focusable, so arrows have to drive it or keyboard users are stuck
+  event.preventDefault()
+  experienceRail.value.scrollBy({
+    left: moves[event.key],
+    behavior: reducedMotionMedia?.matches ? 'auto' : 'smooth',
+  })
+}
+
+function handleRailWheel(event) {
+  // a vertical wheel over the rail should move it sideways, but only while it
+  // still has somewhere to go, so the page keeps scrolling at either end
+  if (event.deltaX !== 0 || event.shiftKey) return
+
+  const rail = experienceRail.value
+  const atStart = rail.scrollLeft <= 0 && event.deltaY < 0
+  const atEnd = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1 && event.deltaY > 0
+  if (atStart || atEnd) return
+
+  event.preventDefault()
+  rail.scrollLeft += event.deltaY
+}
+
+// how much of the rail has been revealed, so the axis under it can say where you are
+const railSeen = ref(0)
+
+const railProgress = computed(() => ({
+  width: `${Math.min(1, railSeen.value || 0.001) * 100}%`,
+}))
+
+function handleRailScroll(event) {
+  const rail = event.currentTarget
+  railSeen.value =
+    rail.scrollWidth <= rail.clientWidth ? 1 : (rail.scrollLeft + rail.clientWidth) / rail.scrollWidth
+}
+
+onMounted(() => {
+  if (experienceRail.value) handleRailScroll({ currentTarget: experienceRail.value })
+})
+
 const achievementDeck = ref(null)
 const achievementWindow = ref(null)
 const achievementActive = ref(false)
@@ -544,6 +613,130 @@ onBeforeUnmount(() => {
           </component>
         </div>
       </div>
+    </section>
+
+    <section class="experience" aria-labelledby="experience-title">
+      <div class="experience__head">
+        <div>
+          <p>Career / {{ String(profile.experience.length).padStart(2, '0') }}</p>
+          <h2 id="experience-title">Where I've worked</h2>
+        </div>
+        <p class="experience__hint">
+          <span aria-hidden="true">←</span>
+          Scroll sideways through {{ careerSpan }}
+          <span aria-hidden="true">→</span>
+        </p>
+      </div>
+
+      <!-- one horizontal rail: the axis is time, oldest role on the left -->
+      <div
+        ref="experienceRail"
+        class="experience__rail"
+        tabindex="0"
+        role="group"
+        aria-label="Career timeline, scrollable sideways"
+        @keydown="handleRailKeydown"
+        @wheel="handleRailWheel"
+        @scroll="handleRailScroll"
+      >
+        <figure class="experience__frontispiece">
+          <img
+            src="/ms-portrait.webp"
+            :alt="`Portrait of ${profile.name}`"
+            :style="{ '--photo-position': '50% 32%' }"
+            width="525"
+            height="1000"
+            decoding="async"
+          />
+          <figcaption>
+            <span class="experience__plate">00</span>
+            {{ profile.name }}
+          </figcaption>
+        </figure>
+
+        <ol class="experience__chapters">
+          <li
+            v-for="(role, index) in careerOrder"
+            :key="`${role.company}-${role.start}`"
+            class="chapter"
+            :style="{ '--chapter-index': index }"
+          >
+            <article class="chapter__marquee">
+              <CompanyMark :mark="role.mark" />
+              <p class="chapter__period">
+                <span class="chapter__dates">{{ role.period }}</span>
+                <span class="chapter__index">{{ String(index + 1).padStart(2, '0') }}</span>
+              </p>
+              <h3 class="chapter__company">{{ role.company }}</h3>
+              <p class="chapter__role">
+                {{ role.role }}
+                <span aria-hidden="true">·</span>
+                <em>{{ role.kind }}</em>
+              </p>
+              <p class="chapter__team">{{ role.team }}</p>
+              <p class="chapter__place">{{ role.place }}</p>
+            </article>
+
+            <article class="chapter__notable">
+              <h4>Notable work</h4>
+              <ul>
+                <li
+                  v-for="(item, chip) in role.notable"
+                  :key="item"
+                  :style="{ '--i': chip }"
+                >
+                  {{ item }}
+                </li>
+              </ul>
+            </article>
+
+            <article class="chapter__outcome">
+              <p>{{ role.outcome }}</p>
+            </article>
+
+            <article v-if="role.learnt" class="chapter__learnt">
+              <h4>Learnt</h4>
+              <p>{{ role.learnt }}</p>
+            </article>
+
+            <figure v-if="role.photo" class="chapter__photo">
+              <img
+                :src="role.photo.src"
+                :alt="role.photo.alt"
+                :style="{ '--photo-position': role.photo.position }"
+                :width="role.photo.w"
+                :height="role.photo.h"
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption>{{ role.photo.caption }}</figcaption>
+            </figure>
+
+            <figure v-if="role.scene" class="chapter__scene">
+              <img
+                :src="role.scene.src"
+                :alt="role.scene.alt"
+                :style="{ '--photo-position': role.scene.position }"
+                :width="role.scene.w"
+                :height="role.scene.h"
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption>{{ role.scene.caption }}</figcaption>
+            </figure>
+          </li>
+        </ol>
+
+        <StickyNote :front="profile.note.front" :back="profile.note.back" />
+      </div>
+
+      <p class="experience__axis" aria-hidden="true">
+        <span>{{ careerYears[0] }}</span>
+        <span class="experience__axis-track">
+          <span class="experience__axis-thumb" :style="railProgress" />
+        </span>
+        <span>Now</span>
+      </p>
     </section>
   </main>
 

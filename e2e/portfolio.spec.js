@@ -796,6 +796,244 @@ test('reduced motion stops ambient animation', async ({ page }) => {
   await expect(page.locator('.identity-card')).toBeVisible()
 })
 
+test('career rail scrolls sideways without spilling the page', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    await page.locator('.experience').scrollIntoViewIfNeeded()
+
+    const layout = await page.evaluate(() => {
+      const rail = document.querySelector('.experience__rail')
+      const chapters = [...document.querySelectorAll('.chapter')]
+      const railRect = rail.getBoundingClientRect()
+
+      return {
+        count: chapters.length,
+        // the rail must be the only thing that scrolls sideways
+        railOverflows: rail.scrollWidth > rail.clientWidth + 1,
+        pageOverflowX: document.documentElement.scrollWidth - innerWidth,
+        // every chapter sits on one shared top edge: it is a row, not a grid
+        sameRow: chapters.every((c) => Math.abs(c.getBoundingClientRect().top - railRect.top) < 40),
+        focusable: rail.tabIndex === 0,
+        named: !!rail.getAttribute('aria-label'),
+      }
+    })
+
+    expect(layout.count).toBe(5)
+    expect(layout.pageOverflowX).toBe(0)
+    expect(layout.railOverflows).toBe(true)
+    expect(layout.sameRow).toBe(true)
+    expect(layout.focusable).toBe(true)
+    expect(layout.named).toBe(true)
+  }
+})
+
+test('career rail is drivable from the keyboard alone', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const rail = page.locator('.experience__rail')
+  await rail.scrollIntoViewIfNeeded()
+  await rail.focus()
+
+  const left = () => rail.evaluate((el) => el.scrollLeft)
+  expect(await left()).toBe(0)
+
+  await page.keyboard.press('ArrowRight')
+  await expect.poll(left).toBeGreaterThan(0)
+
+  await page.keyboard.press('End')
+  await expect
+    .poll(left)
+    .toBeGreaterThan(await rail.evaluate((el) => el.scrollWidth - el.clientWidth - 2))
+
+  await page.keyboard.press('Home')
+  await expect.poll(left).toBe(0)
+})
+
+test('career rail states every role in the order they happened', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const section = page.getByRole('region', { name: "Where I've worked" })
+  // oldest first: the horizontal axis is time
+  await expect(section.locator('.chapter__company')).toHaveText([
+    'IndussianAssist',
+    'Black Hills',
+    'Microsoft',
+    'Hacker4Justice',
+    'Microsoft',
+  ])
+  await expect(section.locator('.chapter__dates')).toHaveText([
+    'Feb 2023 — Apr 2023',
+    'May 2023 — Aug 2023',
+    'May 2024 — Jul 2024',
+    'Jun 2025 — Jun 2026',
+    'Jun 2025 — Present',
+  ])
+  await expect(section.locator('.chapter__outcome')).toHaveCount(5)
+  await expect(section.locator('.chapter__notable li')).toHaveCount(15)
+  // the volunteer investigation stays deliberately unquantified
+  await expect(section.locator('.chapter__outcome')).not.toContainText(['4,800'])
+
+  // three chapters carry a picture, and every one of them is described
+  const photos = section.locator('.chapter__photo img')
+  await expect(photos).toHaveCount(3)
+  for (const alt of await photos.evaluateAll((els) => els.map((e) => e.alt))) {
+    expect(alt.length).toBeGreaterThan(20)
+  }
+})
+
+test('career photographs are framed, not cropped a second time', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const frames = page.locator(
+    '.experience__frontispiece img, .chapter__photo img, .chapter__scene img',
+  )
+  await expect(frames).toHaveCount(5)
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+
+  for (let i = 0; i < 5; i += 1) {
+    await frames.nth(i).scrollIntoViewIfNeeded()
+    await expect
+      .poll(() => frames.nth(i).evaluate((e) => e.complete && e.naturalWidth > 0))
+      .toBe(true)
+
+    const fit = await frames.nth(i).evaluate((img) => {
+      const box = img.getBoundingClientRect()
+      return {
+        src: img.getAttribute('src'),
+        rendered: box.width / box.height,
+        source: img.naturalWidth / img.naturalHeight,
+        anchored: getComputedStyle(img).objectPosition,
+        described: img.alt.length,
+      }
+    })
+
+    // the export has to match the slot: a mismatch means object-fit crops the
+    // subject a second time, which is what sliced the photograph before
+    expect(Math.abs(fit.rendered - fit.source), fit.src).toBeLessThan(0.06)
+    // every frame names its own anchor rather than trusting the middle
+    expect(fit.anchored, fit.src).not.toBe('50% 50%')
+    expect(fit.described, fit.src).toBeGreaterThan(15)
+  }
+})
+
+test('rail motion is opted into, so reduced motion gets the finished layout', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  const still = await page.locator('.chapter').first().evaluate((el) => ({
+    animation: getComputedStyle(el).animationName,
+    scale: getComputedStyle(el).scale,
+    opacity: getComputedStyle(el).opacity,
+  }))
+  expect(still.animation).toBe('none')
+  expect(still.opacity).toBe('1')
+
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  const moving = await page.locator('.chapter').first().evaluate((el) => getComputedStyle(el).animationName)
+  // only where scroll timelines exist; elsewhere the static layout is correct
+  const supported = await page.evaluate(() => CSS.supports('animation-timeline: view()'))
+  expect(moving).toBe(supported ? 'chapter-arrive' : 'none')
+})
+
+test('the pixel face is reserved for machine-authored readouts', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const period = page.locator('.chapter__period').first()
+  await expect(period).toHaveCSS('font-family', /Mackie Pixel/)
+  // bitmap glyphs sit on a pixel grid, so a fractional size smears the stems
+  await expect(period).toHaveCSS('font-size', '12px')
+  // editorial voice stays in the text faces
+  await expect(page.locator('.chapter__company').first()).toHaveCSS('font-family', /Danviska/)
+  await expect(page.locator('.chapter__learnt p').first()).toHaveCSS('font-family', /Caveat/)
+})
+
+test('sticky note flips on click and returns on the second', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const note = page.locator('.sticky-note')
+  await note.scrollIntoViewIfNeeded()
+
+  const front = note.locator('.sticky-note__face--front')
+  const back = note.locator('.sticky-note__face--back')
+  await expect(front).toContainText('Energetic')
+  // the back exists in the DOM either way, so state is read from aria, not text
+  await expect(back).toHaveAttribute('aria-hidden', 'true')
+  await expect(front).toHaveAttribute('aria-pressed', 'false')
+
+  await front.click()
+  await expect(note).toHaveClass(/sticky-note--flipped/)
+  await expect(back).toHaveAttribute('aria-hidden', 'false')
+  await expect(back).toContainText('Could not have done it without both of you')
+
+  await note.locator('.sticky-note__reply').click()
+  await expect(note).not.toHaveClass(/sticky-note--flipped/)
+  await expect(back).toHaveAttribute('aria-hidden', 'true')
+})
+
+test('sticky note flips from the keyboard and keeps focus reachable', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const note = page.locator('.sticky-note')
+  await note.scrollIntoViewIfNeeded()
+
+  // only the face that is showing may be reachable by Tab
+  await note.locator('.sticky-note__face--front').focus()
+  await page.keyboard.press('Enter')
+  await expect(note).toHaveClass(/sticky-note--flipped/)
+  expect(await note.locator('.sticky-note__face--front').getAttribute('tabindex')).toBe('-1')
+  expect(await note.locator('.sticky-note__reply').getAttribute('tabindex')).toBe('0')
+
+  await note.locator('.sticky-note__reply').focus()
+  await page.keyboard.press('Enter')
+  await expect(note).not.toHaveClass(/sticky-note--flipped/)
+})
+
+test('sticky note drags only when grabbed, and dragging never flips it', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const rail = page.locator('.experience__rail')
+  await rail.scrollIntoViewIfNeeded()
+  await rail.evaluate((el) => el.scrollTo({ left: el.scrollWidth, behavior: 'instant' }))
+
+  const note = page.locator('.sticky-note')
+  const start = await note.boundingBox()
+
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(start.x + start.width / 2 - 140, start.y + start.height / 2 + 60, { steps: 12 })
+  await page.mouse.up()
+
+  const moved = await note.boundingBox()
+  expect(Math.round(start.x - moved.x)).toBeGreaterThan(100)
+  expect(Math.round(moved.y - start.y)).toBeGreaterThan(40)
+  // a drag is not a click: the note must not have turned over
+  await expect(note).not.toHaveClass(/sticky-note--flipped/)
+})
+
 test('achievement cards present four verified outcomes', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
@@ -809,10 +1047,10 @@ test('achievement cards present four verified outcomes', async ({ page }) => {
   await expect(deck.locator('h3')).toHaveText([
     'Incidents & CVEs triaged',
     'Shipped Security Config',
-    'Fewer false positives',
+    'Ingestion specs authored',
     'STORM-2230 hunt report',
   ])
-  await expect(deck.locator('.achievement-card__copy > b')).toHaveText(['100+', 'GA', '47%', '05D'])
+  await expect(deck.locator('.achievement-card__copy > b')).toHaveText(['100+', 'GA', '9/10', '05D'])
   await expect(deck.locator('.achievement-card__topline > span')).toHaveCount(0)
   await expect(deck.locator('.achievement-card__topline > strong')).toHaveText(['◇', '⌗', '△', '⌁'])
   await expect(deck.getByRole('tab')).toHaveCount(0)

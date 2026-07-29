@@ -1,0 +1,19 @@
+Caveat
+
+Official source: https://fonts.google.com/specimen/Caveat
+Design: Pablo Impallari, Impallari Type (originally released through Google Fonts)
+
+Licensed under the SIL Open Font License, Version 1.1. The licence permits use,
+study, modification, and redistribution, including bundling with a website,
+provided the font is not sold on its own and any modified version is not
+released under the reserved name. The full licence text is bundled alongside
+this notice in Recursive-OFL.txt, which reproduces the same OFL 1.1 terms.
+
+Caveat-Note.woff2 is a modified subset. The upstream Caveat regular face was
+reduced with pyftsubset to the 31 glyphs needed by the colleague's note on the
+career rail, which is why the file is 15 KB rather than 110 KB. Because it is a
+modified version it is served under the file name Caveat-Note rather than the
+reserved name Caveat, and it is used only for that handwritten note and the
+Learnt cards.
+
+Source terms reviewed: 2026-07-29

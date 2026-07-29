@@ -48,6 +48,14 @@
 }
 
 @font-face {
+  font-family: 'Caveat Note';
+  src: url('/fonts/Caveat-Note.woff2') format('woff2');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400 600;
+}
+
+@font-face {
   font-family: 'Kouzan Mouhitsu';
   src: url('/fonts/KouzanMouhitsu-Kanji.woff2') format('woff2');
   font-display: swap;
@@ -551,6 +559,628 @@ h1 {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.experience {
+  position: relative;
+  z-index: 2;
+  padding-block: 0 5rem;
+  color: var(--text);
+}
+
+.experience__head {
+  display: flex;
+  gap: 2rem;
+  align-items: end;
+  justify-content: space-between;
+  width: min(72rem, calc(100% - 4rem));
+  margin: 0 auto 1.6rem;
+}
+
+.experience__head p {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 520;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.experience__head div > p {
+  margin-bottom: 0.55rem;
+  color: var(--accent);
+}
+
+.experience h2 {
+  margin: 0;
+  font-family: 'Danviska', serif;
+  font-size: 2.75rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.experience__hint span {
+  color: var(--accent);
+}
+
+/* The rail is the section's own scroller. It breaks the 72rem measure so the
+   chapters run off both edges, which is the signal that there is more sideways. */
+.experience__rail {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.4rem 1.4rem;
+  padding-inline: max(2rem, calc(50% - 36rem));
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+}
+
+.experience__rail::-webkit-scrollbar {
+  display: none;
+}
+
+.experience__rail:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -4px;
+}
+
+.experience__chapters {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* each chapter is a bento cluster, not one card: sizes differ on purpose */
+.chapter {
+  display: grid;
+  grid-template-columns: 17rem 12rem;
+  grid-template-rows: auto auto auto;
+  /* notable runs the full height as a tower, so a chapter with no Learnt line
+     still packs instead of leaving a void beside its outcome */
+  grid-template-areas:
+    'marquee notable'
+    'outcome notable'
+    'learnt  notable';
+  gap: 0.7rem;
+  align-content: start;
+  padding-right: 2.2rem;
+  margin-right: 2.2rem;
+  /* the hatch is the chapter divider, reusing the site's own noise idiom */
+  border-right: 1px solid #201f1c;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      #141311 0 2px,
+      transparent 2px 9px
+    ) right / 1.1rem 100% no-repeat;
+}
+
+.chapter:last-of-type {
+  border-right: 0;
+  background: none;
+}
+
+.chapter > article {
+  min-width: 0;
+  padding: 1rem 1.05rem;
+  border: 1px solid #3c3a35;
+  border-radius: 6px;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.03), transparent 32%),
+    #0d0d0c;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.chapter__marquee {
+  position: relative;
+  grid-area: marquee;
+}
+
+.company-mark-glyph {
+  display: block;
+  width: 1.3rem;
+  margin-bottom: 0.85rem;
+}
+
+.company-mark-glyph svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+
+/* The date stamp is machine-authored data, not editorial voice, which is the one
+   job a bitmap face does better than a text face. Held at 12px because the
+   glyphs are drawn on a pixel grid and fractional sizes smear the stems. */
+.chapter__period {
+  margin: 0 0 0.55rem;
+  color: #9fb0c2;
+  font-family: 'Mackie Pixel', 'Recursive Variable', ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chapter__dates {
+  /* the stamp reads as one unit; wrapping it broke the marquee's rhythm */
+  white-space: nowrap;
+}
+
+/* the chapter number belongs in the corner like a plate number, not in the
+   date line where it competed for width and forced a wrap */
+.chapter__index {
+  position: absolute;
+  top: 1rem;
+  right: 1.05rem;
+  color: #4f4c47;
+}
+
+.chapter__company {
+  margin: 0;
+  font-family: 'Danviska', serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1.05;
+}
+
+.chapter__role {
+  margin: 0.35rem 0 0.6rem;
+  color: #d7d3cb;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.chapter__role span {
+  margin-inline: 0.28rem;
+  color: #5c5a54;
+}
+
+.chapter__role em {
+  color: #9fb0c2;
+  font-style: normal;
+}
+
+.chapter__team,
+.chapter__place {
+  margin: 0;
+  color: #7d8fa2;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+
+.chapter__place {
+  margin-top: 0.2rem;
+  color: #5f6b78;
+}
+
+.chapter__notable {
+  display: grid;
+  grid-area: notable;
+  /* size to its chips instead of stretching the row, so the cluster keeps the
+     uneven bento silhouette rather than reading as a two-column table */
+  align-content: start;
+  align-self: start;
+}
+
+/* A chapter with a photograph reshapes rather than bolting a sliver on the end:
+   the picture takes a near-square card beside the marquee and the Learnt note
+   runs wide underneath both. A tall thin slot cropped the subject twice. */
+.chapter:has(.chapter__photo) {
+  grid-template-columns: 16rem 15rem 12rem;
+  grid-template-areas:
+    'marquee photo  notable'
+    'outcome photo  notable'
+    'learnt  learnt notable';
+}
+
+.chapter__photo,
+.chapter__scene {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 0.4rem;
+  margin: 0;
+  align-self: stretch;
+  min-height: 0;
+}
+
+.chapter__photo {
+  grid-area: photo;
+}
+
+.chapter__scene {
+  grid-area: scene;
+}
+
+/* The current role earns two frames: the sign that names the place, and the
+   campus it stands on. Two 13rem slots sit at 0.75, which is the native ratio
+   of these frames, so neither picture is cropped to fit. */
+.chapter:has(.chapter__scene) {
+  grid-template-columns: 16rem 13rem 13rem 12rem;
+  grid-template-areas:
+    'marquee photo  scene  notable'
+    'outcome photo  scene  notable'
+    'learnt  learnt learnt notable';
+}
+
+.chapter__photo img,
+.chapter__scene img,
+.experience__frontispiece img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid #2f2e2a;
+  border-radius: 4px;
+  /* the subject is off-centre in these frames, so each one names its own anchor
+     rather than trusting the middle of the picture */
+  object-fit: cover;
+  object-position: var(--photo-position, 50% 50%);
+  filter: saturate(0.62) contrast(1.03) brightness(0.82);
+}
+
+.chapter__photo figcaption,
+.chapter__scene figcaption,
+.experience__frontispiece figcaption {
+  display: flex;
+  gap: 0.55rem;
+  color: #6f6b64;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The rail opens on a face before it opens on a job. The timeline belongs to
+   someone, and the reader should meet him before the first company. */
+.experience__frontispiece {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-rows: auto auto;
+  align-content: start;
+  gap: 0.4rem;
+  align-self: stretch;
+  width: 15rem;
+  min-height: 0;
+  margin: 0 2.2rem 0 0;
+  padding-right: 2.2rem;
+  border-right: 1px solid #201f1c;
+}
+
+/* The plate holds its own proportions rather than stretching to whatever the
+   tallest chapter happens to be. Coupled to a sibling, its crop drifted every
+   time a chapter gained content. */
+.experience__frontispiece img {
+  height: auto;
+  aspect-ratio: 525 / 1000;
+}
+
+.experience__frontispiece figcaption {
+  color: #a7a39b;
+  font-family: 'Mackie Pixel', 'Kiona', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.experience__plate {
+  color: #4f4c47;
+}
+
+.chapter__notable h4,
+.chapter__learnt h4 {
+  margin: 0 0 0.7rem;
+  color: var(--accent);
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chapter__notable ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chapter__notable li {
+  padding: 0.3rem 0.45rem;
+  border: 1px solid #2f2e2a;
+  border-radius: 3px;
+  color: #a7a39b;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.63rem;
+  line-height: 1.25;
+}
+
+.chapter__outcome {
+  display: grid;
+  grid-area: outcome;
+  align-content: center;
+  border-color: #5c4b35;
+  background:
+    linear-gradient(150deg, rgba(209, 163, 95, 0.16), transparent 60%),
+    #14110c;
+}
+
+.chapter__outcome p {
+  margin: 0;
+  color: #e7c88e;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.chapter__learnt {
+  grid-area: learnt;
+}
+
+.chapter__learnt p {
+  margin: 0;
+  color: #d7d3cb;
+  font-family: 'Caveat Note', 'Danviska', cursive;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+/* Motion is opted into, not overridden away. Everything above is the finished
+   state, so a reduced-motion visitor never enters this block and still gets the
+   whole layout. With this many effects an opt-out list would miss one. */
+@media (prefers-reduced-motion: no-preference) {
+  .chapter {
+    --recede: 0;
+    transition: scale 380ms cubic-bezier(0.22, 1, 0.36, 1);
+    scale: calc(1 - var(--recede) * 0.02);
+  }
+
+  /* Reading one chapter lets the others step back. Only chrome recedes: fading
+     the copy would drop it under the contrast floor and read as broken. */
+  @media (hover: hover) and (pointer: fine) {
+    .experience__chapters:has(.chapter:hover) .chapter:not(:hover),
+    .experience__chapters:has(.chapter:focus-within) .chapter:not(:focus-within) {
+      --recede: 1;
+    }
+  }
+
+  .chapter > article,
+  .chapter__photo img,
+  .chapter__scene img,
+  .chapter__notable li {
+    transition:
+      border-color 380ms ease,
+      filter 450ms ease,
+      transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .chapter > article {
+    border-color: color-mix(in oklab, #3c3a35, #0d0d0c calc(var(--recede) * 60%));
+  }
+
+  /* the photograph warms to full colour only for the chapter being read */
+  .chapter:hover .chapter__photo img,
+  .chapter:focus-within .chapter__photo img,
+  .chapter:hover .chapter__scene img,
+  .chapter:focus-within .chapter__scene img {
+    filter: saturate(1) contrast(1) brightness(0.98);
+  }
+
+  /* the chip tower is the densest card, so it arrives as a list you read down
+     rather than one block that lands at once */
+  .chapter__notable li {
+    transition-delay: calc(var(--i, 0) * 45ms);
+  }
+
+  .chapter:hover .chapter__notable li,
+  .chapter:focus-within .chapter__notable li {
+    border-color: #55524a;
+    transform: translateX(0.28rem);
+  }
+
+  /* The rail is a timeline, so a chapter should arrive as it reaches reading
+     position. Guarded: without scroll timelines this would run once against the
+     document timeline and strand every card at its opening frame. */
+  @supports (animation-timeline: view()) {
+    .chapter {
+      animation: chapter-arrive linear both;
+      animation-timeline: view(inline);
+      animation-range: entry 5% cover 40%;
+    }
+
+    @keyframes chapter-arrive {
+      from {
+        opacity: 0.4;
+        translate: 0 1.15rem;
+      }
+
+      to {
+        opacity: 1;
+        translate: 0 0;
+      }
+    }
+  }
+}
+
+/* The years are real but the gaps between roles are not to scale, so this is a
+   position readout rather than a measured axis: it says where you are and that
+   there is more, which is the job the hidden scrollbar stopped doing. */
+.experience__axis {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  width: min(72rem, calc(100% - 4rem));
+  margin: 0.4rem auto 0;
+  color: #5f6b78;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.64rem;
+  font-variation-settings: 'MONO' 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.experience__axis-track {
+  position: relative;
+  flex: 1 1 auto;
+  height: 1px;
+  background: #26251f;
+}
+
+.experience__axis-thumb {
+  position: absolute;
+  top: -1px;
+  height: 3px;
+  background: var(--accent);
+}
+
+@media (max-width: 700px) {
+  .experience h2 {
+    font-size: 2rem;
+  }
+
+  .experience__head {
+    flex-direction: column;
+    align-items: start;
+    gap: 0.6rem;
+  }
+
+  .chapter {
+    /* two columns will not hold at this width, so each chapter stacks and the
+       rail becomes a swipe through single-column chapters */
+    grid-template-columns: 15rem;
+    grid-template-areas:
+      'marquee'
+      'outcome'
+      'notable'
+      'learnt';
+  }
+}
+
+/* A colleague's note, kept as an object rather than a quote. It sits inside the
+   rail and travels with it, and drag only starts when the note itself is
+   grabbed so the rail keeps its own gesture. */
+.sticky-note {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 auto;
+  align-self: center;
+  width: 13.5rem;
+  height: 13.5rem;
+  margin-left: 1.5rem;
+  perspective: 900px;
+  touch-action: none;
+  transform: translate(var(--note-x, 0), var(--note-y, 0)) rotate(-2.5deg);
+}
+
+.sticky-note--dragging {
+  z-index: 5;
+  cursor: grabbing;
+}
+
+.sticky-note__face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  gap: 0.5rem;
+  padding: 1.4rem 1.3rem;
+  border: 0;
+  border-radius: 2px;
+  text-align: left;
+  backface-visibility: hidden;
+  cursor: grab;
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sticky-note__face--front {
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.22), transparent 45%),
+    #d8bd6a;
+  box-shadow:
+    0 0.9rem 1.6rem rgba(0, 0, 0, 0.55),
+    inset 0 1px rgba(255, 255, 255, 0.3);
+  transform: rotateY(0deg);
+}
+
+.sticky-note__face--back {
+  display: grid;
+  padding: 0;
+  background:
+    linear-gradient(210deg, rgba(255, 255, 255, 0.16), transparent 45%),
+    #c9ad5c;
+  box-shadow:
+    0 0.9rem 1.6rem rgba(0, 0, 0, 0.55),
+    inset 0 1px rgba(255, 255, 255, 0.22);
+  transform: rotateY(180deg);
+}
+
+.sticky-note--flipped .sticky-note__face--front {
+  transform: rotateY(-180deg);
+}
+
+.sticky-note--flipped .sticky-note__face--back {
+  transform: rotateY(0deg);
+}
+
+.sticky-note__reply {
+  display: grid;
+  align-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  padding: 1.4rem 1.3rem;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: grab;
+}
+
+.sticky-note__hand {
+  color: #22190a;
+  font-family: 'Caveat Note', cursive;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.24;
+}
+
+.sticky-note__shake {
+  width: 3.6rem;
+  height: auto;
+  fill: none;
+  stroke: #4a3a14;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.sticky-note__hint {
+  color: #6b571f;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sticky-note__face:focus-visible {
+  outline: 2px solid #22190a;
+  outline-offset: -6px;
+}
+
+.sticky-note__reply:focus-visible {
+  outline: 2px solid #22190a;
+  outline-offset: -6px;
 }
 
 .site-footer {
@@ -2513,6 +3143,11 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* the note still turns over, it just stops swinging through the rotation */
+  .sticky-note__face {
+    transition: none;
+  }
+
   .discipline-band *,
   .discipline-band *::before,
   .discipline-band *::after {
