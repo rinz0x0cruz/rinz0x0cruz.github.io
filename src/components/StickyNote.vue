@@ -1,5 +1,6 @@
 <script setup>
 import { onBeforeUnmount, ref } from 'vue'
+import { glide } from '../motion.js'
 
 const props = defineProps({
   front: { type: String, required: true },
@@ -11,19 +12,45 @@ const dragging = ref(false)
 const offset = ref({ x: 0, y: 0 })
 // below this the gesture is still a click, above it the note is being carried
 const DRAG_SLOP = 4
+// a thrown note may travel this far from where it was pinned and no further, so
+// it can always be found again
+const TETHER = 260
 let origin = null
 let press = null
 let pointerId = null
 let moved = 0
+// the last pointer step, normalised to one frame, which becomes the throw
+let lastStep = { x: 0, y: 0 }
+let lastAt = 0
+
+const held = (value, limit) => Math.max(-limit, Math.min(limit, value))
+
+const throwGlide = glide({
+  friction: 0.9,
+  step(vx, vy) {
+    const next = {
+      x: held(offset.value.x + vx, TETHER),
+      y: held(offset.value.y + vy, TETHER),
+    }
+    // pressed against the tether it is no longer travelling, so spend the throw
+    const stalled = next.x === offset.value.x && next.y === offset.value.y
+    offset.value = next
+    return !stalled
+  },
+})
 
 function onPointerDown(event) {
   // drag only starts on the note itself, so the rail keeps its own gesture
   if (event.button !== undefined && event.button !== 0) return
 
+  // catching a note in flight stops it dead, the way a hand would
+  throwGlide.stop()
   pointerId = event.pointerId
   press = { x: event.clientX, y: event.clientY }
   origin = { x: event.clientX - offset.value.x, y: event.clientY - offset.value.y }
   moved = 0
+  lastStep = { x: 0, y: 0 }
+  lastAt = event.timeStamp
 }
 
 function onPointerMove(event) {
@@ -41,17 +68,32 @@ function onPointerMove(event) {
     event.currentTarget.setPointerCapture(pointerId)
   }
 
-  offset.value = { x: event.clientX - origin.x, y: event.clientY - origin.y }
+  const next = { x: event.clientX - origin.x, y: event.clientY - origin.y }
+  // per frame, not per event: a high polling rate reports smaller steps more
+  // often, and an unnormalised delta would make the same gesture throw weaker
+  const frames = Math.min(4, Math.max(0.25, (event.timeStamp - lastAt) / 16.7))
+  lastStep = {
+    x: (next.x - offset.value.x) / frames,
+    y: (next.y - offset.value.y) / frames,
+  }
+  lastAt = event.timeStamp
+  offset.value = next
 }
 
 function onPointerUp(event) {
   if (event.pointerId !== pointerId) return
 
-  if (dragging.value) event.currentTarget.releasePointerCapture?.(pointerId)
+  const thrown = dragging.value
+  if (thrown) event.currentTarget.releasePointerCapture?.(pointerId)
   dragging.value = false
   origin = null
   press = null
   pointerId = null
+
+  // let go while still moving and the note keeps going, then settles. A note let
+  // go from rest simply stays put, and reduced motion never throws at all.
+  if (!thrown || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (Math.hypot(lastStep.x, lastStep.y) > 1) throwGlide.push(lastStep.x, lastStep.y)
 }
 
 // a drag that ends where it started is a click, so flipping never fires mid-drag
@@ -69,6 +111,7 @@ function onKeydown(event) {
 }
 
 onBeforeUnmount(() => {
+  throwGlide.stop()
   dragging.value = false
 })
 </script>

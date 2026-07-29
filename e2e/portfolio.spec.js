@@ -965,6 +965,130 @@ test('the pixel face is reserved for machine-authored readouts', async ({ page }
   await expect(page.locator('.chapter__learnt p').first()).toHaveCSS('font-family', /Caveat/)
 })
 
+test('the rail carries momentum and hands the page back at either end', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const rail = page.locator('.experience__rail')
+  await rail.scrollIntoViewIfNeeded()
+  const box = await rail.boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+
+  await page.mouse.wheel(0, 100)
+  await page.waitForTimeout(60)
+  const early = await rail.evaluate((el) => el.scrollLeft)
+  await page.waitForTimeout(600)
+  const settled = await rail.evaluate((el) => el.scrollLeft)
+
+  // a notch is an impulse, not a distance: it is still travelling afterwards
+  expect(early).toBeGreaterThan(0)
+  expect(settled).toBeGreaterThan(early)
+  expect(settled).toBeGreaterThan(140)
+
+  // once the rail is spent the wheel belongs to the page again
+  await rail.evaluate((el) => el.scrollTo({ left: el.scrollWidth }))
+  await page.waitForTimeout(300)
+  const before = await page.evaluate(() => scrollY)
+  await page.mouse.wheel(0, 200)
+  await page.waitForTimeout(400)
+  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(before)
+})
+
+test('the page keeps its own scrolling, and reduced motion gets no momentum', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+
+  const rail = page.locator('.experience__rail')
+  await rail.scrollIntoViewIfNeeded()
+  const box = await rail.boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.wheel(0, 100)
+  await page.waitForTimeout(400)
+  // one notch moves exactly one notch: no glide, no overshoot
+  expect(await rail.evaluate((el) => el.scrollLeft)).toBe(100)
+
+  // nothing smooths or intercepts the document's own scrolling, which is what
+  // keeps find-in-page, scroll anchoring and assistive tech behaving normally
+  const behaviour = await page.evaluate(
+    () => getComputedStyle(document.documentElement).scrollBehavior,
+  )
+  expect(behaviour).toBe('auto')
+  // from the top, where there is certainly room to move the full amount
+  await page.evaluate(() => scrollTo(0, 0))
+  await page.waitForTimeout(100)
+  await page.evaluate(() => scrollBy(0, 400))
+  expect(await page.evaluate(() => scrollY)).toBe(400)
+})
+
+test('a thrown note keeps travelling and stays within reach', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const rail = page.locator('.experience__rail')
+  await rail.scrollIntoViewIfNeeded()
+  await rail.evaluate((el) => el.scrollTo({ left: el.scrollWidth, behavior: 'instant' }))
+  await page.waitForTimeout(300)
+
+  const note = page.locator('.sticky-note')
+  const start = await note.boundingBox()
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(start.x + start.width / 2 - 120, start.y + start.height / 2, { steps: 4 })
+  await page.mouse.up()
+
+  const released = await note.boundingBox()
+  await page.waitForTimeout(700)
+  const rest = await note.boundingBox()
+
+  // let go in motion, it coasts past the point the pointer let go of it
+  expect(rest.x).toBeLessThan(released.x)
+  // and never past its tether, so a hard throw cannot lose it off the rail
+  const carried = await note.evaluate((el) =>
+    Math.abs(parseFloat(getComputedStyle(el).getPropertyValue('--note-x'))),
+  )
+  expect(carried).toBeLessThanOrEqual(260)
+})
+
+test('pictures drift against vertical scroll, and hold still when asked', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(400)
+
+  const frame = page.locator('.chapter__photo img').first()
+  const supported = await page.evaluate(() => CSS.supports('animation-timeline: view()'))
+
+  if (supported) {
+    const drift = () => frame.evaluate((el) => getComputedStyle(el).translate)
+    const near = await drift()
+    await page.evaluate(() => scrollBy(0, -350))
+    await page.waitForTimeout(350)
+    const far = await drift()
+
+    // the picture has to actually move against the page, which is the whole
+    // point: an ancestor that clips with overflow hidden becomes a scrollport
+    // with no scroll range and silently pins this to a single frame
+    expect(far).not.toBe(near)
+
+    // and the page itself is never the thing being animated
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+  }
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  const still = await frame.evaluate((el) => ({
+    animation: getComputedStyle(el).animationName,
+    scale: getComputedStyle(el).scale,
+  }))
+  expect(still.animation).toBe('none')
+  expect(still.scale).toBe('none')
+})
+
 test('sticky note flips on click and returns on the second', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 900 })

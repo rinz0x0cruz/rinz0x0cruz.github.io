@@ -8,6 +8,7 @@ import IdentityAvatar from './components/IdentityAvatar.vue'
 import DisciplineBand from './components/DisciplineBand.vue'
 import CompanyMark from './components/CompanyMark.vue'
 import StickyNote from './components/StickyNote.vue'
+import { glide, impulseFor } from './motion.js'
 import profile from './profile.js'
 
 const loadAchievementInstrument = () => import('./components/AchievementInstrument.vue')
@@ -48,22 +49,51 @@ const careerSpan = computed(() => {
   return years <= 1 ? 'a year' : `${years} years`
 })
 
+// The rail carries momentum: a wheel notch or an arrow press is an impulse, and
+// friction spends it over the next half second or so. RAIL_FRICTION keeps 88% of
+// the speed per frame, so an impulse reaches roughly eight times its value.
+const RAIL_FRICTION = 0.88
+
+const railGlide = glide({
+  friction: RAIL_FRICTION,
+  // a fast repeated wheel should not be able to launch the rail across the page
+  max: 70,
+  step(vx) {
+    const rail = experienceRail.value
+    if (!rail) return false
+
+    const before = rail.scrollLeft
+    rail.scrollLeft += vx
+    // grinding against either end is not motion, so spend the rest of the energy
+    return rail.scrollLeft !== before
+  },
+})
+
 function handleRailKeydown(event) {
-  const step = event.key === 'Home' || event.key === 'End' ? experienceRail.value.scrollWidth : 320
-  const moves = {
-    ArrowLeft: -step,
-    ArrowRight: step,
-    Home: -step,
-    End: step,
-  }
-  if (!(event.key in moves)) return
+  const rail = experienceRail.value
+  if (!rail) return
+
+  const ends = { Home: 0, End: rail.scrollWidth }
+  const steps = { ArrowLeft: -320, ArrowRight: 320 }
+  if (!(event.key in ends) && !(event.key in steps)) return
 
   // the rail is focusable, so arrows have to drive it or keyboard users are stuck
   event.preventDefault()
-  experienceRail.value.scrollBy({
-    left: moves[event.key],
-    behavior: reducedMotionMedia?.matches ? 'auto' : 'smooth',
-  })
+  const still = reducedMotionMedia?.matches
+
+  if (event.key in ends) {
+    railGlide.stop()
+    rail.scrollTo({ left: ends[event.key], behavior: still ? 'auto' : 'smooth' })
+    return
+  }
+
+  if (still) {
+    rail.scrollLeft += steps[event.key]
+    return
+  }
+
+  // an arrow is the same kind of shove as a wheel notch, so it travels the same way
+  railGlide.push(impulseFor(steps[event.key], RAIL_FRICTION))
 }
 
 function handleRailWheel(event) {
@@ -77,7 +107,14 @@ function handleRailWheel(event) {
   if (atStart || atEnd) return
 
   event.preventDefault()
-  rail.scrollLeft += event.deltaY
+  if (reducedMotionMedia?.matches) {
+    rail.scrollLeft += event.deltaY
+    return
+  }
+
+  // 0.3 of the notch as an impulse lands near twice the notch as distance, so a
+  // flick still covers ground without the rail feeling like it is on ice
+  railGlide.push(event.deltaY * 0.3)
 }
 
 // how much of the rail has been revealed, so the axis under it can say where you are
@@ -281,6 +318,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   landscapeVideoStopping = true
+  railGlide.stop()
   document.removeEventListener('visibilitychange', syncPageState)
   if (startLandscapeVideo) window.removeEventListener('load', startLandscapeVideo)
   reducedMotionMedia?.removeEventListener('change', syncPageState)
@@ -640,14 +678,16 @@ onBeforeUnmount(() => {
         @scroll="handleRailScroll"
       >
         <figure class="experience__frontispiece">
-          <img
-            src="/ms-portrait.webp"
-            :alt="`Portrait of ${profile.name}`"
-            :style="{ '--photo-position': '50% 32%' }"
-            width="525"
-            height="1000"
-            decoding="async"
-          />
+          <span class="photo-frame">
+            <img
+              src="/ms-portrait.webp"
+              :alt="`Portrait of ${profile.name}`"
+              :style="{ '--photo-position': '50% 32%' }"
+              width="525"
+              height="1000"
+              decoding="async"
+            />
+          </span>
           <figcaption>
             <span class="experience__plate">00</span>
             {{ profile.name }}
@@ -700,28 +740,32 @@ onBeforeUnmount(() => {
             </article>
 
             <figure v-if="role.photo" class="chapter__photo">
-              <img
-                :src="role.photo.src"
-                :alt="role.photo.alt"
-                :style="{ '--photo-position': role.photo.position }"
-                :width="role.photo.w"
-                :height="role.photo.h"
-                loading="lazy"
-                decoding="async"
-              />
+              <span class="photo-frame">
+                <img
+                  :src="role.photo.src"
+                  :alt="role.photo.alt"
+                  :style="{ '--photo-position': role.photo.position }"
+                  :width="role.photo.w"
+                  :height="role.photo.h"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </span>
               <figcaption>{{ role.photo.caption }}</figcaption>
             </figure>
 
             <figure v-if="role.scene" class="chapter__scene">
-              <img
-                :src="role.scene.src"
-                :alt="role.scene.alt"
-                :style="{ '--photo-position': role.scene.position }"
-                :width="role.scene.w"
-                :height="role.scene.h"
-                loading="lazy"
-                decoding="async"
-              />
+              <span class="photo-frame">
+                <img
+                  :src="role.scene.src"
+                  :alt="role.scene.alt"
+                  :style="{ '--photo-position': role.scene.position }"
+                  :width="role.scene.w"
+                  :height="role.scene.h"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </span>
               <figcaption>{{ role.scene.caption }}</figcaption>
             </figure>
           </li>

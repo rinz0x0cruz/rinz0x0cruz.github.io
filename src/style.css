@@ -92,13 +92,16 @@ body,
 body {
   min-height: 100vh;
   min-height: 100svh;
-  overflow-x: hidden;
+  /* clip, not hidden: hidden on one axis forces the other to auto, which makes
+     the body a scrollport with no scroll range of its own and freezes any
+     scroll-driven timeline resolved against it */
+  overflow-x: clip;
 }
 
 .portfolio {
   min-height: 100vh;
   min-height: 100svh;
-  overflow: hidden;
+  overflow: clip;
   background: #000;
 }
 
@@ -815,6 +818,17 @@ h1 {
     'learnt  learnt learnt notable';
 }
 
+/* The frame is what clips, not the figure: the figure also holds the caption,
+   and a picture that drifts or scales inside it would ride straight over the
+   words underneath. */
+.photo-frame {
+  display: block;
+  overflow: clip;
+  min-height: 0;
+  border: 1px solid #2f2e2a;
+  border-radius: 4px;
+}
+
 .chapter__photo img,
 .chapter__scene img,
 .experience__frontispiece img {
@@ -822,8 +836,6 @@ h1 {
   width: 100%;
   height: 100%;
   min-height: 0;
-  border: 1px solid #2f2e2a;
-  border-radius: 4px;
   /* the subject is off-centre in these frames, so each one names its own anchor
      rather than trusting the middle of the picture */
   object-fit: cover;
@@ -866,7 +878,6 @@ h1 {
   height: auto;
   aspect-ratio: 525 / 1000;
 }
-
 .experience__frontispiece figcaption {
   color: #a7a39b;
   font-family: 'Mackie Pixel', 'Kiona', sans-serif;
@@ -1009,6 +1020,41 @@ h1 {
       to {
         opacity: 1;
         translate: 0 0;
+      }
+    }
+
+    /* Weight on the vertical axis. The page keeps its own native scrolling and
+       nothing intercepts it; the pictures simply travel slower than the frames
+       holding them, which is what reads as depth. Transform only, so it rides
+       the compositor rather than repainting the photograph.
+
+       The timeline is named on the section rather than taken from view(block),
+       because the rail is itself a scroll container: it shadows the block axis
+       and every picture inside it would sit frozen at zero progress. */
+    .experience {
+      view-timeline: --experience-pass block;
+    }
+
+    .chapter__photo img,
+    .chapter__scene img,
+    .experience__frontispiece img {
+      /* 1.08 gives 4% of headroom on each edge and the drift uses 2.8% of it.
+         Magnification is the price of vertical travel, and it is paid on every
+         edge, so it is kept to the least the movement needs: these frames were
+         exported to fit their slots exactly and should not be re-cropped. */
+      scale: 1.08;
+      animation: frame-drift linear both;
+      animation-timeline: --experience-pass;
+      animation-range: cover;
+    }
+
+    @keyframes frame-drift {
+      from {
+        translate: 0 -2.8%;
+      }
+
+      to {
+        translate: 0 2.8%;
       }
     }
   }
