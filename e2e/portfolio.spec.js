@@ -981,14 +981,19 @@ test('the rail carries momentum and hands the page back at either end', async ({
   await page.waitForTimeout(600)
   const settled = await rail.evaluate((el) => el.scrollLeft)
 
-  // a notch is an impulse, not a distance: it is still travelling afterwards
+  // a notch is a shove, not a distance: it is still travelling afterwards
   expect(early).toBeGreaterThan(0)
   expect(settled).toBeGreaterThan(early)
   expect(settled).toBeGreaterThan(140)
 
+  // and the rail is heavy: it takes the shove up over several frames rather
+  // than leaving at full speed, so only a small share of the journey happens
+  // in the first moments. An instant-velocity model covers about half by here.
+  expect(early / settled).toBeLessThan(0.3)
+
   // once the rail is spent the wheel belongs to the page again
   await rail.evaluate((el) => el.scrollTo({ left: el.scrollWidth }))
-  await page.waitForTimeout(300)
+  await page.waitForTimeout(600)
   const before = await page.evaluate(() => scrollY)
   await page.mouse.wheel(0, 200)
   await page.waitForTimeout(400)

@@ -49,21 +49,24 @@ const careerSpan = computed(() => {
   return years <= 1 ? 'a year' : `${years} years`
 })
 
-// The rail carries momentum: a wheel notch or an arrow press is an impulse, and
-// friction spends it over the next half second or so. RAIL_FRICTION keeps 88% of
-// the speed per frame, so an impulse reaches roughly eight times its value.
-const RAIL_FRICTION = 0.88
+// The rail has weight. A wheel notch is a shove against something heavy, not a
+// velocity: RAIL_PICKUP takes it up over roughly eight frames so the rail
+// resists, gathers speed, and then runs on. RAIL_DRAG keeps 94% of that speed
+// per frame, which is a long enough tail that it thins out rather than stopping.
+const RAIL_PICKUP = 0.13
+const RAIL_DRAG = 0.94
 
 const railGlide = glide({
-  friction: RAIL_FRICTION,
+  pickup: RAIL_PICKUP,
+  drag: RAIL_DRAG,
   // a fast repeated wheel should not be able to launch the rail across the page
   max: 70,
-  step(vx) {
+  step(dx) {
     const rail = experienceRail.value
     if (!rail) return false
 
     const before = rail.scrollLeft
-    rail.scrollLeft += vx
+    rail.scrollLeft += dx
     // grinding against either end is not motion, so spend the rest of the energy
     return rail.scrollLeft !== before
   },
@@ -93,7 +96,7 @@ function handleRailKeydown(event) {
   }
 
   // an arrow is the same kind of shove as a wheel notch, so it travels the same way
-  railGlide.push(impulseFor(steps[event.key], RAIL_FRICTION))
+  railGlide.push(impulseFor(steps[event.key], RAIL_DRAG))
 }
 
 function handleRailWheel(event) {
@@ -112,9 +115,10 @@ function handleRailWheel(event) {
     return
   }
 
-  // 0.3 of the notch as an impulse lands near twice the notch as distance, so a
-  // flick still covers ground without the rail feeling like it is on ice
-  railGlide.push(event.deltaY * 0.3)
+  // Reach is shove / (1 - drag), so 0.16 of a notch against a drag of 0.94
+  // carries about 265px: further than the notch itself, which is the momentum.
+  // The ramp spreads it over time rather than spending it at once.
+  railGlide.push(event.deltaY * 0.16)
 }
 
 // how much of the rail has been revealed, so the axis under it can say where you are
