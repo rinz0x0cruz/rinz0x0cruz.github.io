@@ -64,6 +64,21 @@
   unicode-range: U+5C45, U+591C, U+5F71, U+6708, U+708E, U+98A8, U+9B3C, U+9B42, U+9CE5;
 }
 
+/* Registered so two scroll timelines can each animate one axis of a picture's
+   travel and compose into a single translate. Unregistered custom properties
+   are not interpolatable, so the pictures would jump between keyframes. */
+@property --frame-pan {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+@property --frame-drift {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
 :root {
   color-scheme: dark;
   --accent: #d1a35f;
@@ -565,18 +580,33 @@ h1 {
 }
 
 .experience {
+  --experience-measure: min(72rem, calc(100% - 4rem));
+  /* the left edge every other section starts on, stated rather than produced by
+     centring, so the window can hold it while running wider to the right */
+  --experience-gutter: max(2rem, calc((100% - 72rem) / 2));
+  /* below the measure's breakpoint there is no room to run into, so the window
+     falls back to exactly the page's width rather than ending short of it */
+  --experience-runout: min(2.5rem, var(--experience-gutter));
+  /* one card width, one media band and one card height govern the whole strip;
+     the band is viewport-relative so the strip stays a strip on a short screen */
+  --plate: 19.5rem;
+  --media: clamp(9rem, 30vh, 17rem);
+  --card: calc(var(--media) + 16.8rem);
   position: relative;
   z-index: 2;
   padding-block: 0 5rem;
   color: var(--text);
 }
 
+/* Head, window and axis share one left edge. They used to sit on three
+   different measures, which is most of why the section read as assembled
+   rather than composed. */
 .experience__head {
   display: flex;
   gap: 2rem;
   align-items: end;
   justify-content: space-between;
-  width: min(72rem, calc(100% - 4rem));
+  width: var(--experience-measure);
   margin: 0 auto 1.6rem;
 }
 
@@ -609,6 +639,116 @@ h1 {
 
 /* The rail is the section's own scroller. It breaks the 72rem measure so the
    chapters run off both edges, which is the signal that there is more sideways. */
+/* The rail sits inside a framed window rather than bleeding off the page, so it
+   reads as a screen the timeline turns behind. The frame also makes the edge
+   where content leaves deliberate instead of accidental. */
+/* The window keeps the width the gutter and run-out give it, but sits centred
+   rather than pinned to the left edge: the heading holds the page's measure and
+   the strip is free to be its own object under it. */
+.experience__window {
+  position: relative;
+  width: calc(100% - var(--experience-gutter) - var(--experience-runout));
+  margin-inline: auto;
+  border: 1px solid #302f2b;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 40%),
+    #0b0b0a;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.05),
+    0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* A starfield behind the strip, built from repeating gradients rather than an
+   image or a canvas: two layers at different scales drift at different speeds,
+   which is the parallax that reads as depth. No request, no rAF loop.
+
+   The window cannot clip, because its step buttons sit outside it, so the
+   layers drift by background-position rather than by moving a bigger box. */
+.experience__window::before,
+.experience__window::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.experience__window::before {
+  background-image:
+    radial-gradient(1.1px 1.1px at 12% 18%, #ccd6e6, transparent),
+    radial-gradient(1px 1px at 47% 9%, #aab6c8, transparent),
+    radial-gradient(1.1px 1.1px at 74% 31%, #d3dcea, transparent),
+    radial-gradient(1px 1px at 28% 62%, #b0bccf, transparent),
+    radial-gradient(1.1px 1.1px at 88% 71%, #c2cddd, transparent),
+    radial-gradient(1px 1px at 61% 87%, #a6b2c6, transparent),
+    radial-gradient(1.1px 1.1px at 5% 91%, #bcc7d8, transparent),
+    radial-gradient(1px 1px at 38% 44%, #9fabc0, transparent),
+    radial-gradient(1px 1px at 93% 12%, #b6c1d3, transparent);
+  background-size: 190px 160px;
+  opacity: 0.75;
+}
+
+.experience__window::after {
+  background-image:
+    radial-gradient(2px 2px at 33% 26%, #f2f5fa, transparent),
+    radial-gradient(1.7px 1.7px at 81% 54%, #e2e8f2, transparent),
+    radial-gradient(2px 2px at 16% 78%, #eef2f8, transparent),
+    radial-gradient(1.7px 1.7px at 66% 92%, #dbe3ef, transparent);
+  background-size: 330px 280px;
+  opacity: 0.62;
+}
+
+/* above the starfield; the step buttons keep their own higher layer */
+.experience__rail {
+  z-index: 1;
+}
+
+.experience__step {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  margin-top: -1.2rem;
+  border: 1px solid #3c3a35;
+  border-radius: 50%;
+  background: rgba(11, 11, 10, 0.88);
+  color: var(--text);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition:
+    border-color 220ms ease,
+    color 220ms ease,
+    opacity 220ms ease;
+}
+
+.experience__step--back {
+  left: -1.2rem;
+}
+
+.experience__step--on {
+  right: -1.2rem;
+}
+
+.experience__step:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.experience__step:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.experience__step:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
 .experience__rail {
   position: relative;
   display: flex;
@@ -616,10 +756,18 @@ h1 {
   overflow-x: auto;
   overflow-y: hidden;
   padding-block: 0.4rem 1.4rem;
-  padding-inline: max(2rem, calc(50% - 36rem));
+  padding-inline: 1.6rem;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(to right, transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent);
+  cursor: grab;
+  /* the fades are narrower than the padding, so a resting chapter is never
+     dimmed and only fades once it is genuinely leaving the window */
+  mask-image: linear-gradient(to right, transparent, #000 1.2rem, #000 calc(100% - 1.2rem), transparent);
+}
+
+.experience__rail--free:active {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .experience__rail::-webkit-scrollbar {
@@ -634,51 +782,147 @@ h1 {
 .experience__chapters {
   display: flex;
   flex: 0 0 auto;
-  gap: 0;
+  gap: 2.2rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* each chapter is a bento cluster, not one card: sizes differ on purpose */
+/* One card per role, wound past the window like a contact sheet. The face you
+   land on is who and where; the evidence is on the back, so a reader scanning
+   the strip is not made to read five dossiers at once. */
 .chapter {
+  position: relative;
+  width: var(--plate);
+  height: var(--card);
+  perspective: 1500px;
+}
+
+.chapter--turned {
+  --turn: -180deg;
+}
+
+/* Each face rotates on its own and hides its own back, so the card needs no
+   preserve-3d wrapper. Nothing here may carry filter or opacity: both group
+   their descendants and would flatten the turn.
+
+   The turn is on transform and the pointer tilt is on the independent rotate
+   property, so the two can carry different durations — a tilt that inherited
+   the turn's 640ms would trail the pointer badly. */
+.chapter__face {
+  position: absolute;
+  inset: 0;
   display: grid;
-  grid-template-columns: 17rem 12rem;
-  grid-template-rows: auto auto auto;
-  /* notable runs the full height as a tower, so a chapter with no Learnt line
-     still packs instead of leaving a void beside its outcome */
-  grid-template-areas:
-    'marquee notable'
-    'outcome notable'
-    'learnt  notable';
-  gap: 0.7rem;
-  align-content: start;
-  padding-right: 2.2rem;
-  margin-right: 2.2rem;
-  /* the hatch is the chapter divider, reusing the site's own noise idiom */
-  border-right: 1px solid #201f1c;
+  gap: 0.75rem;
+  padding: 1.15rem;
+  border: 1px solid #2f2e2a;
+  border-radius: 9px;
   background:
-    repeating-linear-gradient(
-      135deg,
-      #141311 0 2px,
-      transparent 2px 9px
-    ) right / 1.1rem 100% no-repeat;
+    radial-gradient(
+      70% 55% at var(--px, 50%) var(--py, 0%),
+      rgba(255, 255, 255, 0.075),
+      transparent 72%
+    ),
+    linear-gradient(158deg, #16150f, #0a0a09 62%);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.55),
+    inset 0 1px rgba(255, 255, 255, 0.06);
+  backface-visibility: hidden;
+  /* axis is perpendicular to the pointer's offset, so the card leans toward it */
+  rotate: var(--tilt-x, 0) var(--tilt-y, 1) 0 var(--tilt-a, 0deg);
+  transition:
+    transform 640ms cubic-bezier(0.22, 1, 0.36, 1),
+    rotate 160ms linear,
+    box-shadow 320ms ease;
 }
 
-.chapter:last-of-type {
-  border-right: 0;
+.chapter__face--front {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    'photo'
+    'stamp'
+    'marquee'
+    'turn';
+  /* the slack sits above the turn button, not under it: with 1fr last the
+     button competed for the leftover space and never got its own height */
+  grid-template-rows: var(--media) auto 1fr auto;
+  transform: rotateY(var(--turn, 0deg));
+}
+
+.chapter__face--back {
+  grid-template-areas:
+    'outcome'
+    'notable'
+    'learnt'
+    'turn';
+  grid-template-rows: auto auto 1fr auto;
+  transform: rotateY(calc(var(--turn, 0deg) + 180deg));
+}
+
+.chapter:hover .chapter__face,
+.chapter:focus-within .chapter__face {
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.62),
+    inset 0 1px rgba(255, 255, 255, 0.09);
+}
+
+.chapter__turn {
+  display: flex;
+  grid-area: turn;
+  gap: 0.5rem;
+  align-items: center;
+  align-self: end;
+  justify-content: space-between;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #3a382f;
+  border-radius: 4px;
   background: none;
+  color: #bab5ac;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 220ms ease,
+    color 220ms ease;
 }
 
+.chapter__turn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chapter__turn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Every card carries the same band. A role with no photograph shows its year
+   at card scale instead, so the strip stays regular and the sequence gets the
+   one piece of large type it was missing. */
+.chapter__face--front:not(:has(.chapter__photo))::before {
+  content: var(--year, '');
+  display: grid;
+  grid-area: photo;
+  place-items: center;
+  align-self: start;
+  height: var(--media);
+  border: 1px solid #2f2e2a;
+  border-radius: 4px;
+  color: #23221e;
+  font-family: 'Mackie Pixel', ui-monospace, monospace;
+  font-size: 4rem;
+  line-height: 1;
+}
+
+/* No blanket card. Four panels wearing one border, one radius and one gradient
+   is what made a timeline read as a template: identity, evidence, result and
+   reflection are different jobs, so only the result keeps a surface and the
+   rest sit as type on the field. */
 .chapter > article {
   min-width: 0;
-  padding: 1rem 1.05rem;
-  border: 1px solid #3c3a35;
-  border-radius: 6px;
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.03), transparent 32%),
-    #0d0d0c;
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .chapter__marquee {
@@ -706,8 +950,16 @@ h1 {
 /* The date stamp is machine-authored data, not editorial voice, which is the one
    job a bitmap face does better than a text face. Held at 12px because the
    glyphs are drawn on a pixel grid and fractional sizes smear the stems. */
+/* The time band. It is the one thing that runs level across every chapter, so
+   it is the axis the plates hang from — and it stays put while they settle. */
 .chapter__period {
-  margin: 0 0 0.55rem;
+  display: flex;
+  grid-area: stamp;
+  gap: 0.7rem;
+  align-items: baseline;
+  margin: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #2b2a26;
   color: #9fb0c2;
   font-family: 'Mackie Pixel', 'Recursive Variable', ui-monospace, monospace;
   font-size: 12px;
@@ -720,28 +972,33 @@ h1 {
   white-space: nowrap;
 }
 
-/* the chapter number belongs in the corner like a plate number, not in the
-   date line where it competed for width and forced a wrap */
+/* Stamped in the corner rather than set in the band: the date runs 200px wide
+   in a 230px card, so a number beside it hung 34px off the edge. */
 .chapter__index {
   position: absolute;
   top: 1rem;
-  right: 1.05rem;
-  color: #4f4c47;
+  right: 1.2rem;
+  color: #55514a;
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 .chapter__company {
   margin: 0;
   font-family: 'Danviska', serif;
-  font-size: 1.75rem;
+  font-size: 2rem;
   font-weight: 400;
-  line-height: 1.05;
+  line-height: 1.02;
+  /* Hacker4Justice and IndussianAssist have no space to break at, so without
+     this they hang off the card instead of wrapping */
+  overflow-wrap: anywhere;
 }
 
 .chapter__role {
-  margin: 0.35rem 0 0.6rem;
-  color: #d7d3cb;
+  margin: 0.4rem 0 0.65rem;
+  color: #e2ded6;
   font-family: 'Kiona', sans-serif;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   line-height: 1.35;
 }
 
@@ -755,48 +1012,50 @@ h1 {
   font-style: normal;
 }
 
+/* Team and place were 10.6px at #5f6b78, which is 3.5:1 on this card and under
+   the contrast floor as well as hard to read at that size. */
 .chapter__team,
 .chapter__place {
   margin: 0;
-  color: #7d8fa2;
+  color: #93a4b5;
   font-family: 'Recursive Variable', ui-monospace, monospace;
-  font-size: 0.66rem;
+  font-size: 0.78rem;
   line-height: 1.45;
 }
 
 .chapter__place {
-  margin-top: 0.2rem;
-  color: #5f6b78;
+  margin-top: 0.25rem;
+  color: #7b8896;
 }
 
 .chapter__notable {
   display: grid;
   grid-area: notable;
-  /* size to its chips instead of stretching the row, so the cluster keeps the
-     uneven bento silhouette rather than reading as a two-column table */
   align-content: start;
   align-self: start;
 }
 
-/* A chapter with a photograph reshapes rather than bolting a sliver on the end:
-   the picture takes a near-square card beside the marquee and the Learnt note
-   runs wide underneath both. A tall thin slot cropped the subject twice. */
-.chapter:has(.chapter__photo) {
-  grid-template-columns: 16rem 15rem 12rem;
-  grid-template-areas:
-    'marquee photo  notable'
-    'outcome photo  notable'
-    'learnt  learnt notable';
-}
+/* The frame holds the export's own ratio and a fixed height, so every picture
+   in the strip is cut to the same band and none of them is cropped a second
+   time by whatever a sibling plate happens to do. Tuning slot widths by hand
+   only held until the next content change.
 
+   Relative because the metadata overlay anchors here: left static it anchored
+   to the card face instead and hung off the bottom of every card. */
 .chapter__photo,
 .chapter__scene {
-  display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 0.4rem;
+  position: relative;
+  display: block;
   margin: 0;
-  align-self: stretch;
+  align-self: start;
   min-height: 0;
+}
+
+.chapter__photo .photo-frame,
+.chapter__scene .photo-frame {
+  height: var(--media);
+  aspect-ratio: var(--frame-ratio, 3 / 4);
+  margin-inline: auto;
 }
 
 .chapter__photo {
@@ -807,15 +1066,19 @@ h1 {
   grid-area: scene;
 }
 
-/* The current role earns two frames: the sign that names the place, and the
-   campus it stands on. Two 13rem slots sit at 0.75, which is the native ratio
-   of these frames, so neither picture is cropped to fit. */
+/* The current role earns two frames: the sign that names the place and the
+   campus it stands on, cut to the same band and set side by side. */
 .chapter:has(.chapter__scene) {
-  grid-template-columns: 16rem 13rem 13rem 12rem;
+  width: calc(var(--plate) * 2);
+}
+
+.chapter:has(.chapter__scene) .chapter__face--front {
+  grid-template-columns: 1fr 1fr;
   grid-template-areas:
-    'marquee photo  scene  notable'
-    'outcome photo  scene  notable'
-    'learnt  learnt learnt notable';
+    'photo   scene'
+    'stamp   stamp'
+    'marquee marquee'
+    'turn    turn';
 }
 
 /* The frame is what clips, not the figure: the figure also holds the caption,
@@ -829,9 +1092,10 @@ h1 {
   border-radius: 4px;
 }
 
+/* Every photograph waits in monochrome and comes up in full colour only for the
+   card being read, so colour marks attention rather than being the default. */
 .chapter__photo img,
-.chapter__scene img,
-.experience__frontispiece img {
+.chapter__scene img {
   display: block;
   width: 100%;
   height: 100%;
@@ -840,7 +1104,27 @@ h1 {
      rather than trusting the middle of the picture */
   object-fit: cover;
   object-position: var(--photo-position, 50% 50%);
-  filter: saturate(0.62) contrast(1.03) brightness(0.82);
+  filter: grayscale(1) contrast(1.06) brightness(0.84);
+}
+
+/* the charcoal drawing is exempt: it has no colour to withhold */
+.experience__frontispiece img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+  object-position: var(--photo-position, 50% 50%);
+  filter: contrast(1.04) brightness(0.92);
+}
+
+/* Colour is the reveal, so it is not gated on the motion preference: only the
+   fade between the two states below is. */
+.chapter:hover .chapter__photo img,
+.chapter:focus-within .chapter__photo img,
+.chapter:hover .chapter__scene img,
+.chapter:focus-within .chapter__scene img {
+  filter: grayscale(0) saturate(1.3) contrast(1.04) brightness(1);
 }
 
 .chapter__photo figcaption,
@@ -848,35 +1132,91 @@ h1 {
 .experience__frontispiece figcaption {
   display: flex;
   gap: 0.55rem;
-  color: #6f6b64;
+  color: #837e76;
   font-family: 'Kiona', sans-serif;
-  font-size: 0.58rem;
+  font-size: 0.66rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-/* The rail opens on a face before it opens on a job. The timeline belongs to
-   someone, and the reader should meet him before the first company. */
-.experience__frontispiece {
+/* The picture's own metadata, laid over the foot of the print and out of the
+   way until asked for. It is absolutely positioned, so revealing it neither
+   reflows the card nor costs a reserved empty line when it is hidden. */
+.chapter__photo figcaption,
+.chapter__scene figcaption {
+  position: absolute;
+  inset: auto 1px 1px;
   display: grid;
-  flex: 0 0 auto;
-  grid-template-rows: auto auto;
-  align-content: start;
-  gap: 0.4rem;
-  align-self: stretch;
-  width: 15rem;
-  min-height: 0;
-  margin: 0 2.2rem 0 0;
-  padding-right: 2.2rem;
-  border-right: 1px solid #201f1c;
+  gap: 0.15rem;
+  padding: 1.4rem 0.65rem 0.55rem;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(to top, rgba(5, 5, 4, 0.94), rgba(5, 5, 4, 0.78) 55%, transparent);
+  translate: 0 0.5rem;
+  opacity: 0;
+  pointer-events: none;
 }
 
-/* The plate holds its own proportions rather than stretching to whatever the
-   tallest chapter happens to be. Coupled to a sibling, its crop drifted every
-   time a chapter gained content. */
-.experience__frontispiece img {
+.photo-where {
+  color: var(--accent);
+  font-size: 0.62rem;
+}
+
+.photo-what {
+  color: #e6e2da;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: none;
+}
+
+/* Touch has no hover to reveal with, so there the description is carried by the
+   picture's alt text, which every frame already has. */
+@media (hover: hover) and (pointer: fine) {
+  .chapter:hover .chapter__photo figcaption,
+  .chapter:hover .chapter__scene figcaption,
+  .chapter:focus-within .chapter__photo figcaption,
+  .chapter:focus-within .chapter__scene figcaption {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+
+/* The rail opens on a face before it opens on a job. The timeline belongs to
+   someone, and the reader should meet him before the first company. The note a
+   colleague left about him sits directly under it, so the two things that are
+   about the person rather than the work stay together. */
+.experience__index {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-rows: 1fr auto;
+  gap: 1rem;
+  width: 13.5rem;
+  height: var(--card);
+  margin-right: 2.2rem;
+}
+
+.experience__frontispiece {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 0.5rem;
+  min-height: 0;
+  margin: 0;
+  padding: 1.15rem;
+  border: 1px solid #2f2e2a;
+  border-radius: 9px;
+  background: linear-gradient(158deg, #16150f, #0a0a09 62%);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.55),
+    inset 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* width-driven, so a wider frame cannot spill out of the column; the row keeps
+   whatever height is left over after the note */
+.experience__frontispiece .photo-frame {
+  width: 100%;
   height: auto;
-  aspect-ratio: 525 / 1000;
+  max-height: 100%;
+  aspect-ratio: var(--frame-ratio, 3 / 4);
+  margin: auto;
 }
 .experience__frontispiece figcaption {
   color: #a7a39b;
@@ -894,7 +1234,7 @@ h1 {
   margin: 0 0 0.7rem;
   color: var(--accent);
   font-family: 'Kiona', sans-serif;
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 400;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -909,49 +1249,82 @@ h1 {
 }
 
 .chapter__notable li {
-  padding: 0.3rem 0.45rem;
+  padding: 0.4rem 0.55rem;
   border: 1px solid #2f2e2a;
   border-radius: 3px;
-  color: #a7a39b;
+  color: #bab5ac;
   font-family: 'Recursive Variable', ui-monospace, monospace;
-  font-size: 0.63rem;
-  line-height: 1.25;
+  font-size: 0.74rem;
+  line-height: 1.3;
 }
 
+/* Counterchange. The outcome is the one thing a reader scanning sideways needs
+   to catch, so it is the only panel that keeps a surface — and it inverts:
+   amber ground, dark ink, against a field where everything else is ink on
+   black. One saturated mass per chapter, roughly a twelfth of its area. */
 .chapter__outcome {
   display: grid;
   grid-area: outcome;
   align-content: center;
-  border-color: #5c4b35;
-  background:
-    linear-gradient(150deg, rgba(209, 163, 95, 0.16), transparent 60%),
-    #14110c;
+  padding: 0.85rem 1rem;
+  border-radius: 3px;
+  background: var(--accent);
 }
 
 .chapter__outcome p {
   margin: 0;
-  color: #e7c88e;
+  color: #16120b;
   font-family: 'Kiona', sans-serif;
-  font-size: 0.8rem;
-  line-height: 1.4;
+  font-size: 0.95rem;
+  line-height: 1.35;
 }
 
+/* the handwriting sits in the middle of whatever the evidence leaves, which is
+   what the back has instead of a picture */
 .chapter__learnt {
   grid-area: learnt;
+  align-self: center;
+  padding-left: 0.9rem;
+  border-left: 1px solid #2b2a26;
 }
 
 .chapter__learnt p {
   margin: 0;
-  color: #d7d3cb;
+  color: #e2ded6;
   font-family: 'Caveat Note', 'Danviska', cursive;
-  font-size: 1.15rem;
-  line-height: 1.3;
+  font-size: 1.4rem;
+  line-height: 1.35;
 }
 
 /* Motion is opted into, not overridden away. Everything above is the finished
    state, so a reduced-motion visitor never enters this block and still gets the
    whole layout. With this many effects an opt-out list would miss one. */
 @media (prefers-reduced-motion: no-preference) {
+  /* the two layers travel at different speeds and in opposite directions, so
+     the field has depth rather than sliding as one sheet */
+  .experience__window::before {
+    animation: star-drift-far 150s linear infinite;
+  }
+
+  .experience__window::after {
+    animation: star-drift-near 88s linear infinite;
+  }
+
+  @keyframes star-drift-far {
+    to {
+      background-position: -190px 160px;
+    }
+  }
+
+  @keyframes star-drift-near {
+    to {
+      background-position: 330px -280px;
+    }
+  }
+
+  /* recede rides the independent scale property: the card's transform belongs
+     to the per-frame spring below, and a 380ms transition on that would smooth
+     the spring into mush */
   .chapter {
     --recede: 0;
     transition: scale 380ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -977,17 +1350,21 @@ h1 {
       transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .chapter > article {
+  /* the metadata slides up off the print rather than cutting in; without this
+     it still appears, just instantly, which is correct for reduced motion */
+  .chapter__photo figcaption,
+  .chapter__scene figcaption {
+    transition:
+      translate 380ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 260ms ease;
+  }
+
+  .chapter__outcome {
     border-color: color-mix(in oklab, #3c3a35, #0d0d0c calc(var(--recede) * 60%));
   }
 
-  /* the photograph warms to full colour only for the chapter being read */
-  .chapter:hover .chapter__photo img,
-  .chapter:focus-within .chapter__photo img,
-  .chapter:hover .chapter__scene img,
-  .chapter:focus-within .chapter__scene img {
-    filter: saturate(1) contrast(1) brightness(0.98);
-  }
+  /* the photograph comes up in full, slightly lifted colour for the chapter
+     being read; everywhere else it stays a negative */
 
   /* the chip tower is the densest card, so it arrives as a list you read down
      rather than one block that lands at once */
@@ -1005,21 +1382,34 @@ h1 {
      position. Guarded: without scroll timelines this would run once against the
      document timeline and strand every card at its opening frame. */
   @supports (animation-timeline: view()) {
-    .chapter {
-      animation: chapter-arrive linear both;
+    /* The strip is a contact sheet wound past a window, so a card is a negative
+       until it reaches the middle and develops: colour arrives and the card
+       comes up to full size, then drains again on the way out. This sits on the
+       faces, not the card: filter and opacity both group their descendants, and
+       on the card either one would flatten the turn. Saturation carries it
+       because it leaves luminance alone, and there is no opacity step because a
+       see-through card shows the strip behind it. */
+    .chapter__face {
+      animation: chapter-develop linear both;
       animation-timeline: view(inline);
-      animation-range: entry 5% cover 40%;
+      animation-range: cover;
     }
 
-    @keyframes chapter-arrive {
-      from {
-        opacity: 0.4;
-        translate: 0 1.15rem;
+    @keyframes chapter-develop {
+      0% {
+        scale: 0.94;
+        filter: saturate(0);
       }
 
-      to {
-        opacity: 1;
-        translate: 0 0;
+      42%,
+      58% {
+        scale: 1;
+        filter: saturate(1);
+      }
+
+      100% {
+        scale: 0.94;
+        filter: saturate(0);
       }
     }
 
@@ -1038,60 +1428,46 @@ h1 {
     .chapter__photo img,
     .chapter__scene img,
     .experience__frontispiece img {
-      /* 1.08 gives 4% of headroom on each edge and the drift uses 2.8% of it.
-         Magnification is the price of vertical travel, and it is paid on every
-         edge, so it is kept to the least the movement needs: these frames were
-         exported to fit their slots exactly and should not be re-cropped. */
-      scale: 1.08;
-      animation: frame-drift linear both;
-      animation-timeline: --experience-pass;
-      animation-range: entry 0% entry 100%;
+      /* Two timelines drive one picture: the page drives the vertical drift and
+         the rail drives the horizontal pan. They cannot both animate translate,
+         so each animates its own registered property and the two compose here.
+         1.12 is the headroom both travels are taken from. */
+      scale: 1.12;
+      translate: var(--frame-pan) var(--frame-drift);
+      animation:
+        frame-drift linear both,
+        frame-pan linear both;
+      animation-timeline: --experience-pass, view(inline);
+      animation-range: entry 0% entry 100%, cover;
     }
 
     @keyframes frame-drift {
       from {
-        translate: 0 -2.8%;
+        --frame-drift: -2.8%;
       }
 
       to {
-        translate: 0 2.8%;
+        --frame-drift: 2.8%;
       }
     }
 
-    /* Depth. The cards are what can actually move: they have room around them,
-       and unlike the photographs nothing has to be cropped to make space. Each
-       one declares how far back it sits, so both the arrival and the spring
-       below act on them by different amounts and the cluster gains thickness
-       instead of behaving as one flat sheet. */
-    .chapter__marquee {
-      --depth: 0.18;
+    /* the picture lags its own mount as the plate winds past, which is the
+       depth cue the strip had only on the vertical axis */
+    @keyframes frame-pan {
+      from {
+        --frame-pan: -3.6%;
+      }
+
+      to {
+        --frame-pan: 3.6%;
+      }
     }
 
-    .chapter__learnt {
-      --depth: 0.34;
-    }
-
-    .chapter__outcome {
-      --depth: 0.52;
-    }
-
-    .chapter__photo,
-    .chapter__scene {
-      --depth: 0.76;
-    }
-
-    .chapter__notable {
-      --depth: 1;
-    }
-
-    /* The spring. --lag is written by one rAF loop that reads how fast the page
-       is scrolling and never changes it. This is on transform while the arrival
-       below is on translate, so the two compose rather than one replacing the
-       other. */
-    .chapter > article,
-    .chapter__photo,
-    .chapter__scene {
-      transform: translateY(calc(var(--lag, 0px) * var(--depth, 0.5)));
+    /* Depth. The card is one object now, so it is the card that lags the page
+       while the picture drifts on inside its own frame. Two layers, which is
+       what reads as thickness; per-panel depths belonged to the bento. */
+    .chapter {
+      transform: translateY(calc(var(--lag, 0px) * 0.55));
       will-change: transform;
     }
 
@@ -1100,23 +1476,19 @@ h1 {
        so most of a cover range is scroll that does not exist. It ends early in
        the entry so the arrival is spent over a few hundred pixels rather than
        smeared across every pixel left on the page. */
-    @supports (animation-timeline: view()) {
-      .chapter > article,
-      .chapter__photo,
-      .chapter__scene {
-        animation: card-settle linear both;
-        animation-timeline: --experience-pass;
-        animation-range: entry 10% entry 58%;
+    .chapter {
+      animation: card-settle linear both;
+      animation-timeline: --experience-pass;
+      animation-range: entry 10% entry 58%;
+    }
+
+    @keyframes card-settle {
+      from {
+        translate: 0 34px;
       }
 
-      @keyframes card-settle {
-        from {
-          translate: 0 calc(var(--depth, 0.5) * 46px);
-        }
-
-        to {
-          translate: 0 0;
-        }
+      to {
+        translate: 0 0;
       }
     }
   }
@@ -1129,8 +1501,8 @@ h1 {
   display: flex;
   gap: 0.85rem;
   align-items: center;
-  width: min(72rem, calc(100% - 4rem));
-  margin: 0.4rem auto 0;
+  width: calc(100% - var(--experience-gutter) - var(--experience-runout));
+  margin: 0.9rem auto 0;
   color: #5f6b78;
   font-family: 'Recursive Variable', ui-monospace, monospace;
   font-size: 0.64rem;
@@ -1164,15 +1536,17 @@ h1 {
     gap: 0.6rem;
   }
 
-  .chapter {
-    /* two columns will not hold at this width, so each chapter stacks and the
-       rail becomes a swipe through single-column chapters */
-    grid-template-columns: 15rem;
-    grid-template-areas:
-      'marquee'
-      'outcome'
-      'notable'
-      'learnt';
+  /* The plate layout already holds at any width. Only the two-picture plate
+     needs handling: it keeps both frames rather than dropping one, cut to a
+     smaller band so the plate stays one plate wide and its text never asks to
+     be read sideways. The media row is a fixed height, so the bands still line
+     up across the strip. */
+  .chapter:has(.chapter__scene) {
+    width: var(--plate);
+  }
+
+  .chapter:has(.chapter__scene) .photo-frame {
+    height: calc(var(--media) * 0.6);
   }
 }
 
@@ -1184,9 +1558,8 @@ h1 {
   z-index: 3;
   flex: 0 0 auto;
   align-self: center;
-  width: 13.5rem;
-  height: 13.5rem;
-  margin-left: 1.5rem;
+  width: 100%;
+  aspect-ratio: 1;
   perspective: 900px;
   touch-action: none;
   transform: translate(var(--note-x, 0), var(--note-y, 0)) rotate(-2.5deg);
@@ -1348,6 +1721,11 @@ h1 {
   font-size: 0.62rem;
   line-height: 1.4;
   text-align: center;
+}
+
+/* the second credit line continues the first, so it does not repeat its lead */
+.font-credit--photos {
+  padding-top: 0;
 }
 
 .font-credit a {
@@ -3437,6 +3815,12 @@ h1 {
 @media (forced-colors: active) {
   .scene__window,
   .scene__kanji-layer {
+    display: none;
+  }
+
+  /* the starfield is decoration and carries no meaning */
+  .experience__window::before,
+  .experience__window::after {
     display: none;
   }
 

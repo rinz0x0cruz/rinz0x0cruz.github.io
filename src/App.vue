@@ -33,19 +33,30 @@ const dossierOpen = ref(false)
 const dossierToggle = ref(null)
 const experienceRail = ref(null)
 
-// profile lists roles newest first; the rail runs forward through time
-const careerOrder = computed(() => [...profile.experience].reverse())
+// Three cards borrow a photograph of a place. Attribution lives here rather
+// than under each picture, where it crowded the caption off the card.
+const photoCredits = computed(() =>
+  profile.experience.filter((role) => role.photo?.credit).map((role) => role.photo.credit),
+)
 
+// counted from the earliest role rather than written down, so the hint and the
+// axis label cannot drift apart or go stale as roles are added
 const careerYears = computed(() => {
-  const years = careerOrder.value.map((role) => Number(role.start.slice(0, 4)))
+  const years = profile.experience.map((role) => Number(role.start.slice(0, 4)))
   const first = Math.min(...years)
   const last = new Date().getFullYear()
   return Array.from({ length: last - first + 1 }, (_, index) => first + index)
 })
 
+// Counted in months from the earliest role, not in calendar years: subtracting
+// year numbers would have added a year every New Year's Day rather than on the
+// anniversary, overstating the span for eleven months of each year.
 const careerSpan = computed(() => {
-  const first = careerYears.value[0]
-  const years = careerYears.value.at(-1) - first
+  const earliest = profile.experience.map((role) => role.start).sort()[0]
+  const [year, month] = earliest.split('-').map(Number)
+  const now = new Date()
+  const months = (now.getFullYear() - year) * 12 + (now.getMonth() + 1 - month)
+  const years = Math.floor(months / 12)
   return years <= 1 ? 'a year' : `${years} years`
 })
 
@@ -104,32 +115,99 @@ function handleRailKeydown(event) {
 // almost immovable there. Page mode is rarer but scales by the viewport.
 const WHEEL_LINE = 40
 
-function wheelPixels(event, pageSize) {
-  if (event.deltaMode === 1) return event.deltaY * WHEEL_LINE
-  if (event.deltaMode === 2) return event.deltaY * pageSize
-  return event.deltaY
+function wheelPixels(deltaMode, amount, pageSize) {
+  if (deltaMode === 1) return amount * WHEEL_LINE
+  if (deltaMode === 2) return amount * pageSize
+  return amount
+}
+
+function stepRail(direction) {
+  const rail = experienceRail.value
+  if (!rail) return
+
+  railGlide.stop()
+  rail.scrollBy({
+    left: direction * Math.round(rail.clientWidth * 0.8),
+    behavior: reducedMotionMedia?.matches ? 'auto' : 'smooth',
+  })
+}
+
+// Drag the rail like a filmstrip. Buttons and arrows already cover the same
+// ground, so this never becomes the only way through (WCAG 2.5.7).
+const railDragging = ref(false)
+let dragFrom = 0
+let dragScroll = 0
+let dragPointer = null
+let dragMoved = 0
+let dragStep = 0
+let dragAt = 0
+
+function onRailPointerDown(event) {
+  if (event.button !== 0 || event.target.closest('.sticky-note, button, a')) return
+
+  railGlide.stop()
+  dragPointer = event.pointerId
+  dragFrom = event.clientX
+  dragScroll = experienceRail.value.scrollLeft
+  dragMoved = 0
+  dragStep = 0
+  dragAt = event.timeStamp
+}
+
+function onRailPointerMove(event) {
+  if (dragPointer === null || event.pointerId !== dragPointer) return
+
+  const travelled = event.clientX - dragFrom
+  dragMoved = Math.abs(travelled)
+  if (!railDragging.value) {
+    if (dragMoved <= 6) return
+    railDragging.value = true
+    event.currentTarget.setPointerCapture(dragPointer)
+  }
+
+  const rail = experienceRail.value
+  const before = rail.scrollLeft
+  rail.scrollLeft = dragScroll - travelled
+  // per frame, so a high-polling pointer does not report a weaker throw
+  const frames = Math.min(4, Math.max(0.25, (event.timeStamp - dragAt) / 16.7))
+  dragStep = (rail.scrollLeft - before) / frames
+  dragAt = event.timeStamp
+}
+
+function onRailPointerUp(event) {
+  if (dragPointer === null || event.pointerId !== dragPointer) return
+
+  const flung = railDragging.value
+  if (flung) event.currentTarget.releasePointerCapture?.(dragPointer)
+  railDragging.value = false
+  dragPointer = null
+
+  if (!flung || reducedMotionMedia?.matches) return
+  if (Math.abs(dragStep) > 1) railGlide.fling(dragStep)
 }
 
 function handleRailWheel(event) {
-  // a vertical wheel over the rail should move it sideways, but only while it
-  // still has somewhere to go, so the page keeps scrolling at either end
-  if (event.deltaX !== 0 || event.shiftKey) return
+  // Sideways input always belongs to the rail. A vertical wheel is taken only
+  // once the page has come to rest under the pointer: while it is still
+  // travelling the reader is passing through, and turning that into sideways
+  // travel is what used to put 15 notches of timeline in their way.
+  const sideways = event.deltaX !== 0 || event.shiftKey
+  if (!sideways && pageGlide.moving) return
 
   const rail = experienceRail.value
-  const atStart = rail.scrollLeft <= 0 && event.deltaY < 0
-  const atEnd = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1 && event.deltaY > 0
+  const amount = event.deltaX !== 0 ? event.deltaX : event.deltaY
+  const atStart = rail.scrollLeft <= 0 && amount < 0
+  const atEnd = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1 && amount > 0
+  // spent in this direction, so the wheel goes back to the page
   if (atStart || atEnd) return
 
   event.preventDefault()
-  const pixels = wheelPixels(event, rail.clientWidth)
+  const pixels = wheelPixels(event.deltaMode, amount, rail.clientWidth)
   if (reducedMotionMedia?.matches) {
     rail.scrollLeft += pixels
     return
   }
 
-  // Reach is shove / (1 - drag), so 0.16 of a notch against a drag of 0.94
-  // carries about 265px: further than the notch itself, which is the momentum.
-  // The ramp spreads it over time rather than spending it at once.
   railGlide.push(pixels * 0.16)
 }
 
@@ -166,11 +244,48 @@ function handlePageWheel(event) {
   if (atTop || atEnd) return
 
   event.preventDefault()
-  pageGlide.push(wheelPixels(event, window.innerHeight) * 0.13)
+  pageGlide.push(wheelPixels(event.deltaMode, event.deltaY, window.innerHeight) * 0.13)
 }
 
 // how much of the rail has been revealed, so the axis under it can say where you are
 const railSeen = ref(0)
+// which cards are showing their evidence side
+const turned = ref([])
+// per-card pointer tilt, so a card reads as an object rather than a picture
+const tilt = ref([])
+
+function turn(index) {
+  turned.value[index] = !turned.value[index]
+}
+
+function tiltCard(event, index) {
+  // touch drives the rail's own drag, and a tilt there would fight the scroll
+  if (event.pointerType !== 'mouse') return
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  const box = event.currentTarget.getBoundingClientRect()
+  const x = (event.clientX - box.left) / box.width
+  const y = (event.clientY - box.top) / box.height
+  const dx = x * 2 - 1
+  const dy = y * 2 - 1
+  tilt.value[index] = {
+    // the lean axis is perpendicular to where the pointer sits
+    ax: -dy,
+    ay: dx,
+    deg: Math.min(1, Math.hypot(dx, dy)) * 7,
+    px: `${x * 100}%`,
+    py: `${y * 100}%`,
+  }
+}
+
+function restCard(index) {
+  tilt.value[index] = null
+}
+
+// railSeen counts revealed width, which is never 0 at the start; the controls
+// need the actual ends instead
+const railAtStart = ref(true)
+const railAtEnd = ref(false)
 const railProgress = computed(() => ({
   width: `${Math.min(1, railSeen.value || 0.001) * 100}%`,
 }))
@@ -179,6 +294,8 @@ function handleRailScroll(event) {
   const rail = event.currentTarget
   railSeen.value =
     rail.scrollWidth <= rail.clientWidth ? 1 : (rail.scrollLeft + rail.clientWidth) / rail.scrollWidth
+  railAtStart.value = rail.scrollLeft <= 1
+  railAtEnd.value = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1
 }
 
 onMounted(() => {
@@ -801,126 +918,210 @@ onBeforeUnmount(() => {
           <h2 id="experience-title">Where I've worked</h2>
         </div>
         <p class="experience__hint">
-          <span aria-hidden="true">←</span>
-          Scroll sideways through {{ careerSpan }}
-          <span aria-hidden="true">→</span>
+          Scroll, drag, or use the arrows to move through {{ careerSpan }}
         </p>
       </div>
 
-      <!-- one horizontal rail: the axis is time, oldest role on the left -->
-      <div
-        ref="experienceRail"
-        class="experience__rail"
-        tabindex="0"
-        role="group"
-        aria-label="Career timeline, scrollable sideways"
-        @keydown="handleRailKeydown"
-        @wheel="handleRailWheel"
-        @scroll="handleRailScroll"
-      >
-        <figure class="experience__frontispiece">
-          <span class="photo-frame">
-            <img
-              src="/ms-portrait.webp"
-              :alt="`Portrait of ${profile.name}`"
-              :style="{ '--photo-position': '50% 32%' }"
-              width="525"
-              height="1000"
-              decoding="async"
-            />
-          </span>
-          <figcaption>
-            <span class="experience__plate">00</span>
-            {{ profile.name }}
-          </figcaption>
-        </figure>
+      <!-- one horizontal rail: the axis is time, current role on the left -->
+      <div class="experience__window">
+        <div
+          ref="experienceRail"
+          class="experience__rail"
+          :class="{ 'experience__rail--free': railDragging }"
+          tabindex="0"
+          role="group"
+          aria-label="Career timeline, scrollable sideways"
+          @keydown="handleRailKeydown"
+          @wheel="handleRailWheel"
+          @scroll="handleRailScroll"
+          @pointerdown="onRailPointerDown"
+          @pointermove="onRailPointerMove"
+          @pointerup="onRailPointerUp"
+          @pointercancel="onRailPointerUp"
+        >
+        <div class="experience__index">
+          <figure class="experience__frontispiece">
+              <span
+                class="photo-frame"
+                :style="{
+                  '--photo-position': profile.portrait.position,
+                  '--frame-ratio': `${profile.portrait.w} / ${profile.portrait.h}`,
+                }"
+              >
+                <img
+                  :src="profile.portrait.src"
+                  :alt="profile.portrait.alt"
+                  :width="profile.portrait.w"
+                  :height="profile.portrait.h"
+            </span>
+            <figcaption>
+              <span class="experience__plate">00</span>
+              {{ profile.name }}
+            </figcaption>
+          </figure>
+
+          <StickyNote :front="profile.note.front" :back="profile.note.back" />
+        </div>
 
         <ol class="experience__chapters">
           <li
-            v-for="(role, index) in careerOrder"
+            v-for="(role, index) in profile.experience"
             :key="`${role.company}-${role.start}`"
             class="chapter"
-            :style="{ '--chapter-index': index }"
+            :class="{ 'chapter--turned': turned[index] }"
+            :style="{
+              '--chapter-index': index,
+              '--year': `'${role.start.slice(0, 4)}'`,
+              '--tilt-x': tilt[index]?.ax ?? 0,
+              '--tilt-y': tilt[index]?.ay ?? 1,
+              '--tilt-a': `${tilt[index]?.deg ?? 0}deg`,
+              '--px': tilt[index]?.px ?? '50%',
+              '--py': tilt[index]?.py ?? '0%',
+            }"
+            @pointermove="tiltCard($event, index)"
+            @pointerleave="restCard(index)"
           >
-            <article class="chapter__marquee">
-              <CompanyMark :mark="role.mark" />
+            <!-- inert rather than aria-hidden: the far face must leave the tab
+                 order too, and aria-hidden on something focusable is worse than
+                 no marking at all -->
+            <div class="chapter__face chapter__face--front" :inert="turned[index] || undefined">
+              <figure v-if="role.photo" class="chapter__photo">
+                <span
+                  class="photo-frame"
+                  :style="{
+                    '--photo-position': role.photo.position,
+                    '--frame-ratio': `${role.photo.w} / ${role.photo.h}`,
+                  }"
+                >
+                  <img
+                    :src="role.photo.src"
+                    :alt="role.photo.alt"
+                    :width="role.photo.w"
+                    :height="role.photo.h"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </span>
+                <figcaption>
+                  <span class="photo-where">{{ role.photo.caption.where }}</span>
+                  <span class="photo-what">{{ role.photo.caption.what }}</span>
+                </figcaption>
+              </figure>
+
+              <figure v-if="role.scene" class="chapter__scene">
+                <span
+                  class="photo-frame"
+                  :style="{
+                    '--photo-position': role.scene.position,
+                    '--frame-ratio': `${role.scene.w} / ${role.scene.h}`,
+                  }"
+                >
+                  <img
+                    :src="role.scene.src"
+                    :alt="role.scene.alt"
+                    :width="role.scene.w"
+                    :height="role.scene.h"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </span>
+                <figcaption>
+                  <span class="photo-where">{{ role.scene.caption.where }}</span>
+                  <span class="photo-what">{{ role.scene.caption.what }}</span>
+                </figcaption>
+              </figure>
+
               <p class="chapter__period">
                 <span class="chapter__dates">{{ role.period }}</span>
                 <span class="chapter__index">{{ String(index + 1).padStart(2, '0') }}</span>
               </p>
-              <h3 class="chapter__company">{{ role.company }}</h3>
-              <p class="chapter__role">
-                {{ role.role }}
-                <span aria-hidden="true">·</span>
-                <em>{{ role.kind }}</em>
-              </p>
-              <p class="chapter__team">{{ role.team }}</p>
-              <p class="chapter__place">{{ role.place }}</p>
-            </article>
 
-            <article class="chapter__notable">
-              <h4>Notable work</h4>
-              <ul>
-                <li
-                  v-for="(item, chip) in role.notable"
-                  :key="item"
-                  :style="{ '--i': chip }"
-                >
-                  {{ item }}
-                </li>
-              </ul>
-            </article>
+              <article class="chapter__marquee">
+                <CompanyMark :mark="role.mark" />
+                <h3 class="chapter__company">{{ role.company }}</h3>
+                <p class="chapter__role">
+                  {{ role.role }}
+                  <span aria-hidden="true">·</span>
+                  <em>{{ role.kind }}</em>
+                </p>
+                <p class="chapter__team">{{ role.team }}</p>
+                <p class="chapter__place">{{ role.place }}</p>
+              </article>
 
-            <article class="chapter__outcome">
-              <p>{{ role.outcome }}</p>
-            </article>
+              <button
+                type="button"
+                class="chapter__turn"
+                :aria-expanded="Boolean(turned[index])"
+                :aria-controls="`chapter-evidence-${index}`"
+                @click="turn(index)"
+              >
+                What I did at {{ role.company }}
+                <span aria-hidden="true">↻</span>
+              </button>
+            </div>
 
-            <article v-if="role.learnt" class="chapter__learnt">
-              <h4>Learnt</h4>
-              <p>{{ role.learnt }}</p>
-            </article>
+            <div
+              :id="`chapter-evidence-${index}`"
+              class="chapter__face chapter__face--back"
+              :inert="!turned[index] || undefined"
+            >
+              <article class="chapter__outcome">
+                <p>{{ role.outcome }}</p>
+              </article>
 
-            <figure v-if="role.photo" class="chapter__photo">
-              <span class="photo-frame">
-                <img
-                  :src="role.photo.src"
-                  :alt="role.photo.alt"
-                  :style="{ '--photo-position': role.photo.position }"
-                  :width="role.photo.w"
-                  :height="role.photo.h"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </span>
-              <figcaption>{{ role.photo.caption }}</figcaption>
-            </figure>
+              <article class="chapter__notable">
+                <h4>Notable work</h4>
+                <ul>
+                  <li
+                    v-for="(item, chip) in role.notable"
+                    :key="item"
+                    :style="{ '--i': chip }"
+                  >
+                    {{ item }}
+                  </li>
+                </ul>
+              </article>
 
-            <figure v-if="role.scene" class="chapter__scene">
-              <span class="photo-frame">
-                <img
-                  :src="role.scene.src"
-                  :alt="role.scene.alt"
-                  :style="{ '--photo-position': role.scene.position }"
-                  :width="role.scene.w"
-                  :height="role.scene.h"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </span>
-              <figcaption>{{ role.scene.caption }}</figcaption>
-            </figure>
+              <article v-if="role.learnt" class="chapter__learnt">
+                <h4>Learnt</h4>
+                <p>{{ role.learnt }}</p>
+              </article>
+
+              <button type="button" class="chapter__turn" @click="turn(index)">
+                Back to {{ role.company }}
+                <span aria-hidden="true">↺</span>
+              </button>
+            </div>
           </li>
         </ol>
+        </div>
 
-        <StickyNote :front="profile.note.front" :back="profile.note.back" />
+        <button
+          type="button"
+          class="experience__step experience__step--back"
+          aria-label="Previous roles"
+          :disabled="railAtStart"
+          @click="stepRail(-1)"
+        >
+          <span aria-hidden="true">←</span>
+        </button>
+        <button
+          type="button"
+          class="experience__step experience__step--on"
+          aria-label="Later roles"
+          :disabled="railAtEnd"
+          @click="stepRail(1)"
+        >
+          <span aria-hidden="true">→</span>
+        </button>
       </div>
 
       <p class="experience__axis" aria-hidden="true">
-        <span>{{ careerYears[0] }}</span>
+        <span>Now</span>
         <span class="experience__axis-track">
           <span class="experience__axis-thumb" :style="railProgress" />
         </span>
-        <span>Now</span>
+        <span>{{ careerYears[0] }}</span>
       </p>
     </section>
   </main>
@@ -940,6 +1141,15 @@ onBeforeUnmount(() => {
       Mackie&nbsp;Pixel by rinzler
       <span aria-hidden="true">·</span>
       <a href="https://fonts.google.com/specimen/Pixelify+Sans" rel="external">Pixelify&nbsp;Sans</a> under the SIL&nbsp;Open&nbsp;Font&nbsp;License
+    </p>
+
+    <p class="font-credit font-credit--photos">
+      Place photographs:
+      <template v-for="(credit, index) in photoCredits" :key="credit.subject">
+        <span v-if="index" aria-hidden="true"> · </span>
+        {{ credit.subject }} by {{ credit.author }},
+        <a :href="credit.href" rel="license external">{{ credit.licence }}</a>
+      </template>
     </p>
   </footer>
 </template>

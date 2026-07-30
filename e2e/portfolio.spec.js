@@ -362,7 +362,14 @@ test('fullscreen keeps outcomes close while the credits sit in the page footer',
         footer.height - parseFloat(getComputedStyle(document.querySelector('.site-footer')).borderTopWidth),
       ),
       footerOutsideMain: !document.querySelector('.portfolio').contains(credit),
-      creditHeight: Math.round(credit.getBoundingClientRect().height),
+      // every credit line, so the check still means "the footer is exactly its
+      // contents" now that pictures are credited alongside the fonts
+      creditHeight: Math.round(
+        [...document.querySelectorAll('.font-credit')].reduce(
+          (total, el) => total + el.getBoundingClientRect().height,
+          0,
+        ),
+      ),
       unusedScene: scene.bottom - card.bottom,
     }
   })
@@ -864,32 +871,39 @@ test('career rail states every role in the order they happened', async ({ page }
   await page.goto('/')
 
   const section = page.getByRole('region', { name: "Where I've worked" })
-  // oldest first: the horizontal axis is time
+  // newest first: a reader meets what he does now before how he got here
   await expect(section.locator('.chapter__company')).toHaveText([
-    'IndussianAssist',
-    'Black Hills',
     'Microsoft',
     'Hacker4Justice',
     'Microsoft',
+    'Black Hills',
+    'IndussianAssist',
   ])
   await expect(section.locator('.chapter__dates')).toHaveText([
-    'Feb 2023 — Apr 2023',
-    'May 2023 — Aug 2023',
-    'May 2024 — Jul 2024',
-    'Jun 2025 — Jun 2026',
     'Jun 2025 — Present',
+    'Jun 2025 — Jun 2026',
+    'May 2024 — Jul 2024',
+    'May 2023 — Aug 2023',
+    'Feb 2023 — Apr 2023',
   ])
   await expect(section.locator('.chapter__outcome')).toHaveCount(5)
   await expect(section.locator('.chapter__notable li')).toHaveCount(15)
   // the volunteer investigation stays deliberately unquantified
   await expect(section.locator('.chapter__outcome')).not.toContainText(['4,800'])
 
-  // three chapters carry a picture, and every one of them is described
+  // every card carries a picture now, and every one of them is described
   const photos = section.locator('.chapter__photo img')
-  await expect(photos).toHaveCount(3)
+  await expect(photos).toHaveCount(5)
   for (const alt of await photos.evaluateAll((els) => els.map((e) => e.alt))) {
     expect(alt.length).toBeGreaterThan(20)
   }
+
+  // the borrowed photographs are credited in the page footer, not on the cards
+  // where the credit line crowded the caption off the card
+  await expect(section.locator('.photo-credit')).toHaveCount(0)
+  const credits = page.locator('.font-credit--photos')
+  await expect(credits).toContainText('Sukhna Lake')
+  await expect(credits.locator('a[rel~="license"]')).toHaveCount(3)
 })
 
 test('career photographs are framed, not cropped a second time', async ({ page }) => {
@@ -900,10 +914,10 @@ test('career photographs are framed, not cropped a second time', async ({ page }
   const frames = page.locator(
     '.experience__frontispiece img, .chapter__photo img, .chapter__scene img',
   )
-  await expect(frames).toHaveCount(5)
+  await expect(frames).toHaveCount(7)
   await page.locator('.experience').scrollIntoViewIfNeeded()
 
-  for (let i = 0; i < 5; i += 1) {
+  for (let i = 0; i < 7; i += 1) {
     await frames.nth(i).scrollIntoViewIfNeeded()
     await expect
       .poll(() => frames.nth(i).evaluate((e) => e.complete && e.naturalWidth > 0))
@@ -935,21 +949,63 @@ test('rail motion is opted into, so reduced motion gets the finished layout', as
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
   await page.locator('.experience').scrollIntoViewIfNeeded()
-  const still = await page.locator('.chapter').first().evaluate((el) => ({
+  const still = await page.locator('.chapter__face--front').first().evaluate((el) => ({
     animation: getComputedStyle(el).animationName,
     scale: getComputedStyle(el).scale,
-    opacity: getComputedStyle(el).opacity,
+    filter: getComputedStyle(el).filter,
   }))
   expect(still.animation).toBe('none')
-  expect(still.opacity).toBe('1')
+  expect(still.filter).toBe('none')
 
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.goto('/')
   await page.locator('.experience').scrollIntoViewIfNeeded()
-  const moving = await page.locator('.chapter').first().evaluate((el) => getComputedStyle(el).animationName)
+  const moving = await page
+    .locator('.chapter__face--front')
+    .first()
+    .evaluate((el) => getComputedStyle(el).animationName)
   // only where scroll timelines exist; elsewhere the static layout is correct
   const supported = await page.evaluate(() => CSS.supports('animation-timeline: view()'))
-  expect(moving).toBe(supported ? 'chapter-arrive' : 'none')
+  expect(moving).toBe(supported ? 'chapter-develop' : 'none')
+})
+
+test('a plate develops as it reaches the middle of the window', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(400)
+
+  if (!(await page.evaluate(() => CSS.supports('animation-timeline: view()')))) return
+
+  const read = async (left) => {
+    await page.evaluate((x) => {
+      document.querySelector('.experience__rail').scrollLeft = x
+    }, left)
+    await page.waitForTimeout(200)
+    return page.evaluate(() => {
+      const face = document.querySelector('.chapter__face--front')
+      const img = document.querySelector('.chapter__photo img')
+      return {
+        // a timeline that resolves to null leaves the animation attached but
+        // never running, which is how the old card drift sat dead while its
+        // animation-name still read exactly right
+        live: face.getAnimations().some((a) => a.timeline && a.timeline.currentTime != null),
+        saturation: Number(/saturate\(([\d.]+)\)/.exec(getComputedStyle(face).filter)?.[1] ?? NaN),
+        pan: Number(getComputedStyle(img).getPropertyValue('--frame-pan').replace('%', '')),
+      }
+    })
+  }
+
+  const samples = []
+  for (const left of [0, 200, 400, 600]) samples.push(await read(left))
+
+  expect(samples.every((s) => s.live)).toBe(true)
+  const span = (key) => Math.max(...samples.map((s) => s[key])) - Math.min(...samples.map((s) => s[key]))
+  // colour has to actually drain, not merely be declared to
+  expect(span('saturation')).toBeGreaterThan(0.5)
+  // and the picture pans inside its mount as the plate winds past
+  expect(span('pan')).toBeGreaterThan(2)
 })
 
 test('the pixel face is reserved for machine-authored readouts', async ({ page }) => {
@@ -965,54 +1021,28 @@ test('the pixel face is reserved for machine-authored readouts', async ({ page }
   await expect(page.locator('.chapter__learnt p').first()).toHaveCSS('font-family', /Caveat/)
 })
 
-test('the rail carries momentum and hands the page back at either end', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' })
-  await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/')
-
-  const rail = page.locator('.experience__rail')
-  await rail.scrollIntoViewIfNeeded()
-  const box = await rail.boundingBox()
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-
-  await page.mouse.wheel(0, 100)
-  await page.waitForTimeout(60)
-  const early = await rail.evaluate((el) => el.scrollLeft)
-  await page.waitForTimeout(600)
-  const settled = await rail.evaluate((el) => el.scrollLeft)
-
-  // a notch is a shove, not a distance: it is still travelling afterwards
-  expect(early).toBeGreaterThan(0)
-  expect(settled).toBeGreaterThan(early)
-  expect(settled).toBeGreaterThan(140)
-
-  // and the rail is heavy: it takes the shove up over several frames rather
-  // than leaving at full speed, so only a small share of the journey happens
-  // in the first moments. An instant-velocity model covers about half by here.
-  expect(early / settled).toBeLessThan(0.3)
-
-  // once the rail is spent the wheel belongs to the page again
-  await rail.evaluate((el) => el.scrollTo({ left: el.scrollWidth }))
-  await page.waitForTimeout(600)
-  const before = await page.evaluate(() => scrollY)
-  await page.mouse.wheel(0, 200)
-  await page.waitForTimeout(400)
-  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(before)
-})
-
-test('the page keeps its own scrolling, and reduced motion gets no momentum', async ({ page }) => {
+test('reduced motion moves the rail without coasting', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
 
   const rail = page.locator('.experience__rail')
   await rail.scrollIntoViewIfNeeded()
-  const box = await rail.boundingBox()
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.mouse.wheel(0, 100)
-  await page.waitForTimeout(400)
-  // one notch moves exactly one notch: no glide, no overshoot
-  expect(await rail.evaluate((el) => el.scrollLeft)).toBe(100)
+  await rail.evaluate((el) =>
+    el.dispatchEvent(
+      new WheelEvent('wheel', { deltaY: 100, shiftKey: true, bubbles: true, cancelable: true }),
+    ),
+  )
+  await page.waitForTimeout(80)
+  const straightAway = await rail.evaluate((el) => el.scrollLeft)
+  await page.waitForTimeout(700)
+  const later = await rail.evaluate((el) => el.scrollLeft)
+
+  // it moves at once and then stops: no ramp, no coasting. Snap may ease it to a
+  // resting chapter, so the exact pixel is not the contract; the absence of
+  // momentum is.
+  expect(straightAway).toBeGreaterThan(0)
+  expect(Math.abs(later - straightAway)).toBeLessThan(60)
 
   // nothing smooths or intercepts the document's own scrolling, which is what
   // keeps find-in-page, scroll anchoring and assistive tech behaving normally
@@ -1020,7 +1050,6 @@ test('the page keeps its own scrolling, and reduced motion gets no momentum', as
     () => getComputedStyle(document.documentElement).scrollBehavior,
   )
   expect(behaviour).toBe('auto')
-  // from the top, where there is certainly room to move the full amount
   await page.evaluate(() => scrollTo(0, 0))
   await page.waitForTimeout(100)
   await page.evaluate(() => scrollBy(0, 400))
@@ -1034,7 +1063,8 @@ test('a thrown note keeps travelling and stays within reach', async ({ page }) =
 
   const rail = page.locator('.experience__rail')
   await rail.scrollIntoViewIfNeeded()
-  await rail.evaluate((el) => el.scrollTo({ left: el.scrollWidth, behavior: 'instant' }))
+  // the note sits under the portrait at the head of the rail now
+  await rail.evaluate((el) => el.scrollTo({ left: 0, behavior: 'instant' }))
   await page.waitForTimeout(300)
 
   const note = page.locator('.sticky-note')
@@ -1068,8 +1098,8 @@ test('pictures drift against vertical scroll, and hold still when asked', async 
   const supported = await page.evaluate(() => CSS.supports('animation-timeline: view()'))
 
   if (supported) {
-    // Sample the whole reachable scroll range and measure how far each card
-    // actually travels. Asserting only that a value changed is what let a 7px
+    // Sample the whole reachable scroll range and measure how far things
+    // actually travel. Asserting only that a value changed is what let a 7px
     // effect ship: it was technically animating and visibly nothing.
     const maxY = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight)
     const samples = []
@@ -1078,10 +1108,14 @@ test('pictures drift against vertical scroll, and hold still when asked', async 
       await page.waitForTimeout(150)
       samples.push(
         await page.evaluate(() => {
-          const chapter = document.querySelector('.chapter')
-          const base = chapter.getBoundingClientRect().top
-          const at = (sel) => chapter.querySelector(sel).getBoundingClientRect().top - base
-          return { front: at('.chapter__marquee'), back: at('.chapter__notable') }
+          const card = document.querySelector('.chapter:has(.chapter__photo)')
+          const picture = card.querySelector('.chapter__photo img')
+          return {
+            card: card.getBoundingClientRect().top,
+            // the picture's offset inside its own card: the card lagging the
+            // page moves both together, so only this shows real parallax
+            inside: picture.getBoundingClientRect().top - card.getBoundingClientRect().top,
+          }
         }),
       )
     }
@@ -1090,11 +1124,14 @@ test('pictures drift against vertical scroll, and hold still when asked', async 
       const values = samples.map((s) => s[key])
       return Math.max(...values) - Math.min(...values)
     }
-    // the cards must separate as the section arrives, or there is no depth
-    expect(span('back') - span('front')).toBeGreaterThan(20)
+    // the card is one object that lags the page, and the picture drifts on
+    // inside it: two layers, or the strip is a flat sheet
+    expect(span('card')).toBeGreaterThan(100)
+    expect(span('inside')).toBeGreaterThan(8)
     // and the range has to be reachable: this section never leaves the top of
-    // the viewport, so a range that assumes it does is mostly unscrollable
-    expect(samples.at(-1).back).toBeLessThan(2)
+    // the viewport, so a range that assumes it does is mostly unscrollable.
+    // Settled means stopped, not sitting at zero.
+    expect(Math.abs(samples.at(-1).inside - samples.at(-2).inside)).toBeLessThan(3)
 
     // the page itself is never the thing being animated
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
@@ -1110,12 +1147,175 @@ test('pictures drift against vertical scroll, and hold still when asked', async 
   expect(still.animation).toBe('none')
   expect(still.scale).toBe('none')
 
-  const cards = await page.locator('.chapter__notable').first().evaluate((el) => ({
+  const cards = await page.locator('.chapter').first().evaluate((el) => ({
     animation: getComputedStyle(el).animationName,
     translate: getComputedStyle(el).translate,
   }))
   expect(cards.animation).toBe('none')
   expect(cards.translate).toBe('none')
+})
+
+test('the career heading holds the page measure while the window sits centred', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const box = (selector) =>
+    page.locator(selector).first().evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      return { left: Math.round(r.left), right: Math.round(innerWidth - r.right), width: Math.round(r.width) }
+    })
+
+  const deck = await box('.achievement-deck__inner')
+  expect((await box('.experience__head')).left).toBe(deck.left)
+
+  // the strip is wider than the page measure, and centred rather than pinned
+  for (const part of ['.experience__window', '.experience__axis']) {
+    const it = await box(part)
+    expect(it.width, part).toBeGreaterThan(deck.width)
+    expect(Math.abs(it.left - it.right), part).toBeLessThanOrEqual(1)
+  }
+})
+
+test('a card leans toward the pointer and settles back', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(300)
+
+  const face = page.locator('.chapter__face--front').first()
+  const angle = async () => {
+    const value = await face.evaluate((el) => getComputedStyle(el).rotate)
+    return Number(/(-?[\d.]+)deg/.exec(value)?.[1] ?? 0)
+  }
+
+  expect(await angle()).toBe(0)
+
+  const box = await page.locator('.chapter').first().boundingBox()
+  await page.mouse.move(box.x + box.width * 0.85, box.y + box.height * 0.18)
+  // polled rather than sampled after a fixed wait: the assertion is that the
+  // card leans and then settles, not that it does so by one arbitrary moment
+  await expect.poll(angle, { timeout: 3000 }).toBeGreaterThan(3)
+
+  // the sheen tracks the pointer, so the card catches light where it is touched
+  const sheen = await face.evaluate((el) => getComputedStyle(el).backgroundImage)
+  expect(sheen).toContain('radial-gradient')
+
+  await page.mouse.move(4, 4)
+  await expect.poll(angle, { timeout: 3000 }).toBe(0)
+
+  // and it never leans for a visitor who asked for less motion
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  const still = await page.locator('.chapter').first().boundingBox()
+  await page.mouse.move(still.x + still.width * 0.85, still.y + still.height * 0.18)
+  await page.waitForTimeout(300)
+  expect(await angle()).toBe(0)
+})
+
+test('a print keeps its metadata hidden until the card is hovered', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(300)
+
+  const read = () =>
+    page.evaluate(() => {
+      const figure = document.querySelector('.chapter__photo')
+      return {
+        meta: Number(getComputedStyle(figure.querySelector('figcaption')).opacity),
+        // the overlay is out of flow, so the print must not move when it shows
+        print: Math.round(figure.getBoundingClientRect().height),
+      }
+    })
+
+  const rest = await read()
+  expect(rest.meta).toBe(0)
+
+  const card = await page.locator('.chapter:has(.chapter__photo)').first().boundingBox()
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2)
+  await page.waitForTimeout(650)
+
+  const hovered = await read()
+  expect(hovered.meta).toBe(1)
+  expect(hovered.print).toBe(rest.print)
+
+  // Colour is the reveal: prints wait monochrome and only the hovered card
+  // comes up. The charcoal drawing is exempt, having no colour to withhold.
+  const colour = await page.evaluate(() => {
+    const grey = (el) => /grayscale\(1\)/.test(getComputedStyle(el).filter)
+    const cards = [...document.querySelectorAll('.chapter')]
+    return {
+      hoveredPrints: [...cards[0].querySelectorAll('.chapter__photo img, .chapter__scene img')].map(grey),
+      otherPrints: cards
+        .slice(1)
+        .flatMap((c) => [...c.querySelectorAll('.chapter__photo img, .chapter__scene img')])
+        .map(grey),
+      sketchGrey: grey(document.querySelector('.experience__frontispiece img')),
+    }
+  })
+  expect(colour.hoveredPrints.every((g) => g === false)).toBe(true)
+  expect(colour.otherPrints.every((g) => g === true)).toBe(true)
+  expect(colour.sketchGrey).toBe(false)
+
+  // both facts are there once revealed, and neither is cut off
+  const labels = await page.evaluate(() => {
+    const figure = document.querySelector('.chapter__photo')
+    const read = (sel) => {
+      const el = figure.querySelector(sel)
+      return { text: el.textContent.trim(), clipped: el.scrollWidth > el.clientWidth + 1 }
+    }
+    return [read('.photo-where'), read('.photo-what')]
+  })
+  for (const label of labels) {
+    expect(label.text.length).toBeGreaterThan(3)
+    expect(label.clipped, label.text).toBe(false)
+  }
+})
+
+test('a card turns over to its evidence, by pointer and by keyboard', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+
+  const card = page.locator('.chapter').first()
+  const front = card.locator('.chapter__face--front')
+  const back = card.locator('.chapter__face--back')
+  const opener = front.locator('.chapter__turn')
+
+  // the evidence is genuinely on the other side, not merely stacked behind
+  await expect(front).toHaveCSS('backface-visibility', 'hidden')
+  await expect(back).toHaveCSS('backface-visibility', 'hidden')
+  await expect(opener).toHaveAttribute('aria-expanded', 'false')
+  await expect(opener).toHaveAttribute('aria-controls', await back.getAttribute('id'))
+
+  // inert rather than aria-hidden: the far side has to leave the tab order too
+  const inertOf = async (side) => side.evaluate((el) => el.inert === true)
+  expect(await inertOf(back)).toBe(true)
+  expect(await inertOf(front)).toBe(false)
+
+  await opener.evaluate((el) => el.click())
+  await page.waitForTimeout(750)
+  await expect(opener).toHaveAttribute('aria-expanded', 'true')
+  expect(await inertOf(back)).toBe(false)
+  expect(await inertOf(front)).toBe(true)
+  await expect(back.locator('.chapter__outcome p')).not.toBeEmpty()
+
+  // and back again from the keyboard, so the turn is not pointer-only
+  const closer = back.locator('.chapter__turn')
+  await closer.focus()
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(750)
+  await expect(opener).toHaveAttribute('aria-expanded', 'false')
+  expect(await inertOf(back)).toBe(true)
+
+  // turning one card leaves the rest of the strip alone
+  const others = await page
+    .locator('.chapter:not(:first-child) .chapter__face--front')
+    .evaluateAll((els) => els.map((el) => el.inert === true))
+  expect(others.every((v) => v === false)).toBe(true)
 })
 
 test('the cluster lags a fast scroll and springs back', async ({ page }) => {
@@ -1197,6 +1397,7 @@ test('the rail reads wheel deltas in lines as well as pixels', async ({ page }) 
                 new WheelEvent('wheel', {
                   deltaY: dy,
                   deltaMode: dm,
+                  shiftKey: true,
                   bubbles: true,
                   cancelable: true,
                 }),
@@ -1289,6 +1490,150 @@ test('smooth page scroll never takes over anything but the wheel', async ({ page
   expect(still).toBe(0)
 })
 
+test('the rail never holds the page hostage', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.evaluate(() => {
+    const section = document.querySelector('.experience')
+    scrollTo(0, scrollY + section.getBoundingClientRect().top - 700)
+  })
+  await page.waitForTimeout(400)
+
+  const rail = page.locator('.experience__rail')
+  const box = await rail.boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+
+  const before = await page.evaluate(() => scrollY)
+  // a continuous run of notches, as a reader moving down the page produces.
+  // The page is travelling throughout, so the rail must let every one past.
+  for (let i = 0; i < 6; i += 1) {
+    await page.mouse.wheel(0, 100)
+    await page.waitForTimeout(45)
+  }
+  await page.waitForTimeout(700)
+
+  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(before + 200)
+  expect(await rail.evaluate((el) => el.scrollLeft)).toBe(0)
+})
+
+test('a wheel over the rail moves it once the page has come to rest', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  // long enough for any page momentum to be spent: this is the whole signal
+  await page.waitForTimeout(1400)
+
+  const rail = page.locator('.experience__rail')
+  const box = await rail.boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+
+  const before = await page.evaluate(() => scrollY)
+  await page.mouse.wheel(0, 100)
+  await page.waitForTimeout(900)
+
+  expect(await rail.evaluate((el) => el.scrollLeft)).toBeGreaterThan(140)
+  expect(await page.evaluate(() => scrollY)).toBe(before)
+})
+
+test('the rail carries momentum when moved sideways on purpose', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const rail = page.locator('.experience__rail')
+  await rail.scrollIntoViewIfNeeded()
+  await page.waitForTimeout(300)
+
+  const shove = () =>
+    rail.evaluate((el) =>
+      el.dispatchEvent(
+        new WheelEvent('wheel', { deltaY: 100, shiftKey: true, bubbles: true, cancelable: true }),
+      ),
+    )
+
+  await shove()
+  await page.waitForTimeout(60)
+  const early = await rail.evaluate((el) => el.scrollLeft)
+  await page.waitForTimeout(700)
+  const settled = await rail.evaluate((el) => el.scrollLeft)
+
+  expect(early).toBeGreaterThan(0)
+  expect(settled).toBeGreaterThan(early)
+  expect(settled).toBeGreaterThan(140)
+  // heavy: only a small share of the journey happens in the first moments
+  expect(early / settled).toBeLessThan(0.3)
+})
+
+test('the rail can be moved by its own controls', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+
+  const rail = page.locator('.experience__rail')
+  const back = page.getByRole('button', { name: 'Previous roles' })
+  const on = page.getByRole('button', { name: 'Later roles' })
+
+  // at the start there is nowhere back to go
+  await expect(back).toBeDisabled()
+  await expect(on).toBeEnabled()
+
+  await on.click()
+  await expect.poll(() => rail.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0)
+  await expect(back).toBeEnabled()
+
+  await rail.evaluate((el) => el.scrollTo({ left: el.scrollWidth, behavior: 'instant' }))
+  await expect(on).toBeDisabled()
+})
+
+test('the rail is a named, focusable scroll region', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const rail = page.locator('.experience__rail')
+  await expect(rail).toHaveAttribute('aria-label', /career/i)
+  expect(await rail.evaluate((el) => el.tabIndex)).toBe(0)
+
+  // it is a scrollable strip, not a carousel: no slide semantics to mislead
+  await expect(page.locator('[aria-roledescription]')).toHaveCount(0)
+  expect(await rail.evaluate((el) => getComputedStyle(el).scrollSnapType)).toBe('none')
+})
+
+test('the rail can be dragged, and a release keeps carrying', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(400)
+
+  const rail = page.locator('.experience__rail')
+  const box = await rail.boundingBox()
+  const y = box.y + box.height / 2
+  let x = box.x + box.width - 140
+
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  // moves a frame apart, as a hand produces them. Sent all at once the browser
+  // never sees the drag end, which hides the snap conflict this guards.
+  for (let i = 0; i < 7; i += 1) {
+    x -= 90
+    await page.mouse.move(x, y)
+    await page.waitForTimeout(16)
+  }
+  const dragged = await rail.evaluate((el) => el.scrollLeft)
+  await page.mouse.up()
+  await page.waitForTimeout(1400)
+  const settled = await rail.evaluate((el) => el.scrollLeft)
+
+  // the drag has to survive: snap re-engaging between moves used to pull the
+  // rail back to the start after every one, leaving it exactly where it began
+  expect(dragged).toBeGreaterThan(300)
+  // and letting go while moving carries it further
+  expect(settled).toBeGreaterThan(dragged + 60)
+})
+
 test('sticky note flips on click and returns on the second', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -1341,7 +1686,8 @@ test('sticky note drags only when grabbed, and dragging never flips it', async (
 
   const rail = page.locator('.experience__rail')
   await rail.scrollIntoViewIfNeeded()
-  await rail.evaluate((el) => el.scrollTo({ left: el.scrollWidth, behavior: 'instant' }))
+  // the note sits under the portrait at the head of the rail now
+  await rail.evaluate((el) => el.scrollTo({ left: 0, behavior: 'instant' }))
 
   const note = page.locator('.sticky-note')
   const start = await note.boundingBox()

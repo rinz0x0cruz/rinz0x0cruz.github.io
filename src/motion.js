@@ -22,7 +22,7 @@ const clamp = (value, limit) => Math.max(-limit, Math.min(limit, value))
  *   moves by this frame's displacement; return false to end the motion, which is
  *   how a caller reports that it has run out of room
  */
-export function glide({ pickup = 1, drag = 0.88, min = 0.08, max = Infinity, step }) {
+export function glide({ pickup = 1, drag = 0.88, min = 0.08, max = Infinity, step, onSettle }) {
   let vx = 0
   let vy = 0
   // shove that has not been turned into speed yet
@@ -32,12 +32,14 @@ export function glide({ pickup = 1, drag = 0.88, min = 0.08, max = Infinity, ste
   let last = 0
 
   function halt() {
+    const ran = frame !== 0 || vx !== 0 || vy !== 0 || px !== 0 || py !== 0
     vx = 0
     vy = 0
     px = 0
     py = 0
     frame = 0
     last = 0
+    if (ran) onSettle?.()
   }
 
   function tick(now) {
@@ -72,6 +74,16 @@ export function glide({ pickup = 1, drag = 0.88, min = 0.08, max = Infinity, ste
     push(dx, dy = 0) {
       px += dx
       py += dy
+      if (!frame) {
+        last = 0
+        frame = requestAnimationFrame(tick)
+      }
+    },
+    // a release, not a shove: the thing is already moving at this speed, so the
+    // ramp would dip before it rose
+    fling(dx, dy = 0) {
+      vx = clamp(vx + dx, max)
+      vy = clamp(vy + dy, max)
       if (!frame) {
         last = 0
         frame = requestAnimationFrame(tick)

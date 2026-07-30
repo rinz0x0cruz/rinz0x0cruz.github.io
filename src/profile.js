@@ -54,9 +54,19 @@ export default {
       external: false,
     },
   ],
+  // The drawn portrait opens the rail: it is a likeness someone made of him,
+  // which is a better introduction than another photograph of a campus. Kept in
+  // its frame on the wall, because the frame is part of the object.
+  portrait: {
+    src: '/portrait-sketch.webp',
+    w: 660,
+    h: 935,
+    alt: 'A framed charcoal portrait of Mohit Sharma hanging on a wall, arms folded, in a heavy jacket',
+    position: '50% 45%',
+  },
   // Dates and locations are taken from LinkedIn, which carries two roles the
-  // resume variants omit entirely. Ordered newest first; the rail reverses it
-  // so the horizontal axis runs forward through time.
+  // resume variants omit entirely. Newest first, and the rail reads the same
+  // way: what he does now before how he got here.
   experience: [
     {
       company: 'Microsoft',
@@ -77,7 +87,7 @@ export default {
         h: 617,
         alt: 'The Microsoft sign on the Hyderabad campus, behind a flowering gulmohar tree',
         position: '58% 50%',
-        caption: 'Hyderabad campus',
+        caption: { where: 'Hyderabad', what: 'The campus sign, under a gulmohar' },
       },
       scene: {
         src: '/ms-arch.webp',
@@ -85,7 +95,7 @@ export default {
         h: 617,
         alt: 'The glass buildings and walkways of the Microsoft Hyderabad campus seen from above',
         position: '50% 45%',
-        caption: 'The view from the floor',
+        caption: { where: 'Hyderabad', what: 'Glass and walkways, from the floor' },
       },
     },
     {
@@ -101,6 +111,20 @@ export default {
       notable: ['Alias correlation', 'Persona mapping', 'Referral packages'],
       outcome: 'Identification work handed to law enforcement',
       learnt: 'Finding someone from just a username is brittle work. OPSEC starts with the question you ask.',
+      photo: {
+        src: '/ridges-dusk.webp',
+        w: 460,
+        h: 630,
+        alt: 'Layers of mountain ridges fading into haze under a pink dusk sky',
+        position: '50% 44%',
+        caption: { where: 'Confidential', what: 'Ridges at dusk' },
+        credit: {
+          subject: 'Mountain ridges at dusk',
+          author: 'simon berger',
+          licence: 'CC0',
+          href: 'https://creativecommons.org/publicdomain/zero/1.0/',
+        },
+      },
     },
     {
       company: 'Microsoft',
@@ -121,12 +145,12 @@ export default {
         h: 610,
         alt: 'Standing on a balcony looking out over the Microsoft Hyderabad campus',
         position: '38% 50%',
-        caption: 'First summer on campus',
+        caption: { where: 'Hyderabad', what: 'Looking out, first summer' },
       },
     },
     {
       company: 'Black Hills',
-      mark: 'ridge',
+      mark: 'bhis',
       role: 'Software Engineer',
       kind: 'Internship',
       team: 'Information Security',
@@ -138,12 +162,18 @@ export default {
       outcome: 'Delivered 30 days early, leading a team of three',
       learnt: 'Built the ICS honeynets that trap the adversaries I now hunt. Led three people; we finished early.',
       photo: {
-        src: '/bhis-sketch.webp',
-        w: 760,
-        h: 1040,
-        alt: 'A charcoal portrait sketch of Mohit Sharma, arms folded, in a heavy jacket',
-        position: '50% 42%',
-        caption: 'Charcoal portrait',
+        src: '/california-evening.webp',
+        w: 460,
+        h: 630,
+        alt: 'The California coast at dusk, waves running up an empty beach under an orange horizon',
+        position: '50% 46%',
+        caption: { where: 'Aptos, California', what: 'Seacliff at dusk' },
+        credit: {
+          subject: 'Seacliff State Beach, California',
+          author: 'Prg',
+          licence: 'CC BY-SA 3.0',
+          href: 'https://creativecommons.org/licenses/by-sa/3.0/',
+        },
       },
     },
     {
@@ -158,7 +188,21 @@ export default {
       place: 'Chandigarh · Hybrid',
       notable: ['White-box testing', 'Three products', 'OWASP reporting'],
       outcome: '10+ vulnerabilities found and resolved',
-      learnt: null,
+      learnt: 'I finally learned to hack!!',
+      photo: {
+        src: '/chandigarh-evening.webp',
+        w: 460,
+        h: 630,
+        alt: 'A boat crossing Sukhna Lake in Chandigarh at sunset, the water lit gold',
+        position: '50% 45%',
+        caption: { where: 'Chandigarh', what: 'Sukhna Lake at sundown' },
+        credit: {
+          subject: 'Sukhna Lake, Chandigarh',
+          author: 'Kritzolina',
+          licence: 'CC BY-SA 4.0',
+          href: 'https://creativecommons.org/licenses/by-sa/4.0/',
+        },
+      },
     },
   ],
   // A colleague's note, kept as a photographed artifact rather than a statistic
