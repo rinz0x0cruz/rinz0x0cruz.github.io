@@ -894,21 +894,21 @@ onBeforeUnmount(() => {
                   :height="profile.portrait.h"
                   decoding="async"
                 />
+                <span class="plate-credit">
+                  Drawn by
+                  <span class="plate-credit__name"><span
+                    v-for="(letter, index) in profile.portrait.artist"
+                    :key="index"
+                    class="plate-credit__letter"
+                    :style="{ '--letter': index }"
+                  >{{ letter }}</span></span>
+                </span>
               </span>
               <GoldFiligree class="portrait-filigree" />
             </span>
             <figcaption>
               <span class="experience__plate">00</span>
               {{ profile.name }}
-              <span class="plate-credit">
-                Drawn by
-                <span class="plate-credit__name"><span
-                  v-for="(letter, index) in profile.portrait.artist"
-                  :key="index"
-                  class="plate-credit__letter"
-                  :style="{ '--letter': index }"
-                >{{ letter }}</span></span>
-              </span>
             </figcaption>
           </figure>
 

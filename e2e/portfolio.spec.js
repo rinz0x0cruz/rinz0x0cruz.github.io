@@ -1310,17 +1310,12 @@ test('the drawing wears the same gold filigree as the achievement window', async
   await expect(page.locator('.portrait-filigree')).toBeHidden()
 })
 
-test('the drawing credits its artist, and the signature answers a hover', async ({ page }) => {
+test('the artist credit is written in a letter at a time on hover', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.goto('/')
   await page.locator('.experience').scrollIntoViewIfNeeded()
   await page.waitForTimeout(300)
-
-  const credit = page.locator('.plate-credit')
-  // the attribution is readable without hovering: hiding it would not be credit
-  await expect(credit).toBeVisible()
-  await expect(credit).toContainText('Sugarplum')
 
   const read = () =>
     page.evaluate(() => {
@@ -1328,43 +1323,96 @@ test('the drawing credits its artist, and the signature answers a hover', async 
       const axis = (el, name) =>
         Number(new RegExp(`"${name}" ([\\d.]+)`).exec(getComputedStyle(el).fontVariationSettings)?.[1])
       return {
+        block: Number(getComputedStyle(document.querySelector('.plate-credit')).opacity),
+        letters: letters.map((el) => Number(getComputedStyle(el).opacity)),
         weight: axis(letters[0], 'wght'),
         casual: axis(letters[0], 'CASL'),
         underline: getComputedStyle(document.querySelector('.plate-credit__name')).backgroundSize,
-        stagger: [letters[0], letters.at(-1)].map(
-          (el) => Number.parseFloat(getComputedStyle(el).transitionDelay),
-        ),
       }
     })
 
+  // hidden by opacity, not removed: the attribution stays in the accessible
+  // tree and is announced whether or not anyone can hover
+  await expect(page.locator('.plate-credit')).toContainText('Drawn by Sugarplum')
   const rest = await read()
-  expect(rest.weight).toBe(520)
-  expect(rest.casual).toBe(0)
+  expect(rest.block).toBe(0)
+  expect(rest.letters.every((o) => o === 0)).toBe(true)
   expect(rest.underline).toBe('0px 1px')
-  // each letter answers a beat later than the one before it
-  expect(rest.stagger[1]).toBeGreaterThan(rest.stagger[0])
 
   const plate = await page.locator('.experience__frontispiece').boundingBox()
+  const height = await page.locator('.experience__index').evaluate((el) => el.getBoundingClientRect().height)
   await page.mouse.move(plate.x + plate.width / 2, plate.y + plate.height / 2)
+
+  // proves the cascade without sampling at a moment: poll until the first
+  // letter has visibly outrun the last, whenever that happens to fall
+  await expect
+    .poll(async () => {
+      const { letters } = await read()
+      return letters[0] - letters.at(-1)
+    }, { timeout: 3000 })
+    .toBeGreaterThan(0.2)
+  const wave = (await read()).letters
+  expect(wave).toEqual([...wave].sort((a, b) => b - a))
+
   await expect.poll(async () => (await read()).weight, { timeout: 3000 }).toBe(780)
   // polled separately: the rule takes 460ms against the letters' 300ms, so
   // waiting only for the weight caught it mid-draw at 99.85%
   await expect.poll(async () => (await read()).underline, { timeout: 3000 }).toBe('100% 1px')
 
-  expect((await read()).casual).toBe(1)
+  const shown = await read()
+  expect(shown.block).toBe(1)
+  expect(shown.casual).toBe(1)
+  expect(shown.letters.every((o) => o === 1)).toBe(true)
 
-  // reduced motion still reaches the same state, it just does not travel there
+  // laid across the head of the print, inside its edges, and revealing it
+  // must not shift the column underneath
+  const geometry = await page.evaluate(() => {
+    const frame = document.querySelector('.experience__frontispiece .photo-frame').getBoundingClientRect()
+    const credit = document.querySelector('.plate-credit').getBoundingClientRect()
+    const words = [...document.querySelectorAll('.plate-credit__letter')].map((el) => el.getBoundingClientRect())
+    return {
+      fromTop: Math.round(credit.top - frame.top),
+      spillLeft: Math.round(frame.left - Math.min(...words.map((w) => w.left))),
+      spillRight: Math.round(Math.max(...words.map((w) => w.right)) - frame.right),
+    }
+  })
+  expect(geometry.fromTop).toBeLessThanOrEqual(2)
+  expect(geometry.spillLeft).toBeLessThanOrEqual(0)
+  expect(geometry.spillRight).toBeLessThanOrEqual(0)
+  expect(
+    await page.locator('.experience__index').evaluate((el) => el.getBoundingClientRect().height),
+  ).toBe(height)
+
+  // reduced motion still arrives at the same state, it just does not travel
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
   await page.locator('.experience').scrollIntoViewIfNeeded()
-  const still = await page.locator('.plate-credit__letter').first().evaluate((el) => ({
-    transition: getComputedStyle(el).transitionDuration,
-  }))
-  expect(still.transition).toBe('0s')
+  expect(
+    await page.locator('.plate-credit__letter').first().evaluate((el) => getComputedStyle(el).transitionDuration),
+  ).toBe('0s')
   const box = await page.locator('.experience__frontispiece').boundingBox()
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await page.waitForTimeout(200)
-  expect((await read()).weight).toBe(780)
+  expect((await read()).block).toBe(1)
+})
+
+test('without hover the artist credit simply stays visible', async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 430, height: 900 },
+    hasTouch: true,
+    isMobile: true,
+  })
+  const page = await context.newPage()
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(300)
+
+  // there is no hover to reveal with, so the credit is never withheld
+  await expect(page.locator('.plate-credit')).toBeVisible()
+  expect(
+    await page.locator('.plate-credit').evaluate((el) => Number(getComputedStyle(el).opacity)),
+  ).toBe(1)
+  await context.close()
 })
 
 test('a card turns over to its evidence, by pointer and by keyboard', async ({ page }) => {
