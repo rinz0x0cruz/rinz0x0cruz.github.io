@@ -1477,6 +1477,24 @@ h1 {
     transition: opacity 240ms ease;
   }
 
+  /* stamps settle rather than snap; without this they still land in the same
+     place, just immediately, which is correct for reduced motion */
+  .stamp {
+    transition: translate 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .album__field li {
+    transition: rotate 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* the lift eases, the tilt tracks the pointer: a transition on the tilt
+     would smooth a per-frame value into lag */
+  .stamp__paper {
+    transition:
+      translate 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      filter 260ms ease;
+  }
+
   .plate-credit__letter {
     transition:
       font-variation-settings 300ms ease,
@@ -3231,6 +3249,456 @@ h1 {
 
   .achievement-card:hover .achievement-card__vine-leaves path {
     transform: scale(1);
+  }
+}
+
+/* ---- The album ---------------------------------------------------------- */
+
+.album {
+  width: min(72rem, calc(100% - 4rem));
+  margin: clamp(4rem, 12vh, 8rem) auto 0;
+}
+
+.album__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 1.4rem;
+}
+
+.album__head p {
+  margin: 0 0 0.35rem;
+  color: #6f6b64;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.album__head h2 {
+  margin: 0;
+  color: #ece7dd;
+  font-family: 'Danviska', serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.album__controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.album__sort {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: #837e76;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.album__sort select,
+.album__shuffle {
+  padding: 0.42rem 0.7rem;
+  border: 1px solid #34322d;
+  border-radius: 4px;
+  background: #131210;
+  color: #d5d0c6;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+}
+
+.album__shuffle {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.album__sort select:hover,
+.album__shuffle:hover {
+  border-color: var(--accent);
+  color: #f0ebe1;
+}
+
+/* the album is a bound object: a catalogue page on the left, the leaves of
+   stamps on the right, both inside one cover */
+.album__window {
+  display: grid;
+  grid-template-columns: 20rem 1fr;
+  gap: 1.6rem;
+  height: 461px;
+  padding: 1.5rem;
+  border: 1px solid #2f2e2a;
+  border-radius: 10px;
+  background:
+    linear-gradient(158deg, #16150f, #0a0a09 62%);
+  box-shadow:
+    0 22px 46px rgba(0, 0, 0, 0.55),
+    inset 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.album__page {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-right: 1.5rem;
+  border-right: 1px solid #26251f;
+}
+
+.album__page--empty {
+  justify-content: center;
+}
+
+.album__prompt {
+  margin: 0;
+  color: #6f6b64;
+  font-family: 'Caveat Note', cursive;
+  font-size: 1.15rem;
+}
+
+.album__catalogue {
+  margin: 0 0 0.5rem;
+  color: #6f6b64;
+  font-family: 'Mackie Pixel', 'Kiona', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.album__name {
+  margin: 0 0 0.9rem;
+  color: #ece7dd;
+  font-family: 'Danviska', serif;
+  font-size: 1.7rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+/* What the tool does to what you give it, drawn rather than described. Boxes
+   and rules, so it costs no image, scales with the text and survives a forced
+   palette that would flatten a screenshot. */
+.album__flow {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0 0 0.8rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: stage;
+}
+
+.album__flow li {
+  position: relative;
+  padding: 0.3rem 0.6rem 0.3rem 2rem;
+  border: 1px solid #34322d;
+  border-radius: 3px;
+  background: #100f0d;
+  color: #cdc7bc;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 460;
+  counter-increment: stage;
+}
+
+.album__flow li::before {
+  position: absolute;
+  top: 50%;
+  left: 0.55rem;
+  content: counter(stage);
+  color: var(--accent);
+  font-size: 0.6rem;
+  translate: 0 -50%;
+}
+
+/* the line down to the next box, with its head */
+.album__flow li:not(:last-child)::after {
+  position: absolute;
+  bottom: calc(-0.5rem - 1px);
+  left: 1.05rem;
+  width: 1px;
+  height: 0.5rem;
+  background: linear-gradient(#34322d 0 60%, var(--accent) 60%);
+  content: '';
+}
+
+.album__facts {
+  display: grid;
+  gap: 0.3rem;
+  width: 100%;
+  margin: 0 0 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #26251f;
+}
+
+.album__facts > div {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+
+.album__facts dt,
+.album__facts dd {
+  margin: 0;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 420;
+}
+
+.album__facts dt {
+  color: #6f6b64;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.album__facts dd {
+  color: #d5d0c6;
+  text-align: right;
+}
+
+.album__points {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.album__points li {
+  padding-left: 1rem;
+  color: #9c968c;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-indent: -1rem;
+}
+
+.album__points li::before {
+  margin-right: 0.5rem;
+  color: var(--accent);
+  content: '\2014';
+}
+
+.album__note {
+  margin: 0.8rem 0 0;
+  padding: 0.3rem 0.55rem;
+  border: 1px dashed #3a3831;
+  border-radius: 3px;
+  color: #837e76;
+  font-family: 'Mackie Pixel', 'Kiona', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.album__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.1rem;
+  margin: 1.1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.album__links a {
+  color: var(--accent);
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  text-transform: uppercase;
+  background: linear-gradient(currentcolor, currentcolor) 0 100% / 0 1px no-repeat;
+}
+
+.album__links a:hover,
+.album__links a:focus-visible {
+  background-size: 100% 1px;
+}
+
+.album__field {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  /* an album is stamped in even rows even when one name wraps */
+  grid-auto-rows: 1fr;
+  gap: 1.15rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* a name that wraps must not make its stamp taller than the ones beside it,
+   and the lean belongs to the mount so the paper keeps its own tilt free */
+.album__field li {
+  display: grid;
+  rotate: var(--lean, 0deg);
+}
+
+.stamp {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  perspective: 780px;
+  cursor: pointer;
+}
+
+/* Perforation: the paper is one solid sheet with a ring of bites taken out of
+   its four edges, so the notches follow the stamp at any size. The sheet is
+   listed first because mask layers composite upward, and only the topmost
+   layer is the source the rest are subtracted from. */
+.stamp__paper {
+  --perf: 4px;
+  --step: 13px;
+
+  display: grid;
+  grid-template-rows: auto 1fr auto auto auto;
+  gap: 0.3rem;
+  height: 100%;
+  padding: 0.75rem 0.65rem 0.65rem;
+  /* the sheen sits over the paper and follows the pointer, so the surface
+     catches light rather than staying a flat swatch */
+  background:
+    radial-gradient(
+      circle at var(--px, 50%) var(--py, 50%),
+      rgba(255, 255, 255, var(--sheen, 0.2)),
+      rgba(255, 255, 255, 0) 58%
+    ),
+    linear-gradient(168deg, #ece7dc, #d3ccbe);
+  /* inset only: an outer shadow would ignore the mask and box the notches in */
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.7),
+    inset 0 -2px 2px rgba(60, 52, 38, 0.24);
+  rotate: var(--tilt-x, 0) var(--tilt-y, 0) 0 var(--tilt-a, 0deg);
+  translate: 0 0 var(--pop, 0px);
+  /* drop-shadow follows the rendered alpha, so it takes the perforated
+     silhouette instead of the border box */
+  filter: drop-shadow(0 calc(1px + var(--pop, 0px) * 0.4) calc(3px + var(--pop, 0px) * 0.7) rgba(0, 0, 0, 0.55));
+  mask-image:
+    linear-gradient(#000 0 0),
+    radial-gradient(circle var(--perf) at 50% 0, #000 97%, #0000),
+    radial-gradient(circle var(--perf) at 50% 100%, #000 97%, #0000),
+    radial-gradient(circle var(--perf) at 0 50%, #000 97%, #0000),
+    radial-gradient(circle var(--perf) at 100% 50%, #000 97%, #0000);
+  mask-position: 0 0, 50% 0, 50% 100%, 0 50%, 100% 50%;
+  mask-size: 100% 100%, var(--step) 100%, var(--step) 100%, 100% var(--step), 100% var(--step);
+  mask-repeat: no-repeat, repeat-x, repeat-x, repeat-y, repeat-y;
+  mask-composite: subtract, add, add, add, add;
+}
+
+.stamp__issuer {
+  color: #6d6659;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.54rem;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.stamp__art {
+  display: grid;
+  place-items: center;
+  min-height: 3.2rem;
+  color: var(--accent);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+/* the name and the line under it reserve two rows whether or not they use
+   them, so the art sits at the same height on every stamp in a row */
+.stamp__name {
+  min-height: 2.4em;
+  color: #1d1c19;
+  font-family: 'Danviska', serif;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.stamp__foot {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(29, 28, 25, 0.22);
+  color: #4d4840;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.58rem;
+  font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 620;
+}
+
+.stamp__blurb {
+  min-height: 2.8em;
+  color: #5d5749;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.stamp:hover .stamp__paper,
+.stamp:focus-visible .stamp__paper {
+  --pop: 16px;
+  --sheen: 0.72;
+}
+
+.stamp--held {
+  translate: 0 -0.4rem;
+}
+
+.stamp--held .stamp__paper {
+  --pop: 30px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* tipped out of the album rather than laid in rows */
+.album__field--loose .stamp {
+  translate: 0;
+}
+
+.album__field--loose li:nth-child(even) .stamp {
+  translate: 0 0.4rem;
+}
+
+.album__field--loose .stamp--held {
+  translate: 0 -0.4rem;
+}
+
+@media (forced-colors: active) {
+  /* the notches read as a broken edge once the paper is a system colour */
+  .stamp__paper {
+    mask-image: none;
+    border: 1px dashed CanvasText;
+  }
+}
+
+@media (max-width: 900px) {
+  .album__window {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .album__page {
+    padding: 0 0 1.2rem;
+    border-right: 0;
+    border-bottom: 1px solid #26251f;
+  }
+}
+
+/* one stamp per row is a postcard, not a stamp: hold two columns instead */
+@media (max-width: 560px) {
+  .album__field {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem 0.7rem;
+  }
+
+  .stamp__blurb {
+    display: none;
   }
 }
 

@@ -259,28 +259,81 @@ function turn(index) {
   turned.value[index] = !turned.value[index]
 }
 
-function tiltCard(event, index) {
-  // touch drives the rail's own drag, and a tilt there would fight the scroll
-  if (event.pointerType !== 'mouse') return
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+// which stamp is being held, how the album is arranged, and the loose lean each
+// stamp takes when the collection is tipped out rather than laid in rows
+const focused = ref(null)
+const albumSort = ref('field')
+const albumScatter = ref(false)
+const scatter = ref({})
 
+const focusedProject = computed(() =>
+  profile.projects.find((project) => project.id === focused.value) ?? null,
+)
+
+const arrangedProjects = computed(() => {
+  if (albumScatter.value) return scatter.value.order ?? profile.projects
+  const key = albumSort.value
+  return [...profile.projects].sort((a, b) => a[key].localeCompare(b[key]))
+})
+
+function holdStamp(id) {
+  focused.value = focused.value === id ? null : id
+}
+
+function shuffleAlbum() {
+  const order = [...profile.projects]
+  for (let i = order.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[order[i], order[j]] = [order[j], order[i]]
+  }
+  const next = { order }
+  for (const project of order) next[project.id] = (Math.random() * 8 - 4).toFixed(2)
+  scatter.value = next
+  albumScatter.value = true
+}
+
+// where a pointer sits on a surface, and which way that surface should lean
+// away from it; shared by the career cards and the stamps
+function leanFrom(event, maxDeg) {
   const box = event.currentTarget.getBoundingClientRect()
   const x = (event.clientX - box.left) / box.width
   const y = (event.clientY - box.top) / box.height
   const dx = x * 2 - 1
   const dy = y * 2 - 1
-  tilt.value[index] = {
+  return {
     // the lean axis is perpendicular to where the pointer sits
     ax: -dy,
     ay: dx,
-    deg: Math.min(1, Math.hypot(dx, dy)) * 7,
+    deg: Math.min(1, Math.hypot(dx, dy)) * maxDeg,
     px: `${x * 100}%`,
     py: `${y * 100}%`,
   }
 }
 
+function tiltCard(event, index) {
+  // touch drives the rail's own drag, and a tilt there would fight the scroll
+  if (event.pointerType !== 'mouse') return
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  tilt.value[index] = leanFrom(event, 7)
+}
+
 function restCard(index) {
   tilt.value[index] = null
+}
+
+// a stamp is small and being picked up, so it leans further than a card does
+const stampTilt = ref({})
+
+function tiltStamp(event, id) {
+  if (event.pointerType !== 'mouse') return
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  stampTilt.value = { ...stampTilt.value, [id]: leanFrom(event, 13) }
+}
+
+function restStamp(id) {
+  stampTilt.value = { ...stampTilt.value, [id]: null }
 }
 
 // railSeen counts revealed width, which is never 0 at the start; the controls
@@ -1075,6 +1128,106 @@ onBeforeUnmount(() => {
         </span>
         <span>{{ careerYears[0] }}</span>
       </p>
+    </section>
+
+    <!-- The tools sit in an album rather than a grid: each one is a small
+         issued thing you pick up, and the page next to it is the catalogue. -->
+    <section class="album" aria-labelledby="album-title">
+      <div class="album__head">
+        <div>
+          <p>Work / {{ String(profile.projects.length).padStart(2, '0') }}</p>
+          <h2 id="album-title">What I've built</h2>
+        </div>
+
+        <div class="album__controls">
+          <label class="album__sort">
+            <span>Arrange by</span>
+            <select v-model="albumSort" @change="albumScatter = false">
+              <option value="field">Field</option>
+              <option value="language">Language</option>
+              <option value="name">Name</option>
+            </select>
+          </label>
+          <button type="button" class="album__shuffle" @click="shuffleAlbum">
+            <span aria-hidden="true">⤫</span>
+            {{ albumScatter ? 'Reshuffle' : 'Shuffle' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="album__window">
+        <div
+          class="album__page"
+          :class="{ 'album__page--empty': !focusedProject }"
+          :style="focusedProject ? { '--accent': focusedProject.accent } : null"
+          aria-live="polite"
+        >
+          <template v-if="focusedProject">
+            <p class="album__catalogue">Catalogue</p>
+            <h3 class="album__name">{{ focusedProject.name }}</h3>
+            <ol class="album__flow">
+              <li v-for="stage in focusedProject.flow" :key="stage">{{ stage }}</li>
+            </ol>
+            <dl class="album__facts">
+              <div><dt>Field</dt><dd>{{ focusedProject.field }}</dd></div>
+              <div><dt>Written in</dt><dd>{{ focusedProject.language }}</dd></div>
+              <div><dt>Issued</dt><dd>{{ focusedProject.issued }}</dd></div>
+            </dl>
+            <ul class="album__points">
+              <li v-for="point in focusedProject.points" :key="point">{{ point }}</li>
+            </ul>
+            <p v-if="focusedProject.note" class="album__note">{{ focusedProject.note }}</p>
+            <ul v-if="focusedProject.links" class="album__links">
+              <li v-for="link in focusedProject.links" :key="link.href">
+                <a :href="link.href" rel="external">
+                  {{ link.label }}<span aria-hidden="true"> ↗</span>
+                </a>
+              </li>
+            </ul>
+          </template>
+          <p v-else class="album__prompt">Select a stamp to see the details</p>
+        </div>
+
+        <ul class="album__field" :class="{ 'album__field--loose': albumScatter }">
+          <li
+            v-for="(project, index) in arrangedProjects"
+            :key="project.id"
+            :style="{
+              '--accent': project.accent,
+              '--lean': albumScatter ? `${scatter[project.id] ?? 0}deg` : '0deg',
+              '--stamp-index': index,
+            }"
+          >
+            <button
+              type="button"
+              class="stamp"
+              :class="{ 'stamp--held': focused === project.id }"
+              :style="{
+                '--tilt-x': stampTilt[project.id]?.ax ?? 0,
+                '--tilt-y': stampTilt[project.id]?.ay ?? 0,
+                '--tilt-a': `${stampTilt[project.id]?.deg ?? 0}deg`,
+                '--px': stampTilt[project.id]?.px ?? '50%',
+                '--py': stampTilt[project.id]?.py ?? '50%',
+              }"
+              :aria-pressed="focused === project.id"
+              @click="holdStamp(project.id)"
+              @pointermove="tiltStamp($event, project.id)"
+              @pointerleave="restStamp(project.id)"
+            >
+              <span class="stamp__paper">
+                <span class="stamp__issuer">{{ project.field }}</span>
+                <span class="stamp__art" aria-hidden="true">{{ project.glyph }}</span>
+                <span class="stamp__name">{{ project.name }}</span>
+                <span class="stamp__foot">
+                  <span class="stamp__denom">{{ project.language }}</span>
+                  <span class="stamp__year">{{ project.issued }}</span>
+                </span>
+                <span class="stamp__blurb">{{ project.blurb }}</span>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </div>
     </section>
   </main>
 

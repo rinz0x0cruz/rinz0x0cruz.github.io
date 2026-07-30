@@ -1101,9 +1101,19 @@ test('pictures drift against vertical scroll, and hold still when asked', async 
     // Sample the whole reachable scroll range and measure how far things
     // actually travel. Asserting only that a value changed is what let a 7px
     // effect ship: it was technically animating and visibly nothing.
-    const maxY = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight)
+    // The window is the section's own pass, not the tail of the document:
+    // anything added below the strip used to move the sampled range off it.
+    const pass = await page.evaluate(() => {
+      const section = document.querySelector('.experience')
+      const top = section.getBoundingClientRect().top + scrollY
+      return {
+        from: Math.max(0, top - innerHeight * 0.8),
+        to: Math.min(document.documentElement.scrollHeight - innerHeight, top + section.offsetHeight),
+      }
+    })
+    const step = Math.max(50, Math.round((pass.to - pass.from) / 12))
     const samples = []
-    for (let y = Math.max(0, maxY - 800); y <= maxY; y += 100) {
+    for (let y = pass.from; y <= pass.to; y += step) {
       await page.evaluate((to) => scrollTo(0, to), y)
       await page.waitForTimeout(150)
       samples.push(
@@ -1328,6 +1338,7 @@ test('the artist credit is written in a letter at a time on hover', async ({ pag
         weight: axis(letters[0], 'wght'),
         casual: axis(letters[0], 'CASL'),
         underline: getComputedStyle(document.querySelector('.plate-credit__name')).backgroundSize,
+        delays: letters.map((el) => Number.parseFloat(getComputedStyle(el).transitionDelay)),
       }
     })
 
@@ -1339,30 +1350,29 @@ test('the artist credit is written in a letter at a time on hover', async ({ pag
   expect(rest.letters.every((o) => o === 0)).toBe(true)
   expect(rest.underline).toBe('0px 1px')
 
+  // The cascade is the per-letter delay, which is a stable property. Sampling
+  // the wave of opacities instead only holds during the ~470ms it lasts, and a
+  // loaded machine misses that window entirely and then never sees it again.
+  expect(rest.delays).toEqual([...rest.delays].sort((a, b) => a - b))
+  expect(rest.delays.at(-1)).toBeGreaterThan(rest.delays[0])
+
   const plate = await page.locator('.experience__frontispiece').boundingBox()
   const height = await page.locator('.experience__index').evaluate((el) => el.getBoundingClientRect().height)
   await page.mouse.move(plate.x + plate.width / 2, plate.y + plate.height / 2)
-
-  // proves the cascade without sampling at a moment: poll until the first
-  // letter has visibly outrun the last, whenever that happens to fall
-  await expect
-    .poll(async () => {
-      const { letters } = await read()
-      return letters[0] - letters.at(-1)
-    }, { timeout: 3000 })
-    .toBeGreaterThan(0.2)
-  const wave = (await read()).letters
-  expect(wave).toEqual([...wave].sort((a, b) => b - a))
 
   await expect.poll(async () => (await read()).weight, { timeout: 3000 }).toBe(780)
   // polled separately: the rule takes 460ms against the letters' 300ms, so
   // waiting only for the weight caught it mid-draw at 99.85%
   await expect.poll(async () => (await read()).underline, { timeout: 3000 }).toBe('100% 1px')
+  // and the last letter lands after the rule does, 208ms of stagger plus its
+  // own 260ms against the rule's 460ms, so it needs polling in its own right
+  await expect
+    .poll(async () => (await read()).letters.every((o) => o === 1), { timeout: 3000 })
+    .toBe(true)
 
   const shown = await read()
   expect(shown.block).toBe(1)
   expect(shown.casual).toBe(1)
-  expect(shown.letters.every((o) => o === 1)).toBe(true)
 
   // laid across the head of the print, inside its edges, and revealing it
   // must not shift the column underneath
@@ -1413,6 +1423,175 @@ test('without hover the artist credit simply stays visible', async ({ browser })
     await page.locator('.plate-credit').evaluate((el) => Number(getComputedStyle(el).opacity)),
   ).toBe(1)
   await context.close()
+})
+
+test('the album holds one stamp per project and opens its catalogue page', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  await page.locator('.album').scrollIntoViewIfNeeded()
+
+  const stamps = page.locator('.stamp')
+  await expect(stamps).toHaveCount(6)
+  await expect(page.locator('.album__prompt')).toBeVisible()
+
+  const exploitrank = page.locator('.stamp', { hasText: 'ExploitRank' })
+  await exploitrank.click()
+  await expect(page.locator('.album__name')).toHaveText('ExploitRank')
+  await expect(exploitrank).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.album__prompt')).toHaveCount(0)
+
+  // every link must resolve; a private repository shows a note instead
+  const links = page.locator('.album__links a')
+  await expect(links).toHaveCount(2)
+  for (const href of await links.evaluateAll((els) => els.map((el) => el.href))) {
+    expect(href).toMatch(/^https:\/\/(github\.com|rinz0x0cruz\.github\.io)\//)
+  }
+
+  // clicking the held stamp puts it back
+  await exploitrank.click()
+  await expect(page.locator('.album__prompt')).toBeVisible()
+})
+
+test('no stamp offers a link to a repository that is not public', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  await page.locator('.album').scrollIntoViewIfNeeded()
+
+  const geometry = () =>
+    page.evaluate(() => ({
+      window: Math.round(document.querySelector('.album__window').getBoundingClientRect().height),
+      page: Math.round(document.querySelector('.album__page').getBoundingClientRect().height),
+      overflow: Math.round(
+        document.querySelector('.album__page').scrollHeight -
+          document.querySelector('.album__page').clientHeight,
+      ),
+      stamps: [
+        ...new Set(
+          [...document.querySelectorAll('.stamp')].map((el) =>
+            Math.round(el.getBoundingClientRect().height),
+          ),
+        ),
+      ],
+    }))
+
+  const empty = await geometry()
+  expect(empty).toEqual({ window: 461, page: 411, overflow: 0, stamps: [196] })
+
+  const stamps = await page.locator('.stamp').count()
+  for (let i = 0; i < stamps; i += 1) {
+    await page.locator('.stamp').nth(i).click()
+    const links = await page.locator('.album__links a').count()
+    const note = await page.locator('.album__note').count()
+    // a project either points somewhere real or says why it does not
+    expect(links + note).toBeGreaterThan(0)
+
+    // and every one draws what it does to what you give it, in stages that
+    // are actually written rather than an empty diagram
+    const stages = await page.locator('.album__flow li').allTextContents()
+    expect(stages.length).toBeGreaterThanOrEqual(3)
+    expect(stages.every((s) => s.trim().length > 0)).toBe(true)
+
+    // three reasons to care, on every project, none of them blank
+    const points = await page.locator('.album__points li').allTextContents()
+    expect(points).toHaveLength(3)
+    expect(points.every((p) => p.trim().length > 10)).toBe(true)
+    expect(points.every((p) => p.trim().split(/\s+/).length <= 8)).toBe(true)
+
+    // opening a catalogue page must not grow the album or stretch its stamps
+    expect(await geometry()).toEqual(empty)
+  }
+})
+
+test('the album rearranges and reshuffles', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  await page.locator('.album').scrollIntoViewIfNeeded()
+
+  const order = () => page.$$eval('.stamp__name', (els) => els.map((el) => el.textContent.trim()))
+  const byField = await order()
+
+  await page.locator('.album__sort select').selectOption('name')
+  const byName = await order()
+  expect(byName).not.toEqual(byField)
+  expect(byName).toEqual([...byName].sort((a, b) => a.localeCompare(b)))
+
+  // shuffling must move the stamps and lean them, not just relabel the button
+  await page.locator('.album__shuffle').click()
+  await expect(page.locator('.album__shuffle')).toContainText('Reshuffle')
+  // the lean is on the mount: the paper keeps its own rotate for pointer tilt
+  const leans = await page.$$eval('.album__field li', (els) => els.map((el) => getComputedStyle(el).rotate))
+  expect(new Set(leans).size).toBeGreaterThan(1)
+  expect(await order()).toHaveLength(byName.length)
+})
+
+test('a stamp can be reached and held from the keyboard', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('.album').scrollIntoViewIfNeeded()
+
+  const first = page.locator('.stamp').first()
+  await first.focus()
+  await expect(first).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(first).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.album__name')).toHaveCount(1)
+})
+
+test('a stamp leans away from the pointer and lifts off the page', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.album__field').scrollIntoViewIfNeeded()
+
+  const paper = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('.stamp__paper')
+      const cs = getComputedStyle(el)
+      const [ax, ay, , deg] = cs.rotate.split(' ')
+      return {
+        axis: [Number(ax), Number(ay)],
+        deg: Number.parseFloat(deg),
+        z: Number.parseFloat(cs.translate.split(' ')[2] ?? '0'),
+      }
+    })
+
+  // there is no depth without a perspective on the parent: a rotated flat
+  // element just squashes
+  expect(await page.locator('.stamp').first().evaluate((el) => getComputedStyle(el).perspective)).toBe('780px')
+
+  const rest = await paper()
+  expect(rest.deg).toBe(0)
+
+  const box = await page.locator('.stamp').first().boundingBox()
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2)
+  await expect.poll(async () => (await paper()).deg, { timeout: 2000 }).toBeGreaterThan(4)
+  // the lean is set per frame but the lift eases over 260ms, so reading it in
+  // the same breath catches it still on the page
+  await expect.poll(async () => (await paper()).z, { timeout: 2000 }).toBeGreaterThan(8)
+  const topLeft = await paper()
+
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.8)
+  await page.waitForTimeout(120)
+  const bottomRight = await paper()
+  // the far corner leans the other way, or the stamp is only scaling
+  expect(Math.sign(bottomRight.axis[0])).toBe(-Math.sign(topLeft.axis[0]))
+  expect(Math.sign(bottomRight.axis[1])).toBe(-Math.sign(topLeft.axis[1]))
+})
+
+test('a stamp stays flat when motion is not wanted', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.locator('.album__field').scrollIntoViewIfNeeded()
+
+  const box = await page.locator('.stamp').first().boundingBox()
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2)
+  await page.waitForTimeout(200)
+
+  const flat = await page.locator('.stamp__paper').first().evaluate((el) => ({
+    rotate: getComputedStyle(el).rotate,
+    transition: getComputedStyle(el).transitionDuration,
+  }))
+  expect(flat.rotate).toBe('0 0 0 0deg')
+  expect(flat.transition).toBe('0s')
 })
 
 test('a card turns over to its evidence, by pointer and by keyboard', async ({ page }) => {
