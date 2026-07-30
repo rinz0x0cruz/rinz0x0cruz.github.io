@@ -61,6 +61,7 @@ export default {
     src: '/portrait-sketch.webp',
     w: 660,
     h: 935,
+    artist: 'Sugarplum',
     alt: 'A framed charcoal portrait of Mohit Sharma hanging on a wall, arms folded, in a heavy jacket',
     position: '50% 45%',
   },

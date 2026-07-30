@@ -1186,7 +1186,8 @@ h1 {
 .experience__frontispiece {
   display: grid;
   grid-template-rows: 1fr auto;
-  gap: 0.5rem;
+  /* leaves the filigree's lower corners clear of the caption */
+  gap: 0.9rem;
   min-height: 0;
   margin: 0;
   padding: 1.15rem;
@@ -1198,20 +1199,128 @@ h1 {
     inset 0 1px rgba(255, 255, 255, 0.06);
 }
 
-/* width-driven, so a wider frame cannot spill out of the column; the row keeps
-   whatever height is left over after the note */
-.experience__frontispiece .photo-frame {
+/* The mount carries the export's ratio so the filigree can hang on a box that
+   is exactly the picture. The frame itself clips, and would clip the corners
+   off with it. */
+.experience__plate-mount {
+  position: relative;
+  display: block;
   width: 100%;
-  height: auto;
   max-height: 100%;
   aspect-ratio: var(--frame-ratio, 3 / 4);
   margin: auto;
 }
+
+.experience__frontispiece .photo-frame {
+  width: 100%;
+  height: 100%;
+}
+
+/* The achievement window's filigree, worn by the drawing. Same gold, same
+   draw-on; only the scale and the mounting differ, so the two ornaments cannot
+   drift apart. Selectors are compound because the base rules that hide and
+   size the ornament are declared later in this file. */
+.experience__frontispiece .portrait-filigree {
+  inset: -0.3rem;
+  z-index: 2;
+  background: none;
+  opacity: 1;
+}
+
+/* The corner offsets are fixed rem values tuned for the achievement window, so
+   on an ornament this much smaller they threw the corners clear of the frame
+   and onto the plate caption. */
+.experience__frontispiece .achievement-filigree__corner--top-left,
+.experience__frontispiece .achievement-filigree__corner--bottom-right {
+  inset: auto;
+}
+
+.experience__frontispiece .achievement-filigree__corner--top-left {
+  top: -0.2rem;
+  left: -0.2rem;
+}
+
+.experience__frontispiece .achievement-filigree__corner--bottom-right {
+  right: -0.2rem;
+  bottom: -0.2rem;
+}
+
+.experience__frontispiece .achievement-filigree__corner--top-right {
+  top: -0.12rem;
+  right: -0.12rem;
+}
+
+.experience__frontispiece .achievement-filigree__corner--bottom-left {
+  bottom: -0.12rem;
+  left: -0.12rem;
+}
+
+.experience__frontispiece .achievement-filigree__corner--primary {
+  width: 2.6rem;
+  height: 2.6rem;
+}
+
+.experience__frontispiece .achievement-filigree__corner--secondary {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+/* drawn by default, so a reduced-motion or no-timeline visitor gets the
+   finished ornament rather than four blank corners */
+.experience__frontispiece .achievement-filigree__path--shadow,
+.experience__frontispiece .achievement-filigree__path--stem,
+.experience__frontispiece .achievement-filigree__path--branch {
+  stroke-dashoffset: 0;
+}
+
+.experience__frontispiece .achievement-filigree__leaves path {
+  transform: scale(1);
+}
 .experience__frontispiece figcaption {
+  flex-wrap: wrap;
   color: #a7a39b;
   font-family: 'Mackie Pixel', 'Kiona', sans-serif;
   font-size: 12px;
   letter-spacing: 0.04em;
+}
+
+/* The drawing is someone else's work, so it carries their name. Recursive is
+   already loaded and carries the axes for it: on hover each letter turns from
+   upright to casual and gains weight in turn, which is the flourish a
+   signature wants and costs no new font and no new dependency. */
+.plate-credit {
+  display: flex;
+  flex: 1 0 100%;
+  gap: 0.4em;
+  align-items: baseline;
+  margin-top: 0.2rem;
+  color: #837e76;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: none;
+}
+
+/* an underline that draws itself rather than switching on */
+.plate-credit__name {
+  background: linear-gradient(var(--accent), var(--accent)) 0 100% / 0 1px no-repeat;
+  color: var(--accent);
+}
+
+.plate-credit__letter {
+  display: inline-block;
+  font-variation-settings: 'MONO' 0, 'CASL' 0, 'wght' 520;
+}
+
+.experience__frontispiece:hover .plate-credit__name,
+.experience__frontispiece:focus-within .plate-credit__name {
+  background-size: 100% 1px;
+}
+
+.experience__frontispiece:hover .plate-credit__letter,
+.experience__frontispiece:focus-within .plate-credit__letter {
+  font-variation-settings: 'MONO' 0, 'CASL' 1, 'wght' 780;
+  translate: 0 -0.14em;
 }
 
 .experience__plate {
@@ -1312,6 +1421,39 @@ h1 {
     to {
       translate: 330px -280px;
     }
+  }
+
+  /* The gold draws itself on as the section arrives, reusing the achievement
+     window's own keyframes. Guarded, because without a scroll timeline this
+     would run once against the document timeline and strand the ornament at
+     its opening frame - four blank corners. */
+  @supports (animation-timeline: view()) {
+    .experience__frontispiece .achievement-filigree__path--shadow,
+    .experience__frontispiece .achievement-filigree__path--stem,
+    .experience__frontispiece .achievement-filigree__path--branch {
+      animation: achievement-filigree-grow linear both;
+      animation-timeline: --experience-pass;
+      animation-range: entry 15% entry 70%;
+    }
+
+    .experience__frontispiece .achievement-filigree__leaves path {
+      animation: achievement-filigree-leaf linear both;
+      animation-timeline: --experience-pass;
+      animation-range: entry 45% entry 85%;
+    }
+  }
+
+  /* the signature lifts letter by letter; without this it still reaches the
+     same weight and lift, just at once, which is correct for reduced motion */
+  .plate-credit__letter {
+    transition:
+      font-variation-settings 300ms ease,
+      translate 300ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: calc(var(--letter, 0) * 26ms);
+  }
+
+  .plate-credit__name {
+    transition: background-size 460ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   /* recede rides the independent scale property: the card's transform belongs

@@ -1258,6 +1258,115 @@ test('a print keeps its metadata hidden until the card is hovered', async ({ pag
   }
 })
 
+test('the drawing wears the same gold filigree as the achievement window', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(300)
+
+  const ornament = await page.evaluate(() => {
+    const filigree = document.querySelector('.portrait-filigree')
+    const frame = document.querySelector('.experience__frontispiece .photo-frame').getBoundingClientRect()
+    const box = filigree.getBoundingClientRect()
+    const caption = document.querySelector('.experience__frontispiece figcaption').getBoundingClientRect()
+    const lowest = Math.max(
+      ...[...filigree.querySelectorAll('.achievement-filigree__corner')].map(
+        (corner) => corner.getBoundingClientRect().bottom,
+      ),
+    )
+    return {
+      corners: filigree.querySelectorAll('.achievement-filigree__corner').length,
+      opacity: Number(getComputedStyle(filigree).opacity),
+      // reduced motion has no draw-on, so the ornament must already be drawn
+      dashoffset: getComputedStyle(
+        filigree.querySelector('.achievement-filigree__path--stem'),
+      ).strokeDashoffset,
+      leaf: getComputedStyle(
+        filigree.querySelector('.achievement-filigree__leaves path'),
+      ).transform,
+      surrounds: {
+        left: Math.round(box.left - frame.left),
+        top: Math.round(box.top - frame.top),
+      },
+      clearsCaption: Math.round(caption.top - lowest),
+      copies: document.querySelectorAll('.achievement-filigree').length,
+    }
+  })
+
+  expect(ornament.corners).toBe(4)
+  expect(ornament.opacity).toBe(1)
+  expect(ornament.dashoffset).toBe('0px')
+  expect(ornament.leaf).toBe('matrix(1, 0, 0, 1, 0, 0)')
+  // it frames the picture rather than floating somewhere near it
+  expect(ornament.surrounds.left).toBeLessThan(0)
+  expect(ornament.surrounds.top).toBeLessThan(0)
+  // and its lower corners do not sit on the plate caption
+  expect(ornament.clearsCaption).toBeGreaterThanOrEqual(0)
+  // the achievement window keeps its own: this is shared markup, not moved
+  expect(ornament.copies).toBe(2)
+
+  await page.emulateMedia({ forcedColors: 'active' })
+  await expect(page.locator('.portrait-filigree')).toBeHidden()
+})
+
+test('the drawing credits its artist, and the signature answers a hover', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(300)
+
+  const credit = page.locator('.plate-credit')
+  // the attribution is readable without hovering: hiding it would not be credit
+  await expect(credit).toBeVisible()
+  await expect(credit).toContainText('Sugarplum')
+
+  const read = () =>
+    page.evaluate(() => {
+      const letters = [...document.querySelectorAll('.plate-credit__letter')]
+      const axis = (el, name) =>
+        Number(new RegExp(`"${name}" ([\\d.]+)`).exec(getComputedStyle(el).fontVariationSettings)?.[1])
+      return {
+        weight: axis(letters[0], 'wght'),
+        casual: axis(letters[0], 'CASL'),
+        underline: getComputedStyle(document.querySelector('.plate-credit__name')).backgroundSize,
+        stagger: [letters[0], letters.at(-1)].map(
+          (el) => Number.parseFloat(getComputedStyle(el).transitionDelay),
+        ),
+      }
+    })
+
+  const rest = await read()
+  expect(rest.weight).toBe(520)
+  expect(rest.casual).toBe(0)
+  expect(rest.underline).toBe('0px 1px')
+  // each letter answers a beat later than the one before it
+  expect(rest.stagger[1]).toBeGreaterThan(rest.stagger[0])
+
+  const plate = await page.locator('.experience__frontispiece').boundingBox()
+  await page.mouse.move(plate.x + plate.width / 2, plate.y + plate.height / 2)
+  await expect.poll(async () => (await read()).weight, { timeout: 3000 }).toBe(780)
+  // polled separately: the rule takes 460ms against the letters' 300ms, so
+  // waiting only for the weight caught it mid-draw at 99.85%
+  await expect.poll(async () => (await read()).underline, { timeout: 3000 }).toBe('100% 1px')
+
+  expect((await read()).casual).toBe(1)
+
+  // reduced motion still reaches the same state, it just does not travel there
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.locator('.experience').scrollIntoViewIfNeeded()
+  const still = await page.locator('.plate-credit__letter').first().evaluate((el) => ({
+    transition: getComputedStyle(el).transitionDuration,
+  }))
+  expect(still.transition).toBe('0s')
+  const box = await page.locator('.experience__frontispiece').boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.waitForTimeout(200)
+  expect((await read()).weight).toBe(780)
+})
+
 test('a card turns over to its evidence, by pointer and by keyboard', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
