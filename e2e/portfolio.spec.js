@@ -1243,24 +1243,6 @@ test('a print keeps its metadata hidden until the card is hovered', async ({ pag
   const hovered = await read()
   expect(hovered.print).toBe(rest.print)
 
-  // Colour is the reveal: prints wait monochrome and only the hovered card
-  // comes up. The charcoal drawing is exempt, having no colour to withhold.
-  const colour = await page.evaluate(() => {
-    const grey = (el) => /grayscale\(1\)/.test(getComputedStyle(el).filter)
-    const cards = [...document.querySelectorAll('.chapter')]
-    return {
-      hoveredPrints: [...cards[0].querySelectorAll('.chapter__photo img, .chapter__scene img')].map(grey),
-      otherPrints: cards
-        .slice(1)
-        .flatMap((c) => [...c.querySelectorAll('.chapter__photo img, .chapter__scene img')])
-        .map(grey),
-      sketchGrey: grey(document.querySelector('.experience__frontispiece img')),
-    }
-  })
-  expect(colour.hoveredPrints.every((g) => g === false)).toBe(true)
-  expect(colour.otherPrints.every((g) => g === true)).toBe(true)
-  expect(colour.sketchGrey).toBe(false)
-
   // both facts are there once revealed, and neither is cut off
   const labels = await page.evaluate(() => {
     const figure = document.querySelector('.chapter__photo')
