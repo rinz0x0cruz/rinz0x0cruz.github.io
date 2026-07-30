@@ -924,6 +924,7 @@ onBeforeUnmount(() => {
 
       <!-- one horizontal rail: the axis is time, current role on the left -->
       <div class="experience__window">
+        <div class="experience__stars" aria-hidden="true"></div>
         <div
           ref="experienceRail"
           class="experience__rail"
