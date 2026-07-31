@@ -1594,6 +1594,149 @@ test('a stamp stays flat when motion is not wanted', async ({ page }) => {
   expect(flat.transition).toBe('0s')
 })
 
+test('languages morph between exact proficiency records without invented percentages', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.qualifications').scrollIntoViewIfNeeded()
+
+  const choices = page.locator('.language-switch button')
+  await expect(choices).toHaveCount(3)
+  await expect(choices).toHaveText(['English', 'हिन्दी', '日本語'])
+
+  // Selection and content change in the same render. Motion decorates the new
+  // state; it never gates it behind transitionend, which hidden tabs can freeze.
+  await choices.nth(2).evaluate((el) => el.click())
+  await expect(choices.nth(2)).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.language-stage__word')).toHaveText('日本語')
+  await expect(page.locator('.language-stage__word')).toHaveAttribute('lang', 'ja')
+  await expect(page.locator('.language-stage__level')).toHaveText('JLPT N4')
+  await expect(page.locator('.language-stage a')).toHaveAttribute('href', /jlpt\.jp/)
+  await expect(page.locator('.language-console')).not.toContainText('%')
+
+  const delays = await page.locator('.language-stage__letter').evaluateAll((letters) =>
+    letters.map((letter) => Number.parseFloat(getComputedStyle(letter).animationDelay)),
+  )
+  expect(delays).toEqual([...delays].sort((a, b) => a - b))
+  expect(new Set(delays).size).toBe(delays.length)
+})
+
+test('certification seals expose exact grades and only authoritative sources', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  await page.locator('.qualifications').scrollIntoViewIfNeeded()
+
+  const seals = page.locator('.certification-seal')
+  await expect(seals).toHaveCount(4)
+  const expected = [
+    ['Certified in Cybersecurity', 'Earned'],
+    ['Azure Cosmos DB Developer Specialty', 'Earned'],
+    ['ISO/IEC 27001 Lead Auditor', 'Lead Auditor'],
+    ['ISO/IEC 42001 Lead Auditor', 'Lead Auditor'],
+  ]
+
+  for (let index = 0; index < expected.length; index += 1) {
+    await seals.nth(index).evaluate((el) => el.click())
+    await expect(seals.nth(index)).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.certification-focus h4')).toHaveText(expected[index][0])
+    await expect(page.locator('.certification-focus dd').first()).toHaveText(expected[index][1])
+
+    const hosts = await page.locator('.certification-focus a').evaluateAll((links) =>
+      links.map((link) => new URL(link.href).hostname),
+    )
+    expect(hosts.every((host) =>
+      ['www.isc2.org', 'learn.microsoft.com', 'pecb.com', 'www.iso.org'].includes(host),
+    )).toBe(true)
+  }
+
+  // Issuer and standards pages support the claim; none is presented as a
+  // personal verification URL that the repository does not have.
+  await expect(page.locator('.certification-press')).not.toContainText('Verified')
+})
+
+test('a certification seal tilts, lifts, and traces the selected source', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.certification-press').scrollIntoViewIfNeeded()
+
+  const seal = page.locator('.certification-seal').nth(1)
+  const coin = seal.locator('.certification-seal__coin')
+  const box = await seal.boundingBox()
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2)
+
+  await expect.poll(async () => coin.evaluate((el) =>
+    Number.parseFloat(getComputedStyle(el).rotate.split(' ').at(-1)),
+  )).toBeGreaterThan(3)
+  await expect.poll(async () => coin.evaluate((el) =>
+    Number.parseFloat(getComputedStyle(el).translate.split(' ')[2] ?? '0'),
+  )).toBeGreaterThan(6)
+
+  await seal.evaluate((el) => el.click())
+  await expect(seal).toHaveAttribute('aria-pressed', 'true')
+  expect(await coin.evaluate((el) => getComputedStyle(el, '::before').animationName)).toBe(
+    'certification-trace',
+  )
+})
+
+test('qualification motion has keyboard and reduced-motion equivalents', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.locator('.qualifications').scrollIntoViewIfNeeded()
+
+  const hindi = page.locator('.language-switch button').nth(1)
+  await hindi.focus()
+  await page.keyboard.press('Enter')
+  await expect(hindi).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.language-stage__word')).toHaveText('हिन्दी')
+
+  const seal = page.locator('.certification-seal').nth(2)
+  await seal.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.certification-focus h4')).toHaveText('ISO/IEC 27001 Lead Auditor')
+
+  const coin = seal.locator('.certification-seal__coin')
+  const box = await seal.boundingBox()
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2)
+  const still = await coin.evaluate((el) => ({
+    rotate: getComputedStyle(el).rotate,
+    transition: getComputedStyle(el).transitionDuration,
+    trace: getComputedStyle(el, '::before').animationName,
+  }))
+  expect(still.rotate).toBe('0 0 0 0deg')
+  expect(still.transition).toBe('0s')
+  expect(still.trace).toBe('none')
+})
+
+test('qualifications stay contained on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.locator('.qualifications').scrollIntoViewIfNeeded()
+
+  for (const button of await page.locator('.language-switch button').all()) {
+    await button.evaluate((el) => el.click())
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+  }
+  for (const seal of await page.locator('.certification-seal').all()) {
+    await seal.evaluate((el) => el.click())
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+  }
+
+  const geometry = await page.evaluate(() => ({
+    overflow:
+      document.querySelector('.qualifications__instrument').scrollWidth -
+      document.querySelector('.qualifications__instrument').clientWidth,
+    seals: [...document.querySelectorAll('.certification-seal__coin')].map((el) => ({
+      width: el.offsetWidth,
+      height: el.offsetHeight,
+    })),
+  }))
+  expect(geometry.overflow).toBe(0)
+  expect(geometry.seals.every((seal) => Math.abs(seal.width - seal.height) < 0.1)).toBe(true)
+  const widths = geometry.seals.map((seal) => seal.width)
+  expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1)
+})
+
 test('a card turns over to its evidence, by pointer and by keyboard', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')

@@ -40,6 +40,16 @@ const photoCredits = computed(() =>
   profile.experience.filter((role) => role.photo?.credit).map((role) => role.photo.credit),
 )
 
+const activeLanguage = ref(0)
+const activeCertification = ref(0)
+const pageVisible = ref(!document.hidden)
+const activeLanguageRecord = computed(() => profile.languages[activeLanguage.value])
+const activeCertificationRecord = computed(() => profile.certifications[activeCertification.value])
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+const activeLanguageLetters = computed(() =>
+  [...graphemeSegmenter.segment(activeLanguageRecord.value.native)].map(({ segment }) => segment),
+)
+
 // counted from the earliest role rather than written down, so the hint and the
 // axis label cannot drift apart or go stale as roles are added
 const careerYears = computed(() => {
@@ -336,6 +346,19 @@ function restStamp(id) {
   stampTilt.value = { ...stampTilt.value, [id]: null }
 }
 
+const certificationTilt = ref({})
+
+function tiltCertification(event, id) {
+  if (event.pointerType !== 'mouse') return
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  certificationTilt.value = { ...certificationTilt.value, [id]: leanFrom(event, 11) }
+}
+
+function restCertification(id) {
+  certificationTilt.value = { ...certificationTilt.value, [id]: null }
+}
+
 // railSeen counts revealed width, which is never 0 at the start; the controls
 // need the actual ends instead
 const railAtStart = ref(true)
@@ -492,6 +515,7 @@ function syncLandscapeVideo() {
 }
 
 function syncPageState() {
+  pageVisible.value = !document.hidden
   if (document.hidden || reducedMotionMedia?.matches) stopQuoteRotation()
   else startQuoteRotation()
   achievementInView.value = achievementIntersecting && !document.hidden && !reducedMotionMedia?.matches
@@ -1227,6 +1251,131 @@ onBeforeUnmount(() => {
             </button>
           </li>
         </ul>
+      </div>
+    </section>
+
+    <section
+      class="qualifications"
+      :class="{ 'qualifications--motion': pageVisible }"
+      aria-labelledby="qualifications-title"
+    >
+      <div class="album__head qualifications__head">
+        <div>
+          <p>Language / {{ String(profile.languages.length).padStart(2, '0') }} · Credentials / {{ String(profile.certifications.length).padStart(2, '0') }}</p>
+          <h2 id="qualifications-title">Languages & certifications</h2>
+        </div>
+      </div>
+
+      <div class="qualifications__instrument">
+        <section class="language-console" aria-labelledby="language-console-title">
+          <div class="qualifications__label">
+            <p>Rosetta / 03</p>
+            <h3 id="language-console-title">Languages</h3>
+          </div>
+
+          <div
+            class="language-switch"
+            :style="{
+              '--language-index': activeLanguage,
+              '--language-accent': activeLanguageRecord.accent,
+            }"
+            role="group"
+            aria-label="Choose a language"
+          >
+            <span class="language-switch__marker" aria-hidden="true"></span>
+            <button
+              v-for="(language, index) in profile.languages"
+              :key="language.id"
+              type="button"
+              :class="{ 'language-switch__button--active': activeLanguage === index }"
+              :aria-pressed="activeLanguage === index"
+              @click="activeLanguage = index"
+            >
+              <span :lang="language.lang">{{ language.native }}</span>
+            </button>
+          </div>
+
+          <div class="language-stage" aria-live="polite">
+            <div
+              :key="activeLanguageRecord.id"
+              class="language-stage__state"
+              :style="{ '--language-accent': activeLanguageRecord.accent }"
+            >
+              <p class="language-stage__word" :lang="activeLanguageRecord.lang">
+                <span
+                  v-for="(letter, index) in activeLanguageLetters"
+                  :key="`${letter}-${index}`"
+                  class="language-stage__letter"
+                  :style="{ '--letter': index }"
+                >{{ letter }}</span>
+              </p>
+              <p class="language-stage__level">{{ activeLanguageRecord.level }}</p>
+              <p class="language-stage__detail">{{ activeLanguageRecord.detail }}</p>
+              <a
+                v-if="activeLanguageRecord.href"
+                :href="activeLanguageRecord.href"
+                rel="external"
+              >JLPT level definition <span aria-hidden="true">↗</span></a>
+            </div>
+          </div>
+        </section>
+
+        <section class="certification-press" aria-labelledby="certification-press-title">
+          <div class="qualifications__label">
+            <p>Truth layer / 04</p>
+            <h3 id="certification-press-title">Certifications</h3>
+          </div>
+
+          <div class="certification-press__bench">
+            <div class="certification-press__seals" role="group" aria-label="Choose a certification">
+              <button
+                v-for="(certification, index) in profile.certifications"
+                :key="certification.id"
+                type="button"
+                class="certification-seal"
+                :class="{ 'certification-seal--active': activeCertification === index }"
+                :style="{
+                  '--certification-accent': certification.accent,
+                  '--tilt-x': certificationTilt[certification.id]?.ax ?? 0,
+                  '--tilt-y': certificationTilt[certification.id]?.ay ?? 0,
+                  '--tilt-a': `${certificationTilt[certification.id]?.deg ?? 0}deg`,
+                  '--px': certificationTilt[certification.id]?.px ?? '50%',
+                  '--py': certificationTilt[certification.id]?.py ?? '50%',
+                }"
+                :aria-pressed="activeCertification === index"
+                :aria-label="`${certification.issuer}: ${certification.name}`"
+                @click="activeCertification = index"
+                @pointermove="tiltCertification($event, certification.id)"
+                @pointerleave="restCertification(certification.id)"
+              >
+                <span class="certification-seal__coin">
+                  <span>{{ certification.issuer }}</span>
+                  <strong>{{ certification.code }}</strong>
+                </span>
+              </button>
+            </div>
+
+            <div class="certification-focus" aria-live="polite">
+              <article
+                :key="activeCertificationRecord.id"
+                :style="{ '--certification-accent': activeCertificationRecord.accent }"
+              >
+                <p>{{ activeCertificationRecord.issuer }}</p>
+                <h4>{{ activeCertificationRecord.name }}</h4>
+                <dl>
+                  <div><dt>Grade</dt><dd>{{ activeCertificationRecord.status }}</dd></div>
+                  <div><dt>Code</dt><dd>{{ activeCertificationRecord.code }}</dd></div>
+                </dl>
+                <p class="certification-focus__detail">{{ activeCertificationRecord.detail }}</p>
+                <ul>
+                  <li v-for="link in activeCertificationRecord.links" :key="link.href">
+                    <a :href="link.href" rel="external">{{ link.label }} <span aria-hidden="true">↗</span></a>
+                  </li>
+                </ul>
+              </article>
+            </div>
+          </div>
+        </section>
       </div>
     </section>
   </main>
