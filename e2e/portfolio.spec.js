@@ -1594,11 +1594,91 @@ test('a stamp stays flat when motion is not wanted', async ({ page }) => {
   expect(flat.transition).toBe('0s')
 })
 
+test('languages and certifications stay in independent sections', async ({ page }) => {
+  await page.goto('/')
+
+  const languages = page.locator('.qualifications--languages')
+  const certifications = page.locator('.qualifications--certifications')
+
+  await expect(page.locator('main > .qualifications')).toHaveCount(2)
+  await expect(languages.locator('h2')).toHaveText('Languages')
+  await expect(languages.locator('.language-console')).toHaveCount(1)
+  await expect(languages.locator('.certification-press')).toHaveCount(0)
+  await expect(certifications.locator('h2')).toHaveText('Certifications')
+  await expect(certifications.locator('.certification-press')).toHaveCount(1)
+  await expect(certifications.locator('.language-console')).toHaveCount(0)
+})
+
+test('certifications leave breathing room before the footer', async ({ page }) => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+
+    const gap = await page.evaluate(() => {
+      const certifications = document.querySelector(
+        '.qualifications--certifications',
+      ).getBoundingClientRect()
+      const footer = document.querySelector('.site-footer').getBoundingClientRect()
+      return footer.top - certifications.bottom
+    })
+
+    expect(gap).toBeGreaterThanOrEqual(64)
+    expect(gap).toBeLessThanOrEqual(96)
+  }
+})
+
+test('the language instrument stays compact on desktop and phone', async ({ page }) => {
+  for (const viewport of [
+    { width: 1440, height: 900, maximumHeight: 96 },
+    { width: 390, height: 844, maximumHeight: 160 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    await page.locator('.language-switch button').nth(2).click()
+
+    const height = await page.locator(
+      '.qualifications--languages .qualifications__instrument',
+    ).evaluate((instrument) => instrument.getBoundingClientRect().height)
+    expect(height).toBeLessThanOrEqual(viewport.maximumHeight)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+  }
+})
+
+test('language switch derives its columns from the language count', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+
+  const layout = await page.locator('.language-switch').evaluate((switcher) => {
+    const source = switcher.querySelector('button')
+    const extra = source.cloneNode(true)
+    extra.classList.remove('language-switch__button--active')
+    extra.setAttribute('aria-pressed', 'false')
+    extra.querySelector('span').textContent = 'Français'
+    switcher.append(extra)
+    switcher.style.setProperty('--language-count', '4')
+
+    const widths = [...switcher.querySelectorAll('button')].map(
+      (button) => button.getBoundingClientRect().width,
+    )
+    return {
+      columns: getComputedStyle(switcher).gridTemplateColumns.split(' ').length,
+      count: Number(getComputedStyle(switcher).getPropertyValue('--language-count')),
+      widthSpread: Math.max(...widths) - Math.min(...widths),
+      overflow: switcher.scrollWidth - switcher.clientWidth,
+    }
+  })
+
+  expect(layout).toEqual({ columns: 4, count: 4, widthSpread: 0, overflow: 0 })
+})
+
 test('languages morph between exact proficiency records without invented percentages', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.goto('/')
-  await page.locator('.qualifications').scrollIntoViewIfNeeded()
+  await page.locator('.qualifications--languages').scrollIntoViewIfNeeded()
 
   const choices = page.locator('.language-switch button')
   await expect(choices).toHaveCount(3)
@@ -1624,7 +1704,7 @@ test('languages morph between exact proficiency records without invented percent
 test('certification seals expose exact grades and only authoritative sources', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/')
-  await page.locator('.qualifications').scrollIntoViewIfNeeded()
+  await page.locator('.qualifications--certifications').scrollIntoViewIfNeeded()
 
   const seals = page.locator('.certification-seal')
   await expect(seals).toHaveCount(4)
@@ -1682,7 +1762,7 @@ test('a certification seal tilts, lifts, and traces the selected source', async 
 test('qualification motion has keyboard and reduced-motion equivalents', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
-  await page.locator('.qualifications').scrollIntoViewIfNeeded()
+  await page.locator('.qualifications--languages').scrollIntoViewIfNeeded()
 
   const hindi = page.locator('.language-switch button').nth(1)
   await hindi.focus()
@@ -1711,7 +1791,7 @@ test('qualification motion has keyboard and reduced-motion equivalents', async (
 test('qualifications stay contained on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
-  await page.locator('.qualifications').scrollIntoViewIfNeeded()
+  await page.locator('.qualifications--languages').scrollIntoViewIfNeeded()
 
   for (const button of await page.locator('.language-switch button').all()) {
     await button.evaluate((el) => el.click())
@@ -1723,18 +1803,84 @@ test('qualifications stay contained on a phone', async ({ page }) => {
   }
 
   const geometry = await page.evaluate(() => ({
-    overflow:
-      document.querySelector('.qualifications__instrument').scrollWidth -
-      document.querySelector('.qualifications__instrument').clientWidth,
+    overflows: [...document.querySelectorAll('.qualifications__instrument')].map(
+      (instrument) => instrument.scrollWidth - instrument.clientWidth,
+    ),
     seals: [...document.querySelectorAll('.certification-seal__coin')].map((el) => ({
       width: el.offsetWidth,
       height: el.offsetHeight,
     })),
   }))
-  expect(geometry.overflow).toBe(0)
+  expect(geometry.overflows).toEqual([0, 0])
   expect(geometry.seals.every((seal) => Math.abs(seal.width - seal.height) < 0.1)).toBe(true)
   const widths = geometry.seals.map((seal) => seal.width)
   expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1)
+})
+
+test('the certification shelf grows without growing the instrument', async ({ page }) => {
+  const addSyntheticSeals = () =>
+    page.evaluate(() => {
+      const shelf = document.querySelector('.certification-press__seals')
+      const source = shelf.querySelector('.certification-seal')
+      for (let index = shelf.children.length; index < 12; index += 1) {
+        const seal = source.cloneNode(true)
+        seal.classList.remove('certification-seal--active')
+        seal.setAttribute('aria-label', `Synthetic certification ${index + 1}`)
+        seal.setAttribute('aria-pressed', 'false')
+        shelf.append(seal)
+      }
+    })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.locator('.qualifications--certifications').scrollIntoViewIfNeeded()
+  await expect(page.locator('.qualifications__label', { hasText: 'Truth layer' })).toContainText('/ 04')
+
+  const current = await page.evaluate(() => {
+    const instrument = document.querySelector(
+      '.qualifications--certifications .qualifications__instrument',
+    )
+    const shelf = document.querySelector('.certification-press__seals')
+    return {
+      instrument: Math.round(instrument.getBoundingClientRect().height),
+      shelfScrolls: shelf.scrollHeight > shelf.clientHeight + 1,
+    }
+  })
+  expect(current).toEqual({ instrument: 384, shelfScrolls: false })
+
+  await addSyntheticSeals()
+  const desktop = await page.evaluate(() => {
+    const instrument = document.querySelector(
+      '.qualifications--certifications .qualifications__instrument',
+    )
+    const shelf = document.querySelector('.certification-press__seals')
+    return {
+      count: shelf.children.length,
+      instrument: Math.round(instrument.getBoundingClientRect().height),
+      shelfScrolls: shelf.scrollHeight > shelf.clientHeight + 1,
+      sizes: [...new Set(
+        [...shelf.querySelectorAll('.certification-seal__coin')].map(
+          (seal) => `${seal.offsetWidth}x${seal.offsetHeight}`,
+        ),
+      )],
+    }
+  })
+  expect(desktop).toEqual({ count: 12, instrument: 384, shelfScrolls: true, sizes: ['74x74'] })
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.locator('.qualifications--certifications').scrollIntoViewIfNeeded()
+  await addSyntheticSeals()
+  const mobile = await page.evaluate(() => {
+    const shelf = document.querySelector('.certification-press__seals')
+    return {
+      count: shelf.children.length,
+      horizontalScroll: shelf.scrollWidth > shelf.clientWidth + 1,
+      rows: new Set([...shelf.children].map((seal) => seal.offsetTop)).size,
+      pageOverflow: document.documentElement.scrollWidth - innerWidth,
+    }
+  })
+  expect(mobile).toEqual({ count: 12, horizontalScroll: true, rows: 1, pageOverflow: 0 })
 })
 
 test('a card turns over to its evidence, by pointer and by keyboard', async ({ page }) => {

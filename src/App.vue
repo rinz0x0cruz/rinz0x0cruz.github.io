@@ -1255,24 +1255,22 @@ onBeforeUnmount(() => {
     </section>
 
     <section
-      class="qualifications"
+      class="qualifications qualifications--languages"
       :class="{ 'qualifications--motion': pageVisible }"
-      aria-labelledby="qualifications-title"
+      aria-labelledby="languages-title"
     >
       <div class="album__head qualifications__head">
         <div>
-          <p>Language / {{ String(profile.languages.length).padStart(2, '0') }} · Credentials / {{ String(profile.certifications.length).padStart(2, '0') }}</p>
-          <h2 id="qualifications-title">Languages & certifications</h2>
+          <p>Language / {{ String(profile.languages.length).padStart(2, '0') }}</p>
+          <h2 id="languages-title">Languages</h2>
         </div>
       </div>
 
-      <div class="qualifications__instrument">
-        <section class="language-console" aria-labelledby="language-console-title">
-          <div class="qualifications__label">
-            <p>Rosetta / 03</p>
-            <h3 id="language-console-title">Languages</h3>
-          </div>
-
+      <div
+        class="qualifications__instrument"
+        :style="{ '--language-count': profile.languages.length }"
+      >
+        <div class="language-console">
           <div
             class="language-switch"
             :style="{
@@ -1318,12 +1316,27 @@ onBeforeUnmount(() => {
               >JLPT level definition <span aria-hidden="true">↗</span></a>
             </div>
           </div>
-        </section>
+        </div>
+      </div>
+    </section>
 
+    <section
+      class="qualifications qualifications--certifications"
+      :class="{ 'qualifications--motion': pageVisible }"
+      aria-labelledby="certifications-title"
+    >
+      <div class="album__head qualifications__head">
+        <div>
+          <p>Credentials / {{ String(profile.certifications.length).padStart(2, '0') }}</p>
+          <h2 id="certifications-title">Certifications</h2>
+        </div>
+      </div>
+
+      <div class="qualifications__instrument">
         <section class="certification-press" aria-labelledby="certification-press-title">
           <div class="qualifications__label">
-            <p>Truth layer / 04</p>
-            <h3 id="certification-press-title">Certifications</h3>
+            <p>Truth layer / {{ String(profile.certifications.length).padStart(2, '0') }}</p>
+            <h3 id="certification-press-title">Credential evidence</h3>
           </div>
 
           <div class="certification-press__bench">
