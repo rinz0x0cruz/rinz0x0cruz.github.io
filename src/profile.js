@@ -32,7 +32,7 @@ export default {
     {
       label: 'Résumé',
       detail: 'Experience record',
-      href: 'https://rinz0x0cruz.github.io/Mohit-Sharma-Resume.pdf',
+      href: '/Mohit-Sharma-Resume.pdf',
       external: true,
     },
     {
@@ -49,9 +49,9 @@ export default {
     },
     {
       label: 'Email',
-      detail: 'Direct channel',
-      href: 'mailto:rinz0x0cruz@gmail.com',
-      external: false,
+      detail: 'Compose in Gmail',
+      href: 'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com',
+      external: true,
     },
   ],
   // The drawn portrait opens the rail: it is a likeness someone made of him,

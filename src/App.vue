@@ -620,7 +620,7 @@ onMounted(() => {
 
     void activateAchievementWindow()
     achievementObserver.disconnect()
-  }, { rootMargin: '400px' })
+  }, { rootMargin: '0px' })
   achievementObserver.observe(achievementDeck.value)
   achievementVisibilityObserver = new IntersectionObserver(([entry]) => {
     achievementIntersecting = entry.isIntersecting
@@ -638,10 +638,10 @@ onMounted(() => {
   footerObserver.observe(siteFooter.value)
   syncPageState()
 
-  // The loop is decoration. preload="none" keeps its 633 kB out of the critical
+  // The loop is decoration. preload="none" keeps its video payload out of the critical
   // window; start it once the poster and avatar have landed so it never competes.
   startLandscapeVideo = () => {
-    if (landscapeVideoStopping) return
+    if (landscapeVideoStopping || prefersReducedData()) return
     landscapeVideoArmed = true
     landscapeVideo.value?.load()
     syncLandscapeVideo()

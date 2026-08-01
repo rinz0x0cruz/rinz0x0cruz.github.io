@@ -1900,8 +1900,8 @@ h1 {
   width: min(72rem, calc(100% - 4rem));
   margin: 0 auto;
   padding-block: 3rem;
-  color: #66635d;
-  font-size: 0.62rem;
+  color: #8f897f;
+  font-size: 0.75rem;
   line-height: 1.4;
   text-align: center;
 }

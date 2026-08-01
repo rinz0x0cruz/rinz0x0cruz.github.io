@@ -16,6 +16,71 @@ async function expectDossierDrawer(page) {
   }), { timeout: 20000 }).toBe(true)
 }
 
+async function revealAchievementStage(page) {
+  await page.locator('.achievement-deck').scrollIntoViewIfNeeded()
+  return page.locator('.achievement-stage')
+}
+
+test('the static page identifies itself to search and social crawlers', async ({ page }) => {
+  await page.goto('/')
+
+  const description = 'Mohit Sharma is a security researcher working across threat intelligence, vulnerability management, and security governance.'
+  await expect(page).toHaveTitle('Mohit Sharma — Security Researcher')
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', description)
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    'href',
+    'https://rinz0x0cruz.github.io/',
+  )
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    'content',
+    'Mohit Sharma — Security Researcher',
+  )
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
+    'content',
+    description,
+  )
+  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+    'content',
+    'https://rinz0x0cruz.github.io/',
+  )
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    'content',
+    'https://rinz0x0cruz.github.io/social-card.jpg',
+  )
+  await expect(page.locator('meta[property="og:image:type"]')).toHaveAttribute('content', 'image/jpeg')
+  await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute('content', '1200')
+  await expect(page.locator('meta[property="og:image:height"]')).toHaveAttribute('content', '630')
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+    'content',
+    'summary_large_image',
+  )
+})
+
+test('the essential profile remains usable without JavaScript', async ({ browser }) => {
+  const context = await browser.newContext({
+    baseURL: test.info().project.use.baseURL,
+    javaScriptEnabled: false,
+  })
+  const page = await context.newPage()
+  await page.goto('/')
+
+  const fallback = page.locator('.no-script')
+  await expect(fallback.getByRole('heading', { name: 'Mohit Sharma' })).toBeVisible()
+  await expect(fallback).toContainText('Security Researcher')
+  await expect(fallback.getByRole('link', { name: 'Résumé' })).toHaveAttribute(
+    'href',
+    '/Mohit-Sharma-Resume.pdf',
+  )
+  await expect(fallback.getByRole('link', { name: 'Résumé' })).toHaveAttribute('target', '_blank')
+  await expect(fallback.getByRole('link', { name: 'Email' })).toHaveAttribute(
+    'href',
+    'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com',
+  )
+  await expect(fallback.getByRole('link', { name: 'Email' })).toHaveAttribute('target', '_blank')
+  await expect(fallback.getByRole('link')).toHaveCount(2)
+  await context.close()
+})
+
 test('mask animation preserves keyboard focus', async ({ page }) => {
   await page.goto('/')
 
@@ -141,10 +206,10 @@ test('dossier drawer opens while the identity card remains visible', async ({ pa
     label: link.querySelector('strong').textContent.trim(),
     tabIndex: link.tabIndex,
   })))).toEqual([
-    { detail: 'Experience record', href: 'https://rinz0x0cruz.github.io/Mohit-Sharma-Resume.pdf', label: 'Résumé', tabIndex: -1 },
+    { detail: 'Experience record', href: '/Mohit-Sharma-Resume.pdf', label: 'Résumé', tabIndex: -1 },
     { detail: 'Source / systems', href: 'https://github.com/rinz0x0cruz', label: 'GitHub', tabIndex: -1 },
     { detail: 'Professional network', href: 'https://www.linkedin.com/in/rinz0x0cruz/', label: 'LinkedIn', tabIndex: -1 },
-    { detail: 'Direct channel', href: 'mailto:rinz0x0cruz@gmail.com', label: 'Email', tabIndex: -1 },
+    { detail: 'Compose in Gmail', href: 'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com', label: 'Email', tabIndex: -1 },
   ])
 
   const before = await page.evaluate(() => {
@@ -338,6 +403,45 @@ for (const viewport of [
   })
 }
 
+test('résumé preview and Gmail compose open in new tabs', async ({ page, context, request }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await context.route('https://mail.google.com/**', (route) => route.fulfill({
+    body: '<title>Gmail compose</title>',
+    contentType: 'text/html',
+  }))
+  await page.goto('/')
+  await page.locator('.credential-card__turn').click()
+  await expectDossierDrawer(page)
+
+  const resume = page.getByRole('link', { name: 'Résumé' })
+  const email = page.getByRole('link', { name: 'Email' })
+  await expect(resume).toHaveAttribute('target', '_blank')
+  await expect(email).toHaveAttribute('target', '_blank')
+
+  const pdfResponse = await request.get('/Mohit-Sharma-Resume.pdf')
+  expect(pdfResponse.status()).toBe(200)
+  expect(pdfResponse.headers()['content-type']).toContain('application/pdf')
+  expect((await pdfResponse.body()).subarray(0, 5).toString()).toBe('%PDF-')
+
+  const resumePopupPromise = page.waitForEvent('popup')
+  await resume.click()
+  const resumePopup = await resumePopupPromise
+  expect(context.pages()).toHaveLength(2)
+  await resumePopup.close()
+
+  const emailPopupPromise = page.waitForEvent('popup')
+  await email.click()
+  const emailPopup = await emailPopupPromise
+  await emailPopup.waitForLoadState('domcontentloaded')
+  const composeUrl = new URL(emailPopup.url())
+  expect(composeUrl.origin).toBe('https://mail.google.com')
+  expect(composeUrl.pathname).toBe('/mail/')
+  expect(composeUrl.searchParams.get('view')).toBe('cm')
+  expect(composeUrl.searchParams.get('fs')).toBe('1')
+  expect(composeUrl.searchParams.get('to')).toBe('rinz0x0cruz@gmail.com')
+  await emailPopup.close()
+})
+
 test('fullscreen keeps outcomes close while the credits sit in the page footer', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1300 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -382,6 +486,34 @@ test('fullscreen keeps outcomes close while the credits sit in the page footer',
   expect(layout.unusedScene).toBeLessThanOrEqual(8)
   expect(layout.cardToHeading).toBeGreaterThanOrEqual(64)
   expect(layout.cardToHeading).toBeLessThanOrEqual(80)
+})
+
+test('footer credits meet normal-text contrast', async ({ page }) => {
+  await page.goto('/')
+
+  const credits = await page.locator('.font-credit').evaluateAll((elements) => {
+    const channel = (value) => {
+      const normalized = value / 255
+      return normalized <= 0.04045
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4
+    }
+    const luminance = (color) => {
+      const [red, green, blue] = color.match(/[\d.]+/g).slice(0, 3).map(Number)
+      return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+    }
+
+    return elements.map((element) => {
+      const style = getComputedStyle(element)
+      return {
+        contrast: (luminance(style.color) + 0.05) / 0.05,
+        fontSize: parseFloat(style.fontSize),
+      }
+    })
+  })
+
+  expect(credits.every(({ contrast }) => contrast >= 4.5)).toBe(true)
+  expect(credits.every(({ fontSize }) => fontSize >= 12)).toBe(true)
 })
 
 test('footer vines grow on arrival and stay behind the credit line', async ({ page }) => {
@@ -2537,6 +2669,24 @@ test('living border growth advances continuously without geometry jitter', async
   expect(presentation.vineLeaf.uniqueValues).toBeGreaterThan(12)
 })
 
+test('achievement code waits until the deck enters the viewport', async ({ page }) => {
+  const requested = []
+  page.on('request', (request) => {
+    if (/AchievementInstrument.*\.js$/.test(request.url())) requested.push(request.url())
+  })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.waitForTimeout(300)
+
+  expect(requested).toEqual([])
+  expect(await page.evaluate(() => scrollY)).toBe(0)
+
+  const deck = page.locator('.achievement-deck')
+  await deck.scrollIntoViewIfNeeded()
+  await expect(deck.locator('[data-model-state="ready"]')).toHaveCount(4)
+  expect(requested).toHaveLength(1)
+})
+
 test('reload settles the living border before initializing 3D instruments', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
@@ -2603,8 +2753,7 @@ test('achievement instruments render four nonblank regions in one canvas', async
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
 
-  const stage = page.locator('.achievement-stage')
-  await stage.scrollIntoViewIfNeeded()
+  const stage = await revealAchievementStage(page)
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
   await expect(stage.locator('canvas')).toHaveAttribute('data-render-state', 'ready')
   await page.waitForTimeout(300)
@@ -2641,8 +2790,7 @@ test('achievement instruments keep a static reduced-motion render', async ({ pag
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
 
-  const stage = page.locator('.achievement-stage')
-  await stage.scrollIntoViewIfNeeded()
+  const stage = await revealAchievementStage(page)
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
   const canvas = stage.locator('canvas')
   await page.waitForTimeout(300)
@@ -2656,7 +2804,7 @@ test('achievement instruments keep a static reduced-motion render', async ({ pag
 test('reduced data skips the 3D payload and keeps the artwork', async ({ page }) => {
   const requested = []
   page.on('request', (request) => {
-    if (/AchievementInstrument.*\.js$|\.glb$/.test(request.url())) requested.push(request.url())
+    if (/AchievementInstrument.*\.js$|\.glb$|\.mp4$/.test(request.url())) requested.push(request.url())
   })
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } })
@@ -2664,6 +2812,7 @@ test('reduced data skips the 3D payload and keeps the artwork', async ({ page })
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
 
+  await expect(page.locator('.scene__landscape')).toBeVisible()
   const deck = page.locator('.achievement-deck')
   await deck.scrollIntoViewIfNeeded()
   await expect(deck.locator('.achievement-card')).toHaveCount(4)
@@ -2676,8 +2825,7 @@ test('reduced data skips the 3D payload and keeps the artwork', async ({ page })
 test('achievement instruments remain still while idle', async ({ page }) => {
   await page.goto('/')
 
-  const stage = page.locator('.achievement-stage')
-  await stage.scrollIntoViewIfNeeded()
+  const stage = await revealAchievementStage(page)
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
   const canvas = stage.locator('canvas')
   await expect.poll(async () => {
@@ -2698,8 +2846,7 @@ test('failed instrument loads preserve the artwork fallback', async ({ page }) =
   await page.route(/(industrial_microscope|retro_multimeter|vintage_spacecraft_instrument|signal_flashlight)\/[^/]+\.glb$/, (route) => route.abort('failed'))
   await page.goto('/')
 
-  const stage = page.locator('.achievement-stage')
-  await stage.scrollIntoViewIfNeeded()
+  const stage = await revealAchievementStage(page)
   await expect(stage.locator('[data-model-state="failed"]')).toHaveCount(4)
   await expect(stage.locator('canvas')).toHaveAttribute('data-render-state', 'failed')
   await expect(stage.locator('.achievement-art')).toHaveCount(4)
@@ -2713,8 +2860,7 @@ test('achievement instruments react across every full card', async ({ page }) =>
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
 
-  const stage = page.locator('.achievement-stage')
-  await stage.scrollIntoViewIfNeeded()
+  const stage = await revealAchievementStage(page)
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
   const canvas = stage.locator('canvas')
   await page.waitForTimeout(600)
@@ -2731,8 +2877,7 @@ test('achievement shell synchronizes foil light and grows vines on hover', async
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
 
-  const stage = page.locator('.achievement-stage')
-  await stage.scrollIntoViewIfNeeded()
+  const stage = await revealAchievementStage(page)
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
   const cards = stage.locator('.achievement-card')
   await expect(cards.locator('.achievement-card__effects')).toHaveCount(4)
@@ -2789,8 +2934,7 @@ test('achievement shell synchronizes foil light and grows vines on hover', async
 test('achievement gallery uses one WebGL context', async ({ page }) => {
   await page.goto('/')
 
-  const stage = page.locator('.achievement-stage')
-  await stage.scrollIntoViewIfNeeded()
+  const stage = await revealAchievementStage(page)
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
   expect(await stage.locator('canvas').count()).toBe(1)
   expect(await page.locator('.achievement-stage canvas').count()).toBe(1)
