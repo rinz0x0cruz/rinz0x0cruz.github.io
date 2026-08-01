@@ -791,10 +791,10 @@ onBeforeUnmount(() => {
           type="button"
           aria-controls="profile-dossier"
           :aria-expanded="dossierOpen"
-          :aria-label="dossierOpen ? 'Press back: close profile dossier' : 'Press start: open profile dossier'"
+          :aria-label="dossierOpen ? 'Close profile links' : 'Open profile links'"
           @click="toggleDossier"
         >
-          <span>{{ dossierOpen ? 'Press back' : 'Press start' }}</span>
+          <span>{{ dossierOpen ? 'Close links' : 'Open links' }}</span>
         </button>
 
         <HireHint v-if="!dossierOpen" />
