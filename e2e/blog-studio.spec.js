@@ -327,6 +327,7 @@ test('loading a post discards media selected for the previous editor state', asy
   await page.goto(baseUrl)
   await fillPost(page)
   await page.getByRole('button', { name: 'Save draft' }).click()
+  await expect(page.getByRole('status')).toContainText('Draft saved at 01234567.')
 
   const media = page.locator('[name="media"]')
   await media.setInputFiles({ name: 'abandoned.png', mimeType: 'image/png', buffer: png })

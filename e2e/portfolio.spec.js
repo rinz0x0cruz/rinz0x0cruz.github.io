@@ -3500,6 +3500,15 @@ for (const viewport of [
         clientHeight: card.clientHeight,
         clientWidth: card.clientWidth,
         copy: bounds(card.querySelector('.achievement-card__copy')),
+        detail: (() => {
+          const detail = card.querySelector('.achievement-card__copy small')
+          const range = document.createRange()
+          range.selectNodeContents(detail)
+          return {
+            contained: detail.scrollHeight <= detail.clientHeight,
+            lines: range.getClientRects().length,
+          }
+        })(),
         scrollHeight: card.scrollHeight,
         scrollWidth: card.scrollWidth,
         text: [...card.querySelectorAll('.achievement-card__copy > *')].map(bounds),
@@ -3541,6 +3550,7 @@ for (const viewport of [
     expect(layout.overlaps).toBe(false)
     expect(layout.cards).toHaveLength(achievementCount)
     expect(layout.cards.every(({ copy }) => Math.abs(copy.height - layout.cards[0].copy.height) < 0.5)).toBe(true)
+    expect(layout.cards.every(({ detail }) => detail.contained && detail.lines <= 3)).toBe(true)
     expect(layout.borderWidth).toBe('2px')
     expect(layout.gridGap).toBeGreaterThanOrEqual(11)
     expect(layout.ornaments).toHaveLength(4)

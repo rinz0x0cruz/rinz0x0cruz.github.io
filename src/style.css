@@ -4420,7 +4420,7 @@ h1 {
   }
 
   .achievement-card {
-    min-height: 21.25rem;
+    min-height: 22rem;
     aspect-ratio: auto;
   }
 
@@ -4440,6 +4440,7 @@ h1 {
   }
 
   .achievement-card__copy small {
+    min-height: 4.35em;
     font-size: 0.52rem;
   }
 
