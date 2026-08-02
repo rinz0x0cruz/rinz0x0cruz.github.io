@@ -204,16 +204,17 @@ async function initialize() {
       index,
       pointer: new THREE.Vector2(),
       pivot: null,
-      rotation: instrument.rotation ?? [0, 0, 0],
+      rotation: instrument?.rotation ?? [0, 0, 0],
       slot: slots[index],
       smoothedPointer: new THREE.Vector2(),
       status: 'loading',
     })
   })
 
-  const loads = props.instruments.map((instrument) => loader.loadAsync(instrument.src).then(
-    (gltf) => ({ gltf }),
-    () => ({ gltf: null }),
+  const loads = props.instruments.map((instrument) => (
+    instrument
+      ? loader.loadAsync(instrument.src).then((gltf) => ({ gltf }), () => ({ gltf: null }))
+      : Promise.resolve({ gltf: null })
   ))
 
   for (let index = 0; index < loads.length; index += 1) {

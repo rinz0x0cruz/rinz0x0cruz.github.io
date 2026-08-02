@@ -1,0 +1,30 @@
+export default [
+  {
+    id: 'english',
+    name: 'English',
+    native: 'English',
+    lang: 'en',
+    level: 'Professional',
+    detail: 'Primary working language',
+    accent: '#d1a35f',
+  },
+  {
+    id: 'hindi',
+    name: 'Hindi',
+    native: 'हिन्दी',
+    lang: 'hi',
+    level: 'Hindi',
+    detail: 'Spoken language',
+    accent: '#c66a57',
+  },
+  {
+    id: 'japanese',
+    name: 'Japanese',
+    native: '日本語',
+    lang: 'ja',
+    level: 'JLPT N4',
+    detail: 'Basic reading and listening proficiency',
+    accent: '#7d8fa2',
+    href: 'https://www.jlpt.jp/e/about/levelsummary.html',
+  },
+]

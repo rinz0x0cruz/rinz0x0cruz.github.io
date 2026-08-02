@@ -22,7 +22,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
@@ -33,6 +33,7 @@ jobs:
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist
+          retention-days: 7
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -58,21 +59,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify live portfolio
+      - name: Verify live site
         env:
           PAGE_URL: ${{ needs.deploy.outputs.page_url }}
         run: |
           set -euo pipefail
+          base_url="${PAGE_URL%/}"
           for attempt in {1..12}; do
-            html="$(curl --fail --silent --show-error --location "$PAGE_URL")"
-            if grep -Fq '<title>Mohit Sharma — Security Researcher</title>' <<<"$html" \
-              && grep -Fq 'content="https://rinz0x0cruz.github.io/social-card.jpg"' <<<"$html"; then
+            if html="$(curl --fail --silent --show-error --location "$base_url/")" \
+              && blog="$(curl --fail --silent --show-error --location "$base_url/blog/")" \
+              && grep -Fq '<title>Mohit Sharma — Security Researcher</title>' <<<"$html" \
+              && grep -Fq 'content="https://rinz0x0cruz.github.io/social-card.jpg"' <<<"$html" \
+              && grep -Fq '<link rel="canonical" href="https://rinz0x0cruz.github.io/blog/">' <<<"$blog"; then
               break
             fi
             if [[ "$attempt" == 12 ]]; then
-              echo "Expected portfolio metadata did not reach $PAGE_URL" >&2
+              echo "Expected portfolio and blog artifacts did not reach $PAGE_URL" >&2
               exit 1
             fi
             sleep 5
           done
-          curl --fail --silent --show-error --head --location "${PAGE_URL}social-card.jpg" >/dev/null
+          feed="$(curl --fail --silent --show-error --location "$base_url/blog/feed.xml")"
+          robots="$(curl --fail --silent --show-error --location "$base_url/robots.txt")"
+          sitemap="$(curl --fail --silent --show-error --location "$base_url/sitemap.xml")"
+          grep -Fq '<rss version="2.0">' <<<"$feed"
+          grep -Fq 'https://rinz0x0cruz.github.io/sitemap.xml' <<<"$robots"
+          grep -Fq '<loc>https://rinz0x0cruz.github.io/blog/</loc>' <<<"$sitemap"
+          curl --fail --silent --show-error --head --location "$base_url/social-card.jpg" >/dev/null

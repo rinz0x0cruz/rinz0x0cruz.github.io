@@ -39,11 +39,11 @@ const props = defineProps({
   },
   maskLabel: {
     type: String,
-    default: 'Dismiss yokai mask',
+    default: 'Remove illustrated yokai mask',
   },
   maskRestoreLabel: {
     type: String,
-    default: 'Restore yokai mask',
+    default: 'Restore illustrated yokai mask',
   },
   label: {
     type: String,
@@ -143,11 +143,11 @@ onBeforeUnmount(() => window.clearTimeout(maskAnimationTimer))
         <i v-for="fragment in 4" :key="fragment" aria-hidden="true"></i>
       </button>
       <span class="identity-avatar__prompt" aria-hidden="true">
-        <strong>Brave enough?</strong>
-        <span>Click to unmask.</span>
+        <strong>Behind the mask</strong>
+        <span>Select to reveal.</span>
       </span>
     </span>
-    <small>{{ label }}</small>
+    <small aria-hidden="true">{{ label }}</small>
   </div>
 </template>
 

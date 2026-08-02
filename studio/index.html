@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="blog-studio-csrf" content="__CSRF__">
+  <title>Blog Studio</title>
+  <link rel="stylesheet" href="/studio.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><span>Owner tool</span><strong>Blog Studio</strong></div>
+    <div class="topbar-actions"><button type="button" data-action="new">New</button><button type="button" data-action="refresh">Refresh</button></div>
+  </header>
+  <main>
+    <aside aria-label="Posts">
+      <section><h2>Drafts</h2><ol data-list="drafts"></ol></section>
+      <section><h2>Published</h2><ol data-list="published"></ol></section>
+    </aside>
+    <form data-editor>
+      <div class="fields">
+        <label>Title<input name="title" maxlength="120" required></label>
+        <label>Slug<input name="slug" maxlength="80" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required></label>
+        <label class="wide">Summary<textarea name="summary" maxlength="220" rows="2" required></textarea></label>
+        <label>Published<input name="published" type="date"></label>
+        <label>Updated<input name="updated" type="date"></label>
+        <label class="wide">Tags<input name="tags" placeholder="Security, Measurement"></label>
+        <label class="wide">Cover path<input name="cover" maxlength="240" placeholder="/blog/media/post-slug/cover.webp"></label>
+        <label class="wide">Cover alt<input name="coverAlt" maxlength="180"></label>
+        <label class="wide">Images<input name="media" type="file" accept="image/avif,image/gif,image/jpeg,image/png,image/webp" multiple></label>
+      </div>
+      <div class="workspace">
+        <div class="markdown-editor">
+          <div class="markdown-editor__head"><label for="blog-body">Markdown</label><span id="body-count" data-body-count>0 words · 0 / 100,000 chars</span></div>
+          <textarea id="blog-body" name="body" rows="28" maxlength="100000" required spellcheck="true" aria-describedby="body-count"></textarea>
+        </div>
+        <section class="preview" aria-label="Preview"><iframe title="Article preview" sandbox="allow-same-origin allow-scripts allow-presentation"></iframe></section>
+      </div>
+      <footer class="commands">
+        <p role="status" aria-live="polite" data-status>Ready.</p>
+        <button type="button" data-action="insert-media">Insert images</button>
+        <button type="button" data-action="embed-video">Embed video</button>
+        <button type="button" data-action="embed-post">Post card</button>
+        <button type="button" data-action="preview">Preview</button>
+        <button type="button" data-action="save">Save draft</button>
+        <button class="publish" type="button" data-action="publish">Publish</button>
+      </footer>
+    </form>
+  </main>
+  <script type="module" src="/studio.js"></script>
+</body>
+</html>

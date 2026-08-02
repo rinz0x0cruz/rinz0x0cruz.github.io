@@ -1,5 +1,11 @@
 import { readFileSync } from 'node:fs'
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
+import profile from '../src/profile.js'
+
+const achievementCount = profile.achievements.length
+const instrumentedAchievementCount = profile.achievements.filter(({ instrument }) => instrument).length
+const staticAchievementCount = achievementCount - instrumentedAchievementCount
 
 async function currentQuote(page) {
   return (await page.locator('.identity-card__quote').textContent()).trim()
@@ -24,13 +30,16 @@ async function revealAchievementStage(page) {
 test('the static page identifies itself to search and social crawlers', async ({ page }) => {
   await page.goto('/')
 
-  const description = 'Mohit Sharma is a security researcher working across threat intelligence, vulnerability management, and security governance.'
+  const description = 'Mohit Sharma is a Microsoft security researcher focused on vulnerability intelligence, threat hunting, detection coverage, and security controls.'
   await expect(page).toHaveTitle('Mohit Sharma — Security Researcher')
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', description)
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     'href',
     'https://rinz0x0cruz.github.io/',
   )
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/favicon.png')
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('type', 'image/png')
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('sizes', '192x192')
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
     'content',
     'Mohit Sharma — Security Researcher',
@@ -54,6 +63,28 @@ test('the static page identifies itself to search and social crawlers', async ({
     'content',
     'summary_large_image',
   )
+
+  const profilePage = JSON.parse(
+    await page.locator('script[type="application/ld+json"]').textContent(),
+  )
+  expect(profilePage).toMatchObject({
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    url: 'https://rinz0x0cruz.github.io/',
+    mainEntity: {
+      '@type': 'Person',
+      '@id': 'https://rinz0x0cruz.github.io/#mohit-sharma',
+      name: 'Mohit Sharma',
+      alternateName: 'rinz0x0cruz',
+      url: 'https://rinz0x0cruz.github.io/',
+      image: 'https://rinz0x0cruz.github.io/portrait-sketch.webp',
+      jobTitle: 'Security Researcher',
+      sameAs: [
+        'https://github.com/rinz0x0cruz',
+        'https://www.linkedin.com/in/rinz0x0cruz/',
+      ],
+    },
+  })
 })
 
 test('the essential profile remains usable without JavaScript', async ({ browser }) => {
@@ -66,31 +97,33 @@ test('the essential profile remains usable without JavaScript', async ({ browser
 
   const fallback = page.locator('.no-script')
   await expect(fallback.getByRole('heading', { name: 'Mohit Sharma' })).toBeVisible()
-  await expect(fallback).toContainText('Security Researcher')
+  await expect(fallback).toContainText('Security Researcher at Microsoft')
+  await expect(fallback).toContainText('Interactive projects and work history require JavaScript')
   await expect(fallback.getByRole('link', { name: 'Résumé' })).toHaveAttribute(
     'href',
     '/Mohit-Sharma-Resume.pdf',
   )
   await expect(fallback.getByRole('link', { name: 'Résumé' })).toHaveAttribute('target', '_blank')
+  await expect(fallback.getByRole('link', { name: 'Blog' })).toHaveAttribute('href', '/blog/')
   await expect(fallback.getByRole('link', { name: 'Email' })).toHaveAttribute(
     'href',
     'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com',
   )
   await expect(fallback.getByRole('link', { name: 'Email' })).toHaveAttribute('target', '_blank')
-  await expect(fallback.getByRole('link')).toHaveCount(2)
+  await expect(fallback.getByRole('link')).toHaveCount(3)
   await context.close()
 })
 
 test('mask animation preserves keyboard focus', async ({ page }) => {
   await page.goto('/')
 
-  const mask = page.getByRole('button', { name: 'Dismiss yokai mask' })
+  const mask = page.getByRole('button', { name: 'Remove illustrated yokai mask' })
   await mask.focus()
   await page.keyboard.press('Enter')
   await expect(mask).toHaveAttribute('aria-disabled', 'true')
   await page.keyboard.press('Enter')
 
-  const restoreMask = page.getByRole('button', { name: 'Restore yokai mask' })
+  const restoreMask = page.getByRole('button', { name: 'Restore illustrated yokai mask' })
   await expect(restoreMask).toBeFocused()
   await expect(restoreMask).toHaveAttribute('aria-disabled', 'false')
 })
@@ -100,7 +133,7 @@ test('quotes rotate in a dedicated card footer', async ({ page }) => {
 
   await expect(page.locator('.identity-card__role')).toContainText('Security Researcher')
   await expect(page.locator('.side-channel')).toHaveCount(0)
-  await expect(page.locator('.identity-card__quote-measure q')).toHaveCount(9)
+  await expect(page.locator('.identity-card__quote-measure q')).toHaveCount(profile.quotes.length)
 
   const loadedFaces = await page.evaluate(async () => (
     await document.fonts.load('16px "Mackie Pixel"')
@@ -189,29 +222,34 @@ test('dossier drawer opens while the identity card remains visible', async ({ pa
   const card = page.locator('.identity-card')
   const drawer = page.locator('.credential-card__drawer')
   const toggle = page.locator('.credential-card__turn')
-  const records = page.getByRole('navigation', { name: 'Profile records', includeHidden: true })
+  const records = page.getByRole('navigation', { name: 'Profile links', includeHidden: true })
   const links = records.getByRole('link', { includeHidden: true })
 
   await expect(page.locator('.dossier-slot')).toHaveCount(0)
   await expect(page.locator('.dovetail-spine')).toHaveCount(0)
+  await expect(page.locator('.hire-hint__label')).toHaveText('work + contact')
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   await expect(toggle).toHaveAttribute('aria-label', 'Open profile links')
   await expect(toggle).toContainText('Open links')
+  expect(await toggle.evaluate((button) => {
+    const range = document.createRange()
+    range.selectNodeContents(button.querySelector('span'))
+    const buttonBounds = button.getBoundingClientRect()
+    const textBounds = range.getBoundingClientRect()
+    return Math.abs(
+      (textBounds.left + textBounds.width / 2) - (buttonBounds.left + buttonBounds.width / 2),
+    )
+  })).toBeLessThanOrEqual(1)
   await expect(card).toBeVisible()
   await expect(card).not.toHaveAttribute('aria-hidden', 'true')
   await expect(drawer).toHaveAttribute('aria-hidden', 'true')
-  await expect(links).toHaveCount(4)
+  await expect(links).toHaveCount(profile.links.length)
   expect(await links.evaluateAll((elements) => elements.map((link) => ({
     detail: link.querySelector('em').textContent.trim(),
     href: link.getAttribute('href'),
     label: link.querySelector('strong').textContent.trim(),
     tabIndex: link.tabIndex,
-  })))).toEqual([
-    { detail: 'Experience record', href: '/Mohit-Sharma-Resume.pdf', label: 'Résumé', tabIndex: -1 },
-    { detail: 'Source / systems', href: 'https://github.com/rinz0x0cruz', label: 'GitHub', tabIndex: -1 },
-    { detail: 'Professional network', href: 'https://www.linkedin.com/in/rinz0x0cruz/', label: 'LinkedIn', tabIndex: -1 },
-    { detail: 'Compose in Gmail', href: 'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com', label: 'Email', tabIndex: -1 },
-  ])
+  })))).toEqual(profile.links.map(({ detail, href, label }) => ({ detail, href, label, tabIndex: -1 })))
 
   const before = await page.evaluate(() => {
     const bounds = (selector) => {
@@ -285,9 +323,14 @@ test('dossier drawer opens while the identity card remains visible', async ({ pa
 })
 
 for (const viewport of [
-  { width: 390, height: 844, columns: 2, rows: 2 },
-  { width: 320, height: 568, columns: 4, rows: 1 },
-  { width: 844, height: 390, columns: 4, rows: 1 },
+  {
+    width: 390,
+    height: 844,
+    columns: Math.min(3, profile.links.length),
+    rows: Math.ceil(profile.links.length / 3),
+  },
+  { width: 320, height: 568, columns: profile.links.length, rows: 1 },
+  { width: 844, height: 390, columns: profile.links.length, rows: 1 },
 ]) {
   test(`${viewport.width}x${viewport.height} keeps the visible card and drawer records contained`, async ({ page }) => {
     await page.setViewportSize(viewport)
@@ -444,6 +487,71 @@ test('résumé preview and Gmail compose open in new tabs', async ({ page, conte
   await emailPopup.close()
 })
 
+test('blog link opens the static archive', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.locator('.credential-card__turn').click()
+  await expectDossierDrawer(page)
+  await page.getByRole('link', { name: 'Blog' }).click()
+
+  await expect(page).toHaveURL(/\/blog\/$/)
+  await expect(page.getByRole('heading', { name: 'Security field notes', level: 1 })).toBeVisible()
+  await expect(page.locator('script[type="module"]')).toHaveCount(0)
+})
+
+test('blog motion settles without layout overflow and respects reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/blog/')
+
+  expect(await page.evaluate(() => ({
+    entry: getComputedStyle(document.querySelector('.post-item')).animationName,
+    head: getComputedStyle(document.querySelector('.site-head')).animationName,
+    rule: getComputedStyle(document.querySelector('.blog-head'), '::after').animationName,
+    title: getComputedStyle(document.querySelector('.blog-head h1')).animationName,
+  }))).toEqual({
+    entry: 'note-rise',
+    head: 'note-drop',
+    rule: 'note-rule',
+    title: 'note-rise',
+  })
+
+  await expect.poll(() => page.locator('.post-item').evaluate((element) => ({
+    opacity: getComputedStyle(element).opacity,
+    transform: getComputedStyle(element).transform,
+  }))).toEqual({ opacity: '1', transform: 'matrix(1, 0, 0, 1, 0, 0)' })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  expect(await page.evaluate(() => ({
+    entry: getComputedStyle(document.querySelector('.post-item')).animationName,
+    head: getComputedStyle(document.querySelector('.site-head')).animationName,
+    rule: getComputedStyle(document.querySelector('.blog-head'), '::after').animationName,
+    title: getComputedStyle(document.querySelector('.blog-head h1')).animationName,
+  }))).toEqual({ entry: 'none', head: 'none', rule: 'none', title: 'none' })
+
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' })
+  const forcedColors = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze()
+  expect(forcedColors.violations).toEqual([])
+})
+
+test('introduction post renders the Markdown article fixtures', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/blog/')
+  await page.getByRole('link', { name: 'Why I publish my methods' }).click()
+
+  await expect(page).toHaveURL(/\/blog\/welcome-to-the-field-notes\/$/u)
+  await expect(page.getByRole('heading', { name: 'Why I publish my methods', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Why this exists', level: 2 })).toBeVisible()
+  await expect(page.locator('blockquote')).toContainText('inspect the evidence behind it')
+  await expect(page.locator('pre')).toHaveAttribute('tabindex', '0')
+  await expect(page.getByRole('link', { name: 'public projects' })).toHaveAttribute('rel', 'noreferrer')
+  await expect(page.getByRole('link', { name: 'portfolio home page' })).toHaveAttribute('href', '/')
+  await expect(page.getByRole('link', { name: 'RSS feed' })).toHaveAttribute('href', '/blog/feed.xml')
+  await expect(page.locator('script[type="module"]')).toHaveCount(0)
+})
+
 test('fullscreen keeps outcomes close while the credits sit in the page footer', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1300 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -516,6 +624,65 @@ test('footer credits meet normal-text contrast', async ({ page }) => {
 
   expect(credits.every(({ contrast }) => contrast >= 4.5)).toBe(true)
   expect(credits.every(({ fontSize }) => fontSize >= 12)).toBe(true)
+})
+
+test('secondary labels meet normal-text contrast', async ({ page }) => {
+  await page.goto('/')
+
+  const selectors = [
+    '.experience__axis > span:not(.experience__axis-track)',
+    '.album__head > div > p',
+    '.language-switch button.language-switch__button--active span',
+  ]
+  const contrasts = await page.locator(selectors.join(',')).evaluateAll((elements) => {
+    const channel = (value) => {
+      const normalized = value / 255
+      return normalized <= 0.04045
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4
+    }
+    const luminance = (color) => {
+      const [red, green, blue] = color.match(/[\d.]+/g).slice(0, 3).map(Number)
+      return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+    }
+
+    return elements.map((element) => {
+      const style = getComputedStyle(element)
+      const background = getComputedStyle(element.closest('.language-switch') ?? document.body).backgroundColor
+      const foregroundLuminance = luminance(style.color)
+      const backgroundLuminance = luminance(background)
+      return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05)
+        / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
+    })
+  })
+
+  expect(contrasts).toHaveLength(6)
+  expect(contrasts.every((contrast) => contrast >= 4.5)).toBe(true)
+})
+
+test('portfolio has no WCAG A or AA violations', async ({ page }) => {
+  const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
+
+  for (const media of [
+    { forcedColors: 'none', height: 900, width: 1440 },
+    { forcedColors: 'none', height: 844, width: 390 },
+    { forcedColors: 'active', height: 844, width: 390 },
+  ]) {
+    await page.setViewportSize({ width: media.width, height: media.height })
+    await page.emulateMedia({
+      forcedColors: media.forcedColors,
+      reducedMotion: 'reduce',
+    })
+    await page.goto('/')
+
+    const closed = await new AxeBuilder({ page }).withTags(tags).analyze()
+    expect(closed.violations).toEqual([])
+
+    await page.locator('.credential-card__turn').click()
+    await expectDossierDrawer(page)
+    const open = await new AxeBuilder({ page }).withTags(tags).analyze()
+    expect(open.violations).toEqual([])
+  }
 })
 
 test('footer vines grow on arrival and stay behind the credit line', async ({ page }) => {
@@ -638,7 +805,7 @@ test('discipline band uses only the supported namecard space', async ({ page }) 
     { width: 1000, height: 700, card: [940, 363.39], visible: true },
     { width: 999, height: 700, card: [939.06, 363.39], visible: false },
     { width: 390, height: 844, card: [326, 271.91], visible: false },
-    { width: 320, height: 568, card: [256, 301.89], visible: false },
+    { width: 320, height: 568, card: [256, 288], visible: false },
     { width: 844, height: 390, card: [780, 255.5], visible: false },
   ]) {
     await page.setViewportSize(viewport)
@@ -647,9 +814,7 @@ test('discipline band uses only the supported namecard space', async ({ page }) 
     const band = page.locator('.discipline-band')
     await expect(band).toHaveAttribute(
       'aria-label',
-      'Disciplines: Threat intelligence - Hunt reporting · OSINT · ATT&CK.'
-      + ' Governance, risk & compliance - ISO 27001/42001 LA · CIS controls.'
-      + ' Vulnerability management - CVE triage · exploitability.',
+      `Disciplines: ${profile.disciplines.map(({ name, detail }) => `${name} - ${detail}`).join('. ')}.`,
     )
     await expect(band.locator('button, a, input, [tabindex]')).toHaveCount(0)
     if (viewport.visible) await expect(band).toBeVisible()
@@ -800,7 +965,7 @@ test('discipline band reveals once and stops', async ({ page }) => {
     )),
   }))).toEqual({
     running: 0,
-    abbrs: ['TI', 'GRC', 'VM'],
+    abbrs: profile.disciplines.map(({ abbr }) => abbr),
     rulesFullWidth: true,
   })
 
@@ -828,11 +993,9 @@ test('discipline band stays readable when its environment changes', async ({ pag
       animationName?.startsWith('discipline-band-')
     )).length)).toBe(0)
     // an interrupted reveal must still leave every discipline legible
-    expect(await band.locator('.discipline-band__name').allTextContents()).toEqual([
-      'Threat intelligence',
-      'Governance, risk & compliance',
-      'Vulnerability management',
-    ])
+    expect(await band.locator('.discipline-band__name').allTextContents()).toEqual(
+      profile.disciplines.map(({ name }) => name),
+    )
   }
 
   let band = await showBand()
@@ -875,7 +1038,7 @@ test('reduced motion stops ambient animation', async ({ page }) => {
     )),
   }))).toEqual({
     animations: 0,
-    abbrs: ['TI', 'GRC', 'VM'],
+    abbrs: profile.disciplines.map(({ abbr }) => abbr),
     rulesFullWidth: true,
   })
 
@@ -890,6 +1053,7 @@ test('reduced motion stops ambient animation', async ({ page }) => {
   const achievementWindow = page.locator('.achievement-window')
   await achievementWindow.scrollIntoViewIfNeeded()
   await expect(achievementWindow).toHaveClass(/achievement-window--active/)
+  await expect(achievementWindow.locator('.achievement-card__foil')).toHaveCount(achievementCount)
   expect(await achievementWindow.evaluate((element) => ({
     cardGlareDisplay: getComputedStyle(element.querySelector('.achievement-card__foil'), '::after').display,
     cardVineLeafTransform: getComputedStyle(element.querySelector('.achievement-card__vine-leaves path')).transform,
@@ -967,7 +1131,7 @@ test('career rail scrolls sideways without spilling the page', async ({ page }) 
       }
     })
 
-    expect(layout.count).toBe(5)
+    expect(layout.count).toBe(profile.experience.length)
     expect(layout.pageOverflowX).toBe(0)
     expect(layout.railOverflows).toBe(true)
     expect(layout.sameRow).toBe(true)
@@ -1006,28 +1170,18 @@ test('career rail states every role in the order they happened', async ({ page }
 
   const section = page.getByRole('region', { name: "Where I've worked" })
   // newest first: a reader meets what he does now before how he got here
-  await expect(section.locator('.chapter__company')).toHaveText([
-    'Microsoft',
-    'Hacker4Justice',
-    'Microsoft',
-    'Black Hills',
-    'IndussianAssist',
-  ])
-  await expect(section.locator('.chapter__dates')).toHaveText([
-    'Jun 2025 — Present',
-    'Jun 2025 — Jun 2026',
-    'May 2024 — Jul 2024',
-    'May 2023 — Aug 2023',
-    'Feb 2023 — Apr 2023',
-  ])
-  await expect(section.locator('.chapter__outcome')).toHaveCount(5)
-  await expect(section.locator('.chapter__notable li')).toHaveCount(15)
+  await expect(section.locator('.chapter__company')).toHaveText(profile.experience.map(({ company }) => company))
+  await expect(section.locator('.chapter__dates')).toHaveText(profile.experience.map(({ period }) => period))
+  await expect(section.locator('.chapter__outcome')).toHaveCount(profile.experience.length)
+  await expect(section.locator('.chapter__notable li')).toHaveCount(
+    profile.experience.reduce((total, { notable }) => total + notable.length, 0),
+  )
   // the volunteer investigation stays deliberately unquantified
   await expect(section.locator('.chapter__outcome')).not.toContainText(['4,800'])
 
   // every card carries a picture now, and every one of them is described
   const photos = section.locator('.chapter__photo img')
-  await expect(photos).toHaveCount(5)
+  await expect(photos).toHaveCount(profile.experience.filter(({ photo }) => photo).length)
   for (const alt of await photos.evaluateAll((els) => els.map((e) => e.alt))) {
     expect(alt.length).toBeGreaterThan(20)
   }
@@ -1037,7 +1191,9 @@ test('career rail states every role in the order they happened', async ({ page }
   await expect(section.locator('.photo-credit')).toHaveCount(0)
   const credits = page.locator('.font-credit--photos')
   await expect(credits).toContainText('Sukhna Lake')
-  await expect(credits.locator('a[rel~="license"]')).toHaveCount(3)
+  await expect(credits.locator('a[rel~="license"]')).toHaveCount(
+    profile.experience.filter(({ photo }) => photo?.credit).length,
+  )
 })
 
 test('career photographs are framed, not cropped a second time', async ({ page }) => {
@@ -1048,10 +1204,14 @@ test('career photographs are framed, not cropped a second time', async ({ page }
   const frames = page.locator(
     '.experience__frontispiece img, .chapter__photo img, .chapter__scene img',
   )
-  await expect(frames).toHaveCount(7)
+  const frameCount = 1 + profile.experience.reduce(
+    (total, role) => total + Number(Boolean(role.photo)) + Number(Boolean(role.scene)),
+    0,
+  )
+  await expect(frames).toHaveCount(frameCount)
   await page.locator('.experience').scrollIntoViewIfNeeded()
 
-  for (let i = 0; i < 7; i += 1) {
+  for (let i = 0; i < frameCount; i += 1) {
     await frames.nth(i).scrollIntoViewIfNeeded()
     await expect
       .poll(() => frames.nth(i).evaluate((e) => e.complete && e.naturalWidth > 0))
@@ -1565,7 +1725,7 @@ test('the album holds one stamp per project and opens its catalogue page', async
   await page.locator('.album').scrollIntoViewIfNeeded()
 
   const stamps = page.locator('.stamp')
-  await expect(stamps).toHaveCount(6)
+  await expect(stamps).toHaveCount(profile.projects.length)
   await expect(page.locator('.album__prompt')).toBeVisible()
 
   const exploitrank = page.locator('.stamp', { hasText: 'ExploitRank' })
@@ -1808,6 +1968,277 @@ test('language switch derives its columns from the language count', async ({ pag
   expect(layout).toEqual({ columns: 4, count: 4, widthSpread: 0, overflow: 0 })
 })
 
+test('feature layouts contain one additional plug-in record', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } })
+  })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+
+  await page.setViewportSize({ width: 1000, height: 700 })
+  await page.goto('/')
+  expect(await page.locator('.discipline-band').evaluate((band) => {
+    const list = band.querySelector('ol')
+    const extra = list.lastElementChild.cloneNode(true)
+    extra.querySelector('.discipline-band__abbr').textContent = 'IR'
+    extra.querySelector('.discipline-band__name').textContent = 'Incident response'
+    extra.querySelector('.discipline-band__detail').textContent = 'Triage · containment · recovery'
+    list.append(extra)
+    band.style.setProperty('--discipline-columns', String(Math.min(list.children.length, 4)))
+    return {
+      cellsContained: [...list.children].every((cell) => cell.scrollWidth <= cell.clientWidth),
+      columns: getComputedStyle(list).gridTemplateColumns.split(' ').length,
+      overflow: band.scrollWidth - band.clientWidth,
+    }
+  })).toEqual({ cellsContained: true, columns: profile.disciplines.length + 1, overflow: 0 })
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.locator('.credential-card__records ol').evaluate((list) => {
+    list.append(list.lastElementChild.cloneNode(true))
+    list.style.setProperty('--profile-link-count', String(list.children.length))
+  })
+  await page.locator('.credential-card__turn').click()
+  await expectDossierDrawer(page)
+  expect(await page.locator('.credential-card__drawer').evaluate((drawer) => {
+    const list = drawer.querySelector('ol')
+    const count = list.children.length
+    const rows = Math.ceil(count / 3)
+    drawer.style.setProperty('--profile-link-count', String(count))
+    drawer.style.setProperty('--profile-link-mobile-rows', String(rows))
+    drawer.style.setProperty('--profile-drawer-mobile-height', `${rows * 4.75 + 0.5}rem`)
+    drawer.closest('.scene').style.setProperty('--profile-drawer-mobile-space', `${rows * 4.75 + 2}rem`)
+    const drawerBounds = drawer.getBoundingClientRect()
+    return {
+      columns: getComputedStyle(list).gridTemplateColumns.split(' ').length,
+      contained: [...list.querySelectorAll('a')].every((link) => {
+        const bounds = link.getBoundingClientRect()
+        return bounds.left >= drawerBounds.left
+          && bounds.right <= drawerBounds.right
+          && bounds.top >= drawerBounds.top
+          && bounds.bottom <= drawerBounds.bottom
+      }),
+      overflow: document.documentElement.scrollWidth - innerWidth,
+      rows: getComputedStyle(list).gridTemplateRows.split(' ').length,
+    }
+  })).toEqual({ columns: 3, contained: true, overflow: 0, rows: 2 })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await page.locator('.credential-card__records ol').evaluate((list) => {
+    list.append(list.lastElementChild.cloneNode(true))
+  })
+  await page.locator('.credential-card__turn').click()
+  await expectDossierDrawer(page)
+  expect(await page.locator('.credential-card__drawer').evaluate((drawer) => {
+    const list = drawer.querySelector('ol')
+    const count = list.children.length
+    const columns = Math.ceil(count / 2)
+    drawer.style.setProperty('--profile-link-count', String(count))
+    drawer.style.setProperty('--profile-link-columns', String(columns))
+    drawer.style.setProperty('--profile-link-rows', '2')
+    drawer.style.setProperty('--profile-drawer-height', `${2 * 4.75 + 0.5}rem`)
+    drawer.closest('.scene').style.setProperty('--profile-drawer-space', `${2 * 4.75 + 2.75}rem`)
+    const drawerBounds = drawer.getBoundingClientRect()
+    return {
+      columns: getComputedStyle(list).gridTemplateColumns.split(' ').length,
+      contained: [...list.querySelectorAll('a')].every((link) => {
+        const bounds = link.getBoundingClientRect()
+        return bounds.left >= drawerBounds.left
+          && bounds.right <= drawerBounds.right
+          && bounds.top >= drawerBounds.top
+          && bounds.bottom <= drawerBounds.bottom
+          && link.scrollWidth <= link.clientWidth
+          && link.scrollHeight <= link.clientHeight
+      }),
+      rows: getComputedStyle(list).gridTemplateRows.split(' ').length,
+    }
+  })).toEqual({ columns: 3, contained: true, rows: 2 })
+
+  await page.goto('/')
+  await page.locator('.achievement-deck').scrollIntoViewIfNeeded()
+  expect(await page.locator('.achievement-grid').evaluate((grid) => {
+    grid.append(grid.querySelector('.achievement-card').cloneNode(true))
+    grid.style.setProperty('--achievement-columns', String(grid.querySelectorAll('.achievement-card').length))
+    const bounds = grid.getBoundingClientRect()
+    const cards = [...grid.querySelectorAll('.achievement-card')]
+    return {
+      columns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+      contained: cards.every((card) => {
+        const cardBounds = card.getBoundingClientRect()
+        return cardBounds.left >= bounds.left
+          && cardBounds.right <= bounds.right
+          && card.scrollWidth <= card.clientWidth
+      }),
+      count: cards.length,
+      overflow: document.documentElement.scrollWidth - innerWidth,
+    }
+  })).toEqual({ columns: achievementCount + 1, contained: true, count: achievementCount + 1, overflow: 0 })
+})
+
+test('large feature collections reflow or scroll without page overflow', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+
+  await page.setViewportSize({ width: 1000, height: 700 })
+  await page.goto('/')
+  expect(await page.locator('.discipline-band').evaluate((band) => {
+    const list = band.querySelector('ol')
+    while (list.children.length < 8) list.append(list.lastElementChild.cloneNode(true))
+    band.style.setProperty('--discipline-columns', '4')
+    band.closest('.scene').style.setProperty('--discipline-rows', '2')
+    const card = document.querySelector('.identity-card').getBoundingClientRect()
+    const deck = document.querySelector('.achievement-deck').getBoundingClientRect()
+    const quote = document.querySelector('.identity-card__statement').getBoundingClientRect()
+    return {
+      cardBeforeDeck: card.bottom <= deck.top,
+      cellsFit: [...list.children].every((cell) => (
+        cell.scrollWidth <= cell.clientWidth && cell.scrollHeight <= cell.clientHeight
+      )),
+      columns: getComputedStyle(list).gridTemplateColumns.split(' ').length,
+      insideCard: band.getBoundingClientRect().bottom <= quote.top,
+      overflow: document.documentElement.scrollWidth - innerWidth,
+      rows: new Set([...list.children].map((cell) => Math.round(cell.getBoundingClientRect().top))).size,
+    }
+  })).toEqual({ cardBeforeDeck: true, cellsFit: true, columns: 4, insideCard: true, overflow: 0, rows: 2 })
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.locator('.credential-card__records ol').evaluate((list) => {
+    while (list.children.length < 8) list.append(list.lastElementChild.cloneNode(true))
+  })
+  await page.locator('.credential-card__turn').click()
+  await expectDossierDrawer(page)
+  expect(await page.locator('.credential-card__drawer').evaluate((drawer) => {
+    const list = drawer.querySelector('ol')
+    drawer.style.setProperty('--profile-link-count', '8')
+    drawer.style.setProperty('--profile-link-columns', '4')
+    drawer.style.setProperty('--profile-link-rows', '2')
+    drawer.style.setProperty('--profile-link-mobile-rows', '3')
+    drawer.style.height = `${3 * 4.75 + 0.5}rem`
+    drawer.closest('.scene').style.setProperty('--profile-drawer-mobile-space', `${3 * 4.75 + 2}rem`)
+    const bounds = drawer.getBoundingClientRect()
+    const deck = document.querySelector('.achievement-deck').getBoundingClientRect()
+    return {
+      contained: [...list.querySelectorAll('a')].every((link) => {
+        const linkBounds = link.getBoundingClientRect()
+        return linkBounds.left >= bounds.left
+          && linkBounds.right <= bounds.right
+          && linkBounds.top >= bounds.top
+          && linkBounds.bottom <= bounds.bottom
+          && link.scrollWidth <= link.clientWidth
+          && link.scrollHeight <= link.clientHeight
+      }),
+      drawerBeforeDeck: bounds.bottom <= deck.top,
+      overflow: document.documentElement.scrollWidth - innerWidth,
+      rows: getComputedStyle(list).gridTemplateRows.split(' ').length,
+    }
+  })).toEqual({ contained: true, drawerBeforeDeck: true, overflow: 0, rows: 3 })
+
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.goto('/')
+  await page.locator('.credential-card__records ol').evaluate((list) => {
+    while (list.children.length < 8) list.append(list.lastElementChild.cloneNode(true))
+  })
+  await page.locator('.credential-card__turn').click()
+  await expectDossierDrawer(page)
+  const drawer = page.locator('.credential-card__drawer')
+  await drawer.evaluate((element) => {
+    element.classList.add('credential-card__drawer--scrolling')
+    element.style.setProperty('--profile-link-count', '8')
+  })
+  const lastLink = drawer.locator('a').last()
+  await lastLink.focus()
+  await expect(lastLink).toBeFocused()
+  expect(await drawer.evaluate((element) => {
+    const list = element.querySelector('ol')
+    const drawerBounds = element.getBoundingClientRect()
+    const focusedBounds = document.activeElement.getBoundingClientRect()
+    return {
+      focusedVisible: focusedBounds.left >= drawerBounds.left && focusedBounds.right <= drawerBounds.right,
+      pageOverflow: document.documentElement.scrollWidth - innerWidth,
+      scrollable: list.scrollWidth > list.clientWidth,
+    }
+  })).toEqual({ focusedVisible: true, pageOverflow: 0, scrollable: true })
+
+  await page.goto('/')
+  const languageSwitch = page.locator('.language-switch')
+  await languageSwitch.evaluate((switcher) => {
+    while (switcher.querySelectorAll('button').length < 8) {
+      const button = switcher.querySelector('button:last-of-type').cloneNode(true)
+      button.querySelector('span').textContent = `Language ${switcher.querySelectorAll('button').length + 1}`
+      switcher.append(button)
+    }
+    switcher.style.setProperty('--language-count', '8')
+    switcher.classList.add('language-switch--scrolling')
+  })
+  const lastLanguage = languageSwitch.locator('button').last()
+  await lastLanguage.focus()
+  await expect(lastLanguage).toBeFocused()
+  expect(await languageSwitch.evaluate((switcher) => {
+    const bounds = switcher.getBoundingClientRect()
+    const focusedBounds = document.activeElement.getBoundingClientRect()
+    return {
+      buttonsFit: [...switcher.querySelectorAll('button')].every((button) => (
+        button.scrollWidth <= button.clientWidth && button.scrollHeight <= button.clientHeight
+      )),
+      focusedVisible: focusedBounds.left >= bounds.left && focusedBounds.right <= bounds.right,
+      pageOverflow: document.documentElement.scrollWidth - innerWidth,
+      scrollable: switcher.scrollWidth > switcher.clientWidth,
+    }
+  })).toEqual({ buttonsFit: true, focusedVisible: true, pageOverflow: 0, scrollable: true })
+
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' })
+  const forcedColors = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze()
+  expect(forcedColors.violations).toEqual([])
+
+  await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  expect(await page.evaluate(() => {
+    const cloneTo = (selector, count) => {
+      const container = document.querySelector(selector)
+      while (container.children.length < count) container.append(container.lastElementChild.cloneNode(true))
+      return container
+    }
+    const chapters = cloneTo('.experience__chapters', 12)
+    const projects = cloneTo('.album__field', 12)
+    const achievements = cloneTo('.achievement-grid', 10)
+    achievements.style.setProperty('--achievement-columns', '5')
+    const certifications = cloneTo('.certification-press__seals', 8)
+    const fits = (selector) => [...document.querySelectorAll(selector)].every((element) => (
+      element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight
+    ))
+    return {
+      achievements: {
+        columns: getComputedStyle(achievements).gridTemplateColumns.split(' ').length,
+        fit: fits('.achievement-card'),
+        rows: new Set([...achievements.children].map((card) => Math.round(card.getBoundingClientRect().top))).size,
+      },
+      certifications: {
+        fit: fits('.certification-seal'),
+        scrollable: certifications.scrollHeight > certifications.clientHeight,
+      },
+      experience: {
+        count: chapters.children.length,
+        scrollable: chapters.closest('.experience__rail').scrollWidth > chapters.closest('.experience__rail').clientWidth,
+      },
+      overflow: document.documentElement.scrollWidth - innerWidth,
+      projects: {
+        count: projects.children.length,
+        fit: fits('.stamp'),
+        overflow: projects.scrollHeight - projects.clientHeight,
+      },
+    }
+  })).toEqual({
+    achievements: { columns: 5, fit: true, rows: 2 },
+    certifications: { fit: true, scrollable: true },
+    experience: { count: 12, scrollable: true },
+    overflow: 0,
+    projects: { count: 12, fit: true, overflow: 0 },
+  })
+})
+
 test('languages morph between exact proficiency records without invented percentages', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
@@ -1815,8 +2246,8 @@ test('languages morph between exact proficiency records without invented percent
   await page.locator('.qualifications--languages').scrollIntoViewIfNeeded()
 
   const choices = page.locator('.language-switch button')
-  await expect(choices).toHaveCount(3)
-  await expect(choices).toHaveText(['English', 'हिन्दी', '日本語'])
+  await expect(choices).toHaveCount(profile.languages.length)
+  await expect(choices).toHaveText(profile.languages.map(({ native }) => native))
 
   // Selection and content change in the same render. Motion decorates the new
   // state; it never gates it behind transitionend, which hidden tabs can freeze.
@@ -1835,19 +2266,15 @@ test('languages morph between exact proficiency records without invented percent
   expect(new Set(delays).size).toBe(delays.length)
 })
 
-test('certification seals expose exact grades and only authoritative sources', async ({ page }) => {
+test('certification seals expose exact statuses and only authoritative sources', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/')
   await page.locator('.qualifications--certifications').scrollIntoViewIfNeeded()
 
   const seals = page.locator('.certification-seal')
-  await expect(seals).toHaveCount(4)
-  const expected = [
-    ['Certified in Cybersecurity', 'Earned'],
-    ['Azure Cosmos DB Developer Specialty', 'Earned'],
-    ['ISO/IEC 27001 Lead Auditor', 'Lead Auditor'],
-    ['ISO/IEC 42001 Lead Auditor', 'Lead Auditor'],
-  ]
+  await expect(seals).toHaveCount(profile.certifications.length)
+  await expect(page.locator('.certification-focus dt').first()).toHaveText('Status')
+  const expected = profile.certifications.map(({ name, status }) => [name, status])
 
   for (let index = 0; index < expected.length; index += 1) {
     await seals.nth(index).evaluate((el) => el.click())
@@ -1968,7 +2395,7 @@ test('the certification shelf grows without growing the instrument', async ({ pa
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
   await page.locator('.qualifications--certifications').scrollIntoViewIfNeeded()
-  await expect(page.locator('.qualifications__label', { hasText: 'Truth layer' })).toContainText('/ 04')
+  await expect(page.locator('.qualifications__label', { hasText: 'Record' })).toContainText('/ 04')
 
   const current = await page.evaluate(() => {
     const instrument = document.querySelector(
@@ -2318,8 +2745,8 @@ test('the rail can be moved by its own controls', async ({ page }) => {
   await page.locator('.experience').scrollIntoViewIfNeeded()
 
   const rail = page.locator('.experience__rail')
-  const back = page.getByRole('button', { name: 'Previous roles' })
-  const on = page.getByRole('button', { name: 'Later roles' })
+  const back = page.getByRole('button', { name: 'More recent roles' })
+  const on = page.getByRole('button', { name: 'Earlier roles' })
 
   // at the start there is nowhere back to go
   await expect(back).toBeDisabled()
@@ -2338,7 +2765,7 @@ test('the rail is a named, focusable scroll region', async ({ page }) => {
   await page.goto('/')
 
   const rail = page.locator('.experience__rail')
-  await expect(rail).toHaveAttribute('aria-label', /career/i)
+  await expect(rail).toHaveAttribute('aria-label', /work history/i)
   expect(await rail.evaluate((el) => el.tabIndex)).toBe(0)
 
   // it is a scrollable strip, not a carousel: no slide semantics to mislead
@@ -2449,31 +2876,26 @@ test('sticky note drags only when grabbed, and dragging never flips it', async (
   await expect(note).not.toHaveClass(/sticky-note--flipped/)
 })
 
-test('achievement cards present four verified outcomes', async ({ page }) => {
+test('achievement cards present every verified outcome', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
 
   const deck = page.getByRole('region', { name: 'Selected outcomes' })
   const cards = deck.locator('.achievement-card')
-  await expect(cards).toHaveCount(4)
+  await expect(cards).toHaveCount(achievementCount)
   await expect(deck).toHaveCSS('background-image', 'none')
   await expect(deck).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   await expect(deck).toHaveCSS('border-top-width', '0px')
-  await expect(deck.locator('h3')).toHaveText([
-    'Incidents & CVEs triaged',
-    'Shipped Security Config',
-    'Ingestion specs authored',
-    'STORM-2230 hunt report',
-  ])
-  await expect(deck.locator('.achievement-card__copy > b')).toHaveText(['100+', 'GA', '9/10', '05D'])
+  await expect(deck.locator('h3')).toHaveText(profile.achievements.map(({ title }) => title))
+  await expect(deck.locator('.achievement-card__copy > b')).toHaveText(profile.achievements.map(({ metric }) => metric))
   await expect(deck.locator('.achievement-card__topline > span')).toHaveCount(0)
-  await expect(deck.locator('.achievement-card__topline > strong')).toHaveText(['◇', '⌗', '△', '⌁'])
+  await expect(deck.locator('.achievement-card__topline > strong')).toHaveText(profile.achievements.map(({ glyph }) => glyph))
   await expect(deck.getByRole('tab')).toHaveCount(0)
   await deck.scrollIntoViewIfNeeded()
   const stage = deck.locator('.achievement-stage')
-  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
   await expect(stage.locator('.achievement-stage__canvas')).toHaveAttribute('data-render-state', 'ready')
-  await expect(deck.locator('.achievement-card__visual .achievement-art')).toHaveCount(0)
+  await expect(deck.locator('.achievement-card__visual .achievement-art')).toHaveCount(staticAchievementCount)
 
   const presentation = await cards.evaluateAll((elements) => ({
     canvasZ: Number(getComputedStyle(elements[0].parentElement.querySelector('canvas')).zIndex),
@@ -2486,7 +2908,7 @@ test('achievement cards present four verified outcomes', async ({ page }) => {
     })),
     columns: getComputedStyle(elements[0].parentElement).gridTemplateColumns.split(' ').length,
   }))
-  expect(presentation.columns).toBe(4)
+  expect(presentation.columns).toBe(Math.min(achievementCount, 5))
   expect(presentation.canvasZ).toBeGreaterThan(presentation.cardZ)
   expect(presentation.cards.every(({ boxShadow }) => boxShadow !== 'none')).toBe(true)
   expect(presentation.cards.every(({ borderRadius }) => borderRadius !== '0px')).toBe(true)
@@ -2685,7 +3107,7 @@ test('achievement code waits until the deck enters the viewport', async ({ page 
 
   const deck = page.locator('.achievement-deck')
   await deck.scrollIntoViewIfNeeded()
-  await expect(deck.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(deck.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
   expect(requested).toHaveLength(1)
 })
 
@@ -2695,7 +3117,7 @@ test('reload settles the living border before initializing 3D instruments', asyn
 
   const window = page.locator('.achievement-window')
   await window.scrollIntoViewIfNeeded()
-  await expect(window.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(window.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(window).toHaveClass(/achievement-window--active/)
 
@@ -2726,7 +3148,7 @@ test('reload settles the living border before initializing 3D instruments', asyn
       .filter((animation) => Number.isFinite(animation.effect.getComputedTiming().endTime))
       .forEach((animation) => animation.finish())
   })
-  await expect(window.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(window.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
 })
 
 test('living border pauses ambient motion outside the achievement window', async ({ page }) => {
@@ -2749,14 +3171,14 @@ test('living border pauses ambient motion outside the achievement window', async
   }))).toEqual({ pulse: 'paused', sway: 'paused' })
 })
 
-test('achievement instruments render four nonblank regions in one canvas', async ({ page }) => {
+test('achievement instruments render every nonblank model in one canvas', async ({ page }) => {
   const pageErrors = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
 
   const stage = await revealAchievementStage(page)
-  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
   await expect(stage.locator('canvas')).toHaveAttribute('data-render-state', 'ready')
   await page.waitForTimeout(300)
 
@@ -2783,7 +3205,7 @@ test('achievement instruments render four nonblank regions in one canvas', async
     })
   })
 
-  expect(opaquePixels).toHaveLength(4)
+  expect(opaquePixels).toHaveLength(instrumentedAchievementCount)
   expect(opaquePixels.every((count) => count > 100)).toBe(true)
   expect(pageErrors).toEqual([])
 })
@@ -2793,7 +3215,7 @@ test('achievement instruments keep a static reduced-motion render', async ({ pag
   await page.goto('/')
 
   const stage = await revealAchievementStage(page)
-  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
   const canvas = stage.locator('canvas')
   await page.waitForTimeout(300)
   const before = Number(await canvas.getAttribute('data-render-count'))
@@ -2817,8 +3239,8 @@ test('reduced data skips the 3D payload and keeps the artwork', async ({ page })
   await expect(page.locator('.scene__landscape')).toBeVisible()
   const deck = page.locator('.achievement-deck')
   await deck.scrollIntoViewIfNeeded()
-  await expect(deck.locator('.achievement-card')).toHaveCount(4)
-  await expect(deck.locator('.achievement-card__visual .achievement-art')).toHaveCount(4)
+  await expect(deck.locator('.achievement-card')).toHaveCount(achievementCount)
+  await expect(deck.locator('.achievement-card__visual .achievement-art')).toHaveCount(achievementCount)
   await page.waitForTimeout(1_500)
   await expect(deck.locator('.achievement-stage')).toHaveCount(0)
   expect(requested).toEqual([])
@@ -2828,7 +3250,7 @@ test('achievement instruments remain still while idle', async ({ page }) => {
   await page.goto('/')
 
   const stage = await revealAchievementStage(page)
-  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
   const canvas = stage.locator('canvas')
   await expect.poll(async () => {
     const first = Number(await canvas.getAttribute('data-render-count'))
@@ -2849,9 +3271,9 @@ test('failed instrument loads preserve the artwork fallback', async ({ page }) =
   await page.goto('/')
 
   const stage = await revealAchievementStage(page)
-  await expect(stage.locator('[data-model-state="failed"]')).toHaveCount(4)
+  await expect(stage.locator('[data-model-state="failed"]')).toHaveCount(achievementCount)
   await expect(stage.locator('canvas')).toHaveAttribute('data-render-state', 'failed')
-  await expect(stage.locator('.achievement-art')).toHaveCount(4)
+  await expect(stage.locator('.achievement-art')).toHaveCount(achievementCount)
   expect(await stage.locator('.achievement-art').evaluateAll((elements) => (
     elements.every((element) => Number(getComputedStyle(element).opacity) > 0)
   ))).toBe(true)
@@ -2863,7 +3285,7 @@ test('achievement instruments react across every full card', async ({ page }) =>
   await page.goto('/')
 
   const stage = await revealAchievementStage(page)
-  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
   const canvas = stage.locator('canvas')
   await page.waitForTimeout(600)
   for (const card of await stage.locator('.achievement-card').all()) {
@@ -2880,9 +3302,9 @@ test('achievement shell synchronizes foil light and grows vines on hover', async
   await page.goto('/')
 
   const stage = await revealAchievementStage(page)
-  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
   const cards = stage.locator('.achievement-card')
-  await expect(cards.locator('.achievement-card__effects')).toHaveCount(4)
+  await expect(cards.locator('.achievement-card__effects')).toHaveCount(achievementCount)
   const card = cards.first()
   await expect(card.locator(':scope > .achievement-card__vines')).toHaveCount(1)
   await expect(card.locator(':scope > .achievement-card__vines > .achievement-card__vine')).toHaveCount(2)
@@ -2937,7 +3359,7 @@ test('achievement gallery uses one WebGL context', async ({ page }) => {
   await page.goto('/')
 
   const stage = await revealAchievementStage(page)
-  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(4)
+  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
   expect(await stage.locator('canvas').count()).toBe(1)
   expect(await page.locator('.achievement-stage canvas').count()).toBe(1)
 })
@@ -3014,17 +3436,35 @@ for (const viewport of responsiveCases) {
 }
 
 for (const viewport of [
-  { width: 1440, height: 900, columns: 4, rows: 1, minimumVisualHeight: 200 },
-  { width: 390, height: 844, columns: 2, rows: 2, minimumVisualHeight: 140 },
-  { width: 320, height: 568, columns: 2, rows: 2, minimumVisualHeight: 140 },
+  {
+    width: 1440,
+    height: 900,
+    columns: Math.min(achievementCount, 5),
+    rows: Math.ceil(achievementCount / 5),
+    minimumVisualHeight: 200,
+  },
+  {
+    width: 390,
+    height: 844,
+    columns: Math.min(achievementCount, 2),
+    rows: Math.ceil(achievementCount / 2),
+    minimumVisualHeight: 140,
+  },
+  {
+    width: 320,
+    height: 568,
+    columns: Math.min(achievementCount, 2),
+    rows: Math.ceil(achievementCount / 2),
+    minimumVisualHeight: 140,
+  },
 ]) {
-  test(`${viewport.width}x${viewport.height} keeps four achievement cards contained`, async ({ page }) => {
+  test(`${viewport.width}x${viewport.height} keeps achievement cards contained`, async ({ page }) => {
     await page.setViewportSize(viewport)
     await page.goto('/')
 
     const deck = page.locator('.achievement-deck')
     await deck.scrollIntoViewIfNeeded()
-    await expect(deck.locator('[data-model-state="ready"]')).toHaveCount(4)
+    await expect(deck.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
     const layout = await deck.evaluate((element) => {
       const bounds = (element) => {
         const rect = element.getBoundingClientRect()
@@ -3099,7 +3539,7 @@ for (const viewport of [
     expect(layout.rows).toBe(viewport.rows)
     expect(layout.overflowX).toBe(0)
     expect(layout.overlaps).toBe(false)
-    expect(layout.cards).toHaveLength(4)
+    expect(layout.cards).toHaveLength(achievementCount)
     expect(layout.cards.every(({ copy }) => Math.abs(copy.height - layout.cards[0].copy.height) < 0.5)).toBe(true)
     expect(layout.borderWidth).toBe('2px')
     expect(layout.gridGap).toBeGreaterThanOrEqual(11)
@@ -3157,6 +3597,60 @@ test('failed video keeps the still-image fallback', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Mohit Sharma' })).toBeVisible()
   await expect(page.locator('.scene__landscape')).not.toHaveCSS('background-image', 'none')
   expect(pageErrors).toEqual([])
+})
+
+test('nonvisual preferences skip the decorative video payload', async ({ browser }) => {
+  for (const preference of [
+    { forcedColors: 'none', reducedMotion: 'reduce' },
+    { forcedColors: 'active', reducedMotion: 'no-preference' },
+  ]) {
+    const context = await browser.newContext({
+      baseURL: test.info().project.use.baseURL,
+      ...preference,
+    })
+    const page = await context.newPage()
+    const requested = []
+    page.on('request', (request) => {
+      if (request.url().endsWith('.mp4')) requested.push(request.url())
+    })
+    await page.goto('/')
+    await page.waitForLoadState('load')
+    await page.waitForTimeout(100)
+
+    expect(requested).toEqual([])
+    await expect(page.locator('.scene__landscape')).not.toHaveCSS('background-image', 'none')
+    await context.close()
+  }
+})
+
+test('decorative video starts when reduced motion is disabled later', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  const requested = []
+  page.on('request', (request) => {
+    if (request.url().endsWith('.mp4')) requested.push(request.url())
+  })
+  await page.goto('/')
+  await page.waitForLoadState('load')
+  expect(requested).toEqual([])
+
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await expect.poll(() => requested.length).toBe(1)
+  await expect.poll(() => page.locator('video').evaluate((video) => video.paused)).toBe(false)
+})
+
+test('mobile requests only the responsive hero still', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const requested = []
+  page.on('request', (request) => {
+    if (/background-study.*\.webp$/.test(request.url())) {
+      requested.push(request.url().split('/').at(-1))
+    }
+  })
+  await page.goto('/')
+
+  expect(requested).toContain('background-study-still.webp')
+  expect(requested).not.toContain('background-study-wide-still.webp')
+  await expect(page.locator('video')).not.toHaveAttribute('poster')
 })
 
 for (const viewport of [
@@ -3290,9 +3784,7 @@ test('forced colors removes decorative media and custom cursor', async ({ page }
   expect(quoteColors.textShadow).toBe('none')
 
   const disciplineBand = page.getByRole('img', {
-    name: 'Disciplines: Threat intelligence - Hunt reporting · OSINT · ATT&CK.'
-      + ' Governance, risk & compliance - ISO 27001/42001 LA · CIS controls.'
-      + ' Vulnerability management - CVE triage · exploitability.',
+    name: `Disciplines: ${profile.disciplines.map(({ name, detail }) => `${name} - ${detail}`).join('. ')}.`,
   })
   await expect(disciplineBand).toBeVisible()
   await expect(disciplineBand).toHaveAttribute('data-band-state', 'static')
@@ -3313,10 +3805,10 @@ test('forced colors removes decorative media and custom cursor', async ({ page }
     names: [...element.querySelectorAll('.discipline-band__name')].map((node) => node.textContent),
   }))).toEqual({
     animations: 0,
-    abbrColors: Array(3).fill('rgb(0, 0, 0)'),
-    ruleBackgrounds: Array(3).fill('rgb(0, 0, 0)'),
-    detailColors: Array(3).fill('rgb(0, 0, 0)'),
-    names: ['Threat intelligence', 'Governance, risk & compliance', 'Vulnerability management'],
+    abbrColors: Array(profile.disciplines.length).fill('rgb(0, 0, 0)'),
+    ruleBackgrounds: Array(profile.disciplines.length).fill('rgb(0, 0, 0)'),
+    detailColors: Array(profile.disciplines.length).fill('rgb(0, 0, 0)'),
+    names: profile.disciplines.map(({ name }) => name),
   })
 
   const dossierToggle = page.locator('.credential-card__turn')
@@ -3334,8 +3826,8 @@ test('forced colors removes decorative media and custom cursor', async ({ page }
 
   const deck = page.getByRole('region', { name: 'Selected outcomes' })
   await deck.scrollIntoViewIfNeeded()
-  await expect(deck.locator('.achievement-card')).toHaveCount(4)
-  await expect(deck.locator('.achievement-card h3')).toHaveCount(4)
+  await expect(deck.locator('.achievement-card')).toHaveCount(achievementCount)
+  await expect(deck.locator('.achievement-card h3')).toHaveCount(achievementCount)
   await expect(deck.locator('.achievement-card__visual').first()).toBeHidden()
   await expect(deck.locator('.achievement-stage__canvas')).toBeHidden()
   await expect(deck.locator('.achievement-filigree')).toBeHidden()

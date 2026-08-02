@@ -177,7 +177,7 @@ body {
 }
 
 .scene:has(.scene__content--dossier-open) {
-  --scene-drawer-space: 7.5rem;
+  --scene-drawer-space: var(--profile-drawer-space);
 }
 
 .scene__window {
@@ -284,7 +284,7 @@ body {
   column-gap: 3rem;
   row-gap: 0.9rem;
   align-items: center;
-  min-height: 21rem;
+  min-height: var(--identity-card-min-height, 21rem);
   padding: 2rem 2.5rem 1.75rem;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -475,7 +475,7 @@ h1 {
 
 .discipline-band__list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--discipline-columns), minmax(0, 1fr));
   /* the longest name and detail nearly fill the narrowest cell, so the gap is
      kept tight to leave slack for font metrics that differ by platform */
   gap: 1.1rem;
@@ -1686,7 +1686,7 @@ h1 {
   align-items: center;
   width: calc(100% - var(--experience-gutter) - var(--experience-runout));
   margin: 0.9rem auto 0;
-  color: #5f6b78;
+  color: #858078;
   font-family: 'Recursive Variable', ui-monospace, monospace;
   font-size: 0.64rem;
   font-variation-settings: 'MONO' 1;
@@ -2045,7 +2045,7 @@ h1 {
   top: calc(100% + 0.55rem);
   right: 1rem;
   left: 1rem;
-  height: 5.25rem;
+  height: var(--profile-drawer-height, 5.25rem);
   min-width: 0;
   min-height: 0;
   padding: 0.5rem;
@@ -2094,7 +2094,7 @@ h1 {
     0 0.6rem 1.5rem rgba(0, 0, 0, 0.42),
     inset 0 1px rgba(255, 255, 255, 0.04);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   text-transform: uppercase;
   transform: translateY(calc(-100% - 0.35rem));
   transition:
@@ -2133,8 +2133,8 @@ h1 {
 
 .credential-card__records ol {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: 1fr;
+  grid-template-columns: repeat(var(--profile-link-columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--profile-link-rows), minmax(0, 1fr));
   gap: 0.4rem;
   margin: 0;
   padding: 0;
@@ -2166,6 +2166,10 @@ h1 {
 
 .scene__content--dossier-open .credential-card__records li:nth-child(4) {
   transition-delay: 105ms;
+}
+
+.scene__content--dossier-open .credential-card__records li:nth-child(5) {
+  transition-delay: 140ms;
 }
 
 .credential-card__records a {
@@ -2307,13 +2311,13 @@ h1 {
     top: calc(100% + 0.45rem);
     right: 0.5rem;
     left: 0.5rem;
-    height: 7.5rem;
+    height: var(--profile-drawer-mobile-height, 10rem);
     padding: 0.4rem;
   }
 
   .credential-card__records ol {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(var(--profile-link-mobile-rows), minmax(0, 1fr));
     gap: 0.3rem;
   }
 }
@@ -2336,10 +2340,15 @@ h1 {
     padding: 0.25rem;
   }
 
-  .credential-card__records ol {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  .credential-card__drawer--scrolling .credential-card__records ol {
+    grid-template-columns: none;
     grid-template-rows: 1fr;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(5.5rem, 1fr);
     gap: 0.2rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
   }
 
   .credential-card__records em {
@@ -2850,7 +2859,7 @@ h1 {
 .achievement-grid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--achievement-columns), minmax(0, 1fr));
   gap: 1.1rem;
 }
 
@@ -3271,7 +3280,7 @@ h1 {
 
 .album__head p {
   margin: 0 0 0.35rem;
-  color: #6f6b64;
+  color: #8f897f;
   font-family: 'Kiona', sans-serif;
   font-size: 0.68rem;
   letter-spacing: 0.22em;
@@ -3749,25 +3758,13 @@ h1 {
   background: #0d0d0c;
 }
 
-.language-switch__marker {
-  position: absolute;
-  top: var(--switch-inset);
-  bottom: var(--switch-inset);
-  left: var(--switch-inset);
-  width: calc((100% - 2 * var(--switch-inset)) / var(--language-count));
-  border: 1px solid color-mix(in oklab, var(--language-accent), #3c3932 55%);
-  border-radius: 3px;
-  background: color-mix(in oklab, var(--language-accent), #11100e 84%);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
-  transform: translateX(calc(var(--language-index) * 100%));
-}
-
 .language-switch button {
   position: relative;
   z-index: 1;
   min-width: 0;
   padding: 0.5rem 0.35rem;
-  border: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
   color: #89847b;
   background: none;
   font-family: 'Nirmala UI', 'Yu Mincho', 'Kiona', sans-serif;
@@ -3775,10 +3772,23 @@ h1 {
   cursor: pointer;
 }
 
+.language-switch--scrolling {
+  grid-template-columns: repeat(var(--language-count), minmax(5rem, 1fr));
+  overflow-x: auto;
+  scrollbar-color: #4b4840 transparent;
+  scrollbar-width: thin;
+}
+
 .language-switch button:hover,
 .language-switch button:focus-visible,
-.language-switch__button--active {
+.language-switch button.language-switch__button--active {
   color: #ece7dd;
+}
+
+.language-switch button.language-switch__button--active {
+  border-color: color-mix(in oklab, var(--language-accent), #3c3932 55%);
+  background: color-mix(in oklab, var(--language-accent), #11100e 84%);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .language-switch button:focus-visible {
@@ -4113,11 +4123,11 @@ h1 {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .qualifications--motion .language-switch__marker {
+  .qualifications--motion .language-switch button {
     transition:
-      transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
       border-color 260ms ease,
-      background-color 260ms ease;
+      background-color 260ms ease,
+      color 260ms ease;
   }
 
   .qualifications--motion .language-stage__state {
@@ -4161,7 +4171,7 @@ h1 {
     border: 1px dashed CanvasText;
   }
 
-  .language-switch__marker,
+  .language-switch__button--active,
   .certification-seal__coin,
   .qualifications__instrument {
     border: 1px solid CanvasText;
@@ -4767,7 +4777,7 @@ h1 {
   }
 
   .scene:has(.scene__content--dossier-open) {
-    --scene-drawer-space: 9rem;
+    --scene-drawer-space: var(--profile-drawer-mobile-space);
   }
 }
 
@@ -4994,6 +5004,26 @@ h1 {
 }
 
 @media (forced-colors: active) {
+  :where(.portfolio, .site-footer) {
+    color: CanvasText;
+    background: Canvas;
+  }
+
+  :where(.portfolio, .site-footer) :where(
+    h1, h2, h3, h4, p, span, small, strong, b, em, dt, dd, label, li
+  ) {
+    color: CanvasText !important;
+    text-shadow: none;
+  }
+
+  :where(.portfolio, .site-footer) :where(a, a *) {
+    color: LinkText !important;
+  }
+
+  :where(.portfolio, .site-footer) :where(button, button *, select, option) {
+    color: ButtonText !important;
+  }
+
   .scene__window,
   .scene__kanji-layer {
     display: none;

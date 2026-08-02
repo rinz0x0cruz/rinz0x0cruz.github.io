@@ -1,9 +1,17 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import profile from '../profile.js'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
-const disciplines = profile.disciplines
-const label = `Disciplines: ${disciplines.map(({ name, detail }) => `${name} - ${detail}`).join('. ')}.`
+const props = defineProps({
+  disciplines: {
+    type: Array,
+    required: true,
+  },
+})
+const disciplines = computed(() => props.disciplines)
+const columns = computed(() => Math.min(disciplines.value.length, 4))
+const label = computed(() => (
+  `Disciplines: ${disciplines.value.map(({ name, detail }) => `${name} - ${detail}`).join('. ')}.`
+))
 
 const band = ref(null)
 const armed = ref(false)
@@ -64,6 +72,7 @@ onBeforeUnmount(() => {
   <figure
     ref="band"
     :class="['discipline-band', { 'discipline-band--armed': armed, 'discipline-band--active': active }]"
+    :style="{ '--discipline-columns': columns }"
     :data-band-state="active ? 'shown' : armed ? 'armed' : 'static'"
     role="img"
     :aria-label="label"
@@ -76,7 +85,7 @@ onBeforeUnmount(() => {
     <ol class="discipline-band__list" aria-hidden="true">
       <li
         v-for="(discipline, index) in disciplines"
-        :key="discipline.abbr"
+        :key="discipline.id"
         class="discipline-band__cell"
         :style="{ '--cell-index': index }"
       >

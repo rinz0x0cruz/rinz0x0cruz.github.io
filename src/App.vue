@@ -19,7 +19,22 @@ const achievementEntrancePlaybackRate = 2.4
 document.title = `${profile.name} — ${profile.position}`
 
 const quoteOptions = profile.quotes
-const achievementInstruments = profile.achievements.map(({ instrument }) => instrument)
+const disciplineColumns = Math.min(profile.disciplines.length, 4)
+const disciplineRows = Math.ceil(profile.disciplines.length / disciplineColumns)
+const identityCardMinHeight = `${21 + (disciplineRows - 1) * 6}rem`
+const profileLinkColumns = profile.links.length <= 5
+  ? profile.links.length
+  : Math.ceil(profile.links.length / 2)
+const profileLinkRows = Math.ceil(profile.links.length / profileLinkColumns)
+const profileLinkMobileRows = Math.ceil(profile.links.length / 3)
+const profileDrawerHeight = `${profileLinkRows * 4.75 + 0.5}rem`
+const profileDrawerMobileHeight = `${profileLinkMobileRows * 4.75 + 0.5}rem`
+const profileDrawerSpace = `${profileLinkRows * 4.75 + 2.75}rem`
+const profileDrawerMobileSpace = `${profileLinkMobileRows * 4.75 + 2}rem`
+const profileLinksScrollable = profile.links.length > 5
+const languageSwitchScrollable = profile.languages.length > 4
+const achievementInstruments = profile.achievements.map(({ instrument }) => instrument ?? null)
+const achievementColumns = Math.min(profile.achievements.length, 5)
 const activeQuoteIndex = ref(0)
 
 // Split into words of letters so each character can drop on its own delay while
@@ -40,11 +55,15 @@ const photoCredits = computed(() =>
   profile.experience.filter((role) => role.photo?.credit).map((role) => role.photo.credit),
 )
 
-const activeLanguage = ref(0)
-const activeCertification = ref(0)
+const activeLanguage = ref(profile.languages[0].id)
+const activeCertification = ref(profile.certifications[0].id)
 const pageVisible = ref(!document.hidden)
-const activeLanguageRecord = computed(() => profile.languages[activeLanguage.value])
-const activeCertificationRecord = computed(() => profile.certifications[activeCertification.value])
+const activeLanguageRecord = computed(() =>
+  profile.languages.find(({ id }) => id === activeLanguage.value) ?? profile.languages[0],
+)
+const activeCertificationRecord = computed(() =>
+  profile.certifications.find(({ id }) => id === activeCertification.value) ?? profile.certifications[0],
+)
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const activeLanguageLetters = computed(() =>
   [...graphemeSegmenter.segment(activeLanguageRecord.value.native)].map(({ segment }) => segment),
@@ -261,12 +280,12 @@ function handlePageWheel(event) {
 // how much of the rail has been revealed, so the axis under it can say where you are
 const railSeen = ref(0)
 // which cards are showing their evidence side
-const turned = ref([])
+const turned = ref({})
 // per-card pointer tilt, so a card reads as an object rather than a picture
-const tilt = ref([])
+const tilt = ref({})
 
-function turn(index) {
-  turned.value[index] = !turned.value[index]
+function turn(id) {
+  turned.value[id] = !turned.value[id]
 }
 
 // which stamp is being held, how the album is arranged, and the loose lean each
@@ -320,16 +339,16 @@ function leanFrom(event, maxDeg) {
   }
 }
 
-function tiltCard(event, index) {
+function tiltCard(event, id) {
   // touch drives the rail's own drag, and a tilt there would fight the scroll
   if (event.pointerType !== 'mouse') return
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-  tilt.value[index] = leanFrom(event, 7)
+  tilt.value[id] = leanFrom(event, 7)
 }
 
-function restCard(index) {
-  tilt.value[index] = null
+function restCard(id) {
+  tilt.value[id] = null
 }
 
 // a stamp is small and being picked up, so it leans further than a card does
@@ -522,6 +541,16 @@ function syncPageState() {
   syncLandscapeVideo()
 }
 
+function handleReducedMotionChange() {
+  syncPageState()
+  if (!reducedMotionMedia.matches) startLandscapeVideo?.()
+}
+
+function handleForcedColorsChange() {
+  if (forcedColorsMedia.matches) syncLandscapeVideo()
+  else startLandscapeVideo?.()
+}
+
 function closeDossier() {
   if (!dossierOpen.value) return
 
@@ -538,7 +567,9 @@ function handleDossierKeydown(event) {
 }
 
 function artworkVisible(index) {
-  return instrumentsUnavailable.value || instrumentStatuses.value[index] === 'failed'
+  return !profile.achievements[index].instrument
+    || instrumentsUnavailable.value
+    || instrumentStatuses.value[index] === 'failed'
 }
 
 function prefersReducedData() {
@@ -613,8 +644,8 @@ onMounted(() => {
   reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
   forcedColorsMedia = window.matchMedia('(forced-colors: active)')
   document.addEventListener('visibilitychange', syncPageState)
-  reducedMotionMedia.addEventListener('change', syncPageState)
-  forcedColorsMedia.addEventListener('change', syncLandscapeVideo)
+  reducedMotionMedia.addEventListener('change', handleReducedMotionChange)
+  forcedColorsMedia.addEventListener('change', handleForcedColorsChange)
   achievementObserver = new IntersectionObserver(([entry]) => {
     if (!entry.isIntersecting) return
 
@@ -641,7 +672,12 @@ onMounted(() => {
   // The loop is decoration. preload="none" keeps its video payload out of the critical
   // window; start it once the poster and avatar have landed so it never competes.
   startLandscapeVideo = () => {
-    if (landscapeVideoStopping || prefersReducedData()) return
+    if (
+      landscapeVideoStopping
+      || prefersReducedData()
+      || reducedMotionMedia.matches
+      || forcedColorsMedia.matches
+    ) return
     landscapeVideoArmed = true
     landscapeVideo.value?.load()
     syncLandscapeVideo()
@@ -657,8 +693,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('wheel', handlePageWheel)
   document.removeEventListener('visibilitychange', syncPageState)
   if (startLandscapeVideo) window.removeEventListener('load', startLandscapeVideo)
-  reducedMotionMedia?.removeEventListener('change', syncPageState)
-  forcedColorsMedia?.removeEventListener('change', syncLandscapeVideo)
+  reducedMotionMedia?.removeEventListener('change', handleReducedMotionChange)
+  forcedColorsMedia?.removeEventListener('change', handleForcedColorsChange)
   achievementObserver?.disconnect()
   achievementVisibilityObserver?.disconnect()
   footerObserver?.disconnect()
@@ -671,7 +707,18 @@ onBeforeUnmount(() => {
   <CursorFollower />
 
   <main class="portfolio" aria-label="Portfolio">
-    <section class="scene" aria-labelledby="portfolio-name">
+    <section
+      class="scene"
+      aria-labelledby="portfolio-name"
+      :style="{
+        '--discipline-rows': disciplineRows,
+        '--identity-card-min-height': identityCardMinHeight,
+        '--profile-drawer-height': profileDrawerHeight,
+        '--profile-drawer-mobile-height': profileDrawerMobileHeight,
+        '--profile-drawer-space': profileDrawerSpace,
+        '--profile-drawer-mobile-space': profileDrawerMobileSpace,
+      }"
+    >
       <svg class="scene__texture" aria-hidden="true">
         <filter id="noise">
           <feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="5" stitchTiles="stitch" />
@@ -690,7 +737,6 @@ onBeforeUnmount(() => {
           loop
           playsinline
           preload="none"
-          poster="/background-study-wide-still.webp"
           tabindex="-1"
           disablepictureinpicture
           disableremoteplayback
@@ -753,7 +799,7 @@ onBeforeUnmount(() => {
                 {{ profile.company.name }}
               </span>
             </p>
-            <DisciplineBand />
+            <DisciplineBand :disciplines="profile.disciplines" />
           </div>
 
           <p class="identity-card__statement">
@@ -801,19 +847,25 @@ onBeforeUnmount(() => {
 
         <section
           id="profile-dossier"
-          class="credential-card__drawer"
-          aria-label="Profile dossier"
+          :class="['credential-card__drawer', { 'credential-card__drawer--scrolling': profileLinksScrollable }]"
+          :style="{
+            '--profile-link-count': profile.links.length,
+            '--profile-link-columns': profileLinkColumns,
+            '--profile-link-rows': profileLinkRows,
+            '--profile-link-mobile-rows': profileLinkMobileRows,
+          }"
+          aria-label="Profile links panel"
           :aria-hidden="!dossierOpen"
           :inert="!dossierOpen"
         >
           <nav
             class="credential-card__records"
-            aria-label="Profile records"
+            aria-label="Profile links"
           >
             <ol>
               <li
                 v-for="(link, index) in profile.links"
-                :key="link.label"
+                :key="link.id"
               >
                 <a
                   :href="link.href"
@@ -840,7 +892,7 @@ onBeforeUnmount(() => {
       <div class="achievement-deck__inner">
         <header class="achievement-deck__header">
           <div>
-            <p>Proof / {{ String(profile.achievements.length).padStart(2, '0') }}</p>
+            <p>Evidence / {{ String(profile.achievements.length).padStart(2, '0') }}</p>
             <h2 id="achievement-deck-title">Selected outcomes</h2>
           </div>
           <p>Research · controls · detection · response</p>
@@ -864,12 +916,13 @@ onBeforeUnmount(() => {
           <component
             :is="instrumentsVisible ? AchievementInstrument : 'div'"
             class="achievement-grid"
+            :style="{ '--achievement-columns': achievementColumns }"
             v-bind="instrumentsVisible ? { instruments: achievementInstruments } : {}"
             @resolve="instrumentStatuses = $event"
           >
             <article
               v-for="(achievement, index) in profile.achievements"
-              :key="achievement.title"
+              :key="achievement.id"
               class="achievement-card"
               :style="{ '--tile-accent': achievement.accent }"
             >
@@ -911,7 +964,7 @@ onBeforeUnmount(() => {
                 data-model-state="loading"
                 aria-hidden="true"
               >
-                <AchievementArtwork v-if="artworkVisible(index)" :motif="achievement.motif" />
+                <AchievementArtwork v-if="artworkVisible(index)" :motif="achievement.motif ?? 'orbit'" />
               </div>
 
               <div class="achievement-card__copy">
@@ -928,11 +981,11 @@ onBeforeUnmount(() => {
     <section ref="experienceSection" class="experience" aria-labelledby="experience-title">
       <div class="experience__head">
         <div>
-          <p>Career / {{ String(profile.experience.length).padStart(2, '0') }}</p>
+          <p>Experience / {{ String(profile.experience.length).padStart(2, '0') }}</p>
           <h2 id="experience-title">Where I've worked</h2>
         </div>
         <p class="experience__hint">
-          Scroll, drag, or use the arrows to move through {{ careerSpan }}
+          Scroll, drag, or use arrow keys to explore {{ careerSpan }}
         </p>
       </div>
 
@@ -945,7 +998,7 @@ onBeforeUnmount(() => {
           :class="{ 'experience__rail--free': railDragging }"
           tabindex="0"
           role="group"
-          aria-label="Career timeline, scrollable sideways"
+          aria-label="Work history, scrollable horizontally"
           @keydown="handleRailKeydown"
           @wheel="handleRailWheel"
           @scroll="handleRailScroll"
@@ -995,25 +1048,25 @@ onBeforeUnmount(() => {
         <ol class="experience__chapters">
           <li
             v-for="(role, index) in profile.experience"
-            :key="`${role.company}-${role.start}`"
+            :key="role.id"
             class="chapter"
-            :class="{ 'chapter--turned': turned[index] }"
+            :class="{ 'chapter--turned': turned[role.id] }"
             :style="{
               '--chapter-index': index,
               '--year': `'${role.start.slice(0, 4)}'`,
-              '--tilt-x': tilt[index]?.ax ?? 0,
-              '--tilt-y': tilt[index]?.ay ?? 1,
-              '--tilt-a': `${tilt[index]?.deg ?? 0}deg`,
-              '--px': tilt[index]?.px ?? '50%',
-              '--py': tilt[index]?.py ?? '0%',
+              '--tilt-x': tilt[role.id]?.ax ?? 0,
+              '--tilt-y': tilt[role.id]?.ay ?? 1,
+              '--tilt-a': `${tilt[role.id]?.deg ?? 0}deg`,
+              '--px': tilt[role.id]?.px ?? '50%',
+              '--py': tilt[role.id]?.py ?? '0%',
             }"
-            @pointermove="tiltCard($event, index)"
-            @pointerleave="restCard(index)"
+            @pointermove="tiltCard($event, role.id)"
+            @pointerleave="restCard(role.id)"
           >
             <!-- inert rather than aria-hidden: the far face must leave the tab
                  order too, and aria-hidden on something focusable is worse than
                  no marking at all -->
-            <div class="chapter__face chapter__face--front" :inert="turned[index] || undefined">
+            <div class="chapter__face chapter__face--front" :inert="turned[role.id] || undefined">
               <figure v-if="role.photo" class="chapter__photo">
                 <span
                   class="photo-frame"
@@ -1080,9 +1133,9 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 class="chapter__turn"
-                :aria-expanded="Boolean(turned[index])"
-                :aria-controls="`chapter-evidence-${index}`"
-                @click="turn(index)"
+                :aria-expanded="Boolean(turned[role.id])"
+                :aria-controls="`chapter-evidence-${role.id}`"
+                @click="turn(role.id)"
               >
                 What I did at {{ role.company }}
                 <span aria-hidden="true">↻</span>
@@ -1090,9 +1143,9 @@ onBeforeUnmount(() => {
             </div>
 
             <div
-              :id="`chapter-evidence-${index}`"
+              :id="`chapter-evidence-${role.id}`"
               class="chapter__face chapter__face--back"
-              :inert="!turned[index] || undefined"
+              :inert="!turned[role.id] || undefined"
             >
               <article class="chapter__outcome">
                 <p>{{ role.outcome }}</p>
@@ -1112,11 +1165,11 @@ onBeforeUnmount(() => {
               </article>
 
               <article v-if="role.learnt" class="chapter__learnt">
-                <h4>Learnt</h4>
+                <h4>What I learned</h4>
                 <p>{{ role.learnt }}</p>
               </article>
 
-              <button type="button" class="chapter__turn" @click="turn(index)">
+              <button type="button" class="chapter__turn" @click="turn(role.id)">
                 Back to {{ role.company }}
                 <span aria-hidden="true">↺</span>
               </button>
@@ -1128,7 +1181,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="experience__step experience__step--back"
-          aria-label="Previous roles"
+          aria-label="More recent roles"
           :disabled="railAtStart"
           @click="stepRail(-1)"
         >
@@ -1137,7 +1190,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="experience__step experience__step--on"
-          aria-label="Later roles"
+          aria-label="Earlier roles"
           :disabled="railAtEnd"
           @click="stepRail(1)"
         >
@@ -1159,7 +1212,7 @@ onBeforeUnmount(() => {
     <section class="album" aria-labelledby="album-title">
       <div class="album__head">
         <div>
-          <p>Work / {{ String(profile.projects.length).padStart(2, '0') }}</p>
+          <p>Projects / {{ String(profile.projects.length).padStart(2, '0') }}</p>
           <h2 id="album-title">What I've built</h2>
         </div>
 
@@ -1187,15 +1240,15 @@ onBeforeUnmount(() => {
           aria-live="polite"
         >
           <template v-if="focusedProject">
-            <p class="album__catalogue">Catalogue</p>
+            <p class="album__catalogue">Project record</p>
             <h3 class="album__name">{{ focusedProject.name }}</h3>
             <ol class="album__flow">
               <li v-for="stage in focusedProject.flow" :key="stage">{{ stage }}</li>
             </ol>
             <dl class="album__facts">
               <div><dt>Field</dt><dd>{{ focusedProject.field }}</dd></div>
-              <div><dt>Written in</dt><dd>{{ focusedProject.language }}</dd></div>
-              <div><dt>Issued</dt><dd>{{ focusedProject.issued }}</dd></div>
+              <div><dt>Primary language</dt><dd>{{ focusedProject.language }}</dd></div>
+              <div><dt>Year</dt><dd>{{ focusedProject.issued }}</dd></div>
             </dl>
             <ul class="album__points">
               <li v-for="point in focusedProject.points" :key="point">{{ point }}</li>
@@ -1209,7 +1262,7 @@ onBeforeUnmount(() => {
               </li>
             </ul>
           </template>
-          <p v-else class="album__prompt">Select a stamp to see the details</p>
+          <p v-else class="album__prompt">Select a project stamp to inspect its workflow</p>
         </div>
 
         <ul class="album__field" :class="{ 'album__field--loose': albumScatter }">
@@ -1261,7 +1314,7 @@ onBeforeUnmount(() => {
     >
       <div class="album__head qualifications__head">
         <div>
-          <p>Language / {{ String(profile.languages.length).padStart(2, '0') }}</p>
+          <p>Languages / {{ String(profile.languages.length).padStart(2, '0') }}</p>
           <h2 id="languages-title">Languages</h2>
         </div>
       </div>
@@ -1272,22 +1325,20 @@ onBeforeUnmount(() => {
       >
         <div class="language-console">
           <div
-            class="language-switch"
+            :class="['language-switch', { 'language-switch--scrolling': languageSwitchScrollable }]"
             :style="{
-              '--language-index': activeLanguage,
               '--language-accent': activeLanguageRecord.accent,
             }"
             role="group"
             aria-label="Choose a language"
           >
-            <span class="language-switch__marker" aria-hidden="true"></span>
             <button
-              v-for="(language, index) in profile.languages"
+              v-for="language in profile.languages"
               :key="language.id"
               type="button"
-              :class="{ 'language-switch__button--active': activeLanguage === index }"
-              :aria-pressed="activeLanguage === index"
-              @click="activeLanguage = index"
+              :class="{ 'language-switch__button--active': activeLanguage === language.id }"
+              :aria-pressed="activeLanguage === language.id"
+              @click="activeLanguage = language.id"
             >
               <span :lang="language.lang">{{ language.native }}</span>
             </button>
@@ -1335,18 +1386,18 @@ onBeforeUnmount(() => {
       <div class="qualifications__instrument">
         <section class="certification-press" aria-labelledby="certification-press-title">
           <div class="qualifications__label">
-            <p>Truth layer / {{ String(profile.certifications.length).padStart(2, '0') }}</p>
-            <h3 id="certification-press-title">Credential evidence</h3>
+            <p>Record / {{ String(profile.certifications.length).padStart(2, '0') }}</p>
+            <h3 id="certification-press-title">Credential details</h3>
           </div>
 
           <div class="certification-press__bench">
             <div class="certification-press__seals" role="group" aria-label="Choose a certification">
               <button
-                v-for="(certification, index) in profile.certifications"
+                v-for="certification in profile.certifications"
                 :key="certification.id"
                 type="button"
                 class="certification-seal"
-                :class="{ 'certification-seal--active': activeCertification === index }"
+                :class="{ 'certification-seal--active': activeCertification === certification.id }"
                 :style="{
                   '--certification-accent': certification.accent,
                   '--tilt-x': certificationTilt[certification.id]?.ax ?? 0,
@@ -1355,9 +1406,9 @@ onBeforeUnmount(() => {
                   '--px': certificationTilt[certification.id]?.px ?? '50%',
                   '--py': certificationTilt[certification.id]?.py ?? '50%',
                 }"
-                :aria-pressed="activeCertification === index"
+                :aria-pressed="activeCertification === certification.id"
                 :aria-label="`${certification.issuer}: ${certification.name}`"
-                @click="activeCertification = index"
+                @click="activeCertification = certification.id"
                 @pointermove="tiltCertification($event, certification.id)"
                 @pointerleave="restCertification(certification.id)"
               >
@@ -1376,7 +1427,7 @@ onBeforeUnmount(() => {
                 <p>{{ activeCertificationRecord.issuer }}</p>
                 <h4>{{ activeCertificationRecord.name }}</h4>
                 <dl>
-                  <div><dt>Grade</dt><dd>{{ activeCertificationRecord.status }}</dd></div>
+                  <div><dt>Status</dt><dd>{{ activeCertificationRecord.status }}</dd></div>
                   <div><dt>Code</dt><dd>{{ activeCertificationRecord.code }}</dd></div>
                 </dl>
                 <p class="certification-focus__detail">{{ activeCertificationRecord.detail }}</p>
