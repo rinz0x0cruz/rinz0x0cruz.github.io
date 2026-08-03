@@ -12,6 +12,8 @@ const dragging = ref(false)
 const offset = ref({ x: 0, y: 0 })
 // below this the gesture is still a click, above it the note is being carried
 const DRAG_SLOP = 4
+// Keep the last real step across duplicate pointer samples, but not a deliberate hold.
+const THROW_RELEASE_WINDOW = 500
 // a thrown note may travel this far from where it was pinned and no further, so
 // it can always be found again
 const TETHER = 260
@@ -69,14 +71,17 @@ function onPointerMove(event) {
   }
 
   const next = { x: event.clientX - origin.x, y: event.clientY - origin.y }
-  // per frame, not per event: a high polling rate reports smaller steps more
-  // often, and an unnormalised delta would make the same gesture throw weaker
-  const frames = Math.min(4, Math.max(0.25, (event.timeStamp - lastAt) / 16.7))
-  lastStep = {
-    x: (next.x - offset.value.x) / frames,
-    y: (next.y - offset.value.y) / frames,
+  const delta = {
+    x: next.x - offset.value.x,
+    y: next.y - offset.value.y,
   }
-  lastAt = event.timeStamp
+  if (delta.x || delta.y) {
+    // per frame, not per event: a high polling rate reports smaller steps more
+    // often, and an unnormalised delta would make the same gesture throw weaker
+    const frames = Math.min(4, Math.max(0.25, (event.timeStamp - lastAt) / 16.7))
+    lastStep = { x: delta.x / frames, y: delta.y / frames }
+    lastAt = event.timeStamp
+  }
   offset.value = next
 }
 
@@ -92,8 +97,12 @@ function onPointerUp(event) {
 
   // let go while still moving and the note keeps going, then settles. A note let
   // go from rest simply stays put, and reduced motion never throws at all.
-  if (!thrown || matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  if (Math.hypot(lastStep.x, lastStep.y) > 1) throwGlide.push(lastStep.x, lastStep.y)
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
+  const releasedInMotion = event.timeStamp - lastAt <= THROW_RELEASE_WINDOW
+  if (!thrown || reducedMotion) return
+  if (releasedInMotion && Math.hypot(lastStep.x, lastStep.y) > 1) {
+    throwGlide.push(lastStep.x, lastStep.y)
+  }
 }
 
 // a drag that ends where it started is a click, so flipping never fires mid-drag

@@ -1477,7 +1477,9 @@ test('a thrown note keeps travelling and stays within reach', async ({ page }) =
   const start = await note.boundingBox()
   await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2)
   await page.mouse.down()
-  await page.mouse.move(start.x + start.width / 2 - 120, start.y + start.height / 2, { steps: 4 })
+  const release = { x: start.x + start.width / 2 - 120, y: start.y + start.height / 2 }
+  await page.mouse.move(release.x, release.y, { steps: 4 })
+  await page.mouse.move(release.x, release.y)
   await page.mouse.up()
 
   const released = await note.boundingBox()
@@ -1491,6 +1493,16 @@ test('a thrown note keeps travelling and stays within reach', async ({ page }) =
     Math.abs(parseFloat(getComputedStyle(el).getPropertyValue('--note-x'))),
   )
   expect(carried).toBeLessThanOrEqual(260)
+
+  const held = await note.boundingBox()
+  await page.mouse.move(held.x + held.width / 2, held.y + held.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(held.x + held.width / 2 + 80, held.y + held.height / 2, { steps: 4 })
+  await page.waitForTimeout(550)
+  await page.mouse.up()
+  const placed = await note.boundingBox()
+  await page.waitForTimeout(700)
+  expect((await note.boundingBox()).x).toBeCloseTo(placed.x, 0)
 })
 
 test('pictures drift against vertical scroll, and hold still when asked', async ({ page }) => {
@@ -1762,9 +1774,9 @@ test('the artist credit is written in a letter at a time on hover', async ({ pag
   expect(rest.delays).toEqual([...rest.delays].sort((a, b) => a - b))
   expect(rest.delays.at(-1)).toBeGreaterThan(rest.delays[0])
 
-  const plate = await page.locator('.experience__frontispiece').boundingBox()
+  const frontispiece = page.locator('.experience__frontispiece')
   const height = await page.locator('.experience__index').evaluate((el) => el.getBoundingClientRect().height)
-  await page.mouse.move(plate.x + plate.width / 2, plate.y + plate.height / 2)
+  await frontispiece.hover()
 
   await expect.poll(async () => (await read()).weight, { timeout: 3000 }).toBe(780)
   // polled separately: the rule takes 460ms against the letters' 300ms, so
@@ -1806,8 +1818,7 @@ test('the artist credit is written in a letter at a time on hover', async ({ pag
   expect(
     await page.locator('.plate-credit__letter').first().evaluate((el) => getComputedStyle(el).transitionDuration),
   ).toBe('0s')
-  const box = await page.locator('.experience__frontispiece').boundingBox()
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.locator('.experience__frontispiece').hover()
   await page.waitForTimeout(200)
   expect((await read()).block).toBe(1)
 })
@@ -3066,22 +3077,18 @@ test('the rail carries momentum when moved sideways on purpose', async ({ page }
   await rail.scrollIntoViewIfNeeded()
   await page.waitForTimeout(300)
 
-  const shove = () =>
-    rail.evaluate((el) =>
-      el.dispatchEvent(
-        new WheelEvent('wheel', { deltaY: 100, shiftKey: true, bubbles: true, cancelable: true }),
-      ),
+  const early = await rail.evaluate((el) => new Promise((resolve) => {
+    el.dispatchEvent(
+      new WheelEvent('wheel', { deltaY: 100, shiftKey: true, bubbles: true, cancelable: true }),
     )
-
-  await shove()
-  await page.waitForTimeout(60)
-  const early = await rail.evaluate((el) => el.scrollLeft)
-  await page.waitForTimeout(700)
+    requestAnimationFrame(() => resolve(el.scrollLeft))
+  }))
+  const requiredCarry = Math.max(140, early / 0.3)
+  await expect.poll(() => rail.evaluate((el) => el.scrollLeft)).toBeGreaterThan(requiredCarry)
   const settled = await rail.evaluate((el) => el.scrollLeft)
 
   expect(early).toBeGreaterThan(0)
   expect(settled).toBeGreaterThan(early)
-  expect(settled).toBeGreaterThan(140)
   // heavy: only a small share of the journey happens in the first moments
   expect(early / settled).toBeLessThan(0.3)
 })
@@ -3130,10 +3137,12 @@ test('the rail can be dragged, and a release keeps carrying', async ({ page }) =
 
   const rail = page.locator('.experience__rail')
   const box = await rail.boundingBox()
-  const y = box.y + box.height / 2
-  let x = box.x + box.width - 140
+  const position = { x: box.width - 140, y: box.height / 2 }
+  await rail.hover({ position })
+  const stableBox = await rail.boundingBox()
+  const y = stableBox.y + position.y
+  let x = stableBox.x + position.x
 
-  await page.mouse.move(x, y)
   await page.mouse.down()
   // moves a frame apart, as a hand produces them. Sent all at once the browser
   // never sees the drag end, which hides the snap conflict this guards.
