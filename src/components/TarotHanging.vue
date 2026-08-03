@@ -3,18 +3,15 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 const canvas = ref(null)
 const container = ref(null)
+const cameraHalfHeight = 1.2
 const cardSources = [
   {
     name: 'sun',
-    model: '/models/tarot/sun.glb',
-    texture: '/models/tarot/sun-texture.webp',
-    rotation: [-0.04, -0.12, -0.044],
+    rotation: [0, 0, -0.044],
   },
   {
     name: 'moon',
-    model: '/models/tarot/moon.glb',
-    texture: '/models/tarot/moon-texture.webp',
-    rotation: [-0.03, 0.12, 0.035],
+    rotation: [0, 0, 0.035],
   },
 ]
 
@@ -80,7 +77,11 @@ function draw() {
 
     const left = slotBounds.left - rootBounds.left
     const bottom = rootBounds.bottom - slotBounds.bottom
-    camera.aspect = slotBounds.width / slotBounds.height
+    const aspect = slotBounds.width / slotBounds.height
+    camera.left = -cameraHalfHeight * aspect
+    camera.right = cameraHalfHeight * aspect
+    camera.top = cameraHalfHeight
+    camera.bottom = -cameraHalfHeight
     camera.updateProjectionMatrix()
     renderer.setViewport(left, bottom, slotBounds.width, slotBounds.height)
     renderer.setScissor(left, bottom, slotBounds.width, slotBounds.height)
@@ -164,14 +165,8 @@ function failAll() {
 async function initialize() {
   if (renderer || disposed || !canvas.value) return
 
-  let GLTFLoader
   try {
-    const modules = await Promise.all([
-      import('three'),
-      import('three/addons/loaders/GLTFLoader.js'),
-    ])
-    THREE = modules[0]
-    GLTFLoader = modules[1].GLTFLoader
+    THREE = await import('three')
     if (disposed) return
 
     renderer = new THREE.WebGLRenderer({
@@ -190,13 +185,18 @@ async function initialize() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
   renderer.outputColorSpace = THREE.SRGBColorSpace
   scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(27, 1, 0.01, 100)
+  camera = new THREE.OrthographicCamera(
+    -cameraHalfHeight,
+    cameraHalfHeight,
+    cameraHalfHeight,
+    -cameraHalfHeight,
+    0.01,
+    100,
+  )
   camera.position.set(0, 0, 5)
   await yieldToMain()
   if (disposed) return
 
-  const modelLoader = new GLTFLoader()
-  const textureLoader = new THREE.TextureLoader()
   const cardSlots = slots()
   cardSources.forEach(({ rotation }, index) => {
     models.push({
@@ -209,13 +209,20 @@ async function initialize() {
     })
   })
 
-  const loads = cardSources.map(async (card) => {
+  const loads = cardSlots.map(async (slot) => {
     try {
-      const [gltf, texture] = await Promise.all([
-        modelLoader.loadAsync(card.model),
-        textureLoader.loadAsync(card.texture),
-      ])
-      return { gltf, texture }
+      const image = slot.querySelector('img')
+      if (!image.complete) {
+        await new Promise((resolve, reject) => {
+          image.addEventListener('load', resolve, { once: true })
+          image.addEventListener('error', reject, { once: true })
+        })
+      }
+      if (!image.naturalWidth) throw new Error('Tarot image did not load')
+      await image.decode?.()
+      const texture = new THREE.Texture(image)
+      texture.needsUpdate = true
+      return { image, texture }
     } catch {
       return null
     }
@@ -230,28 +237,25 @@ async function initialize() {
       continue
     }
 
-    const { gltf, texture } = loaded
+    const { image, texture } = loaded
     texture.colorSpace = THREE.SRGBColorSpace
-    texture.flipY = false
     texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy())
     textures.push(texture)
-    const material = new THREE.MeshBasicMaterial({
+    const frontMaterial = new THREE.MeshBasicMaterial({
+      alphaTest: 0.01,
       map: texture,
-      side: THREE.DoubleSide,
       transparent: true,
     })
-    materials.push(material)
+    const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0x2a241b })
+    const backMaterial = new THREE.MeshBasicMaterial({ color: 0x090909 })
+    materials.push(frontMaterial, edgeMaterial, backMaterial)
 
-    const source = gltf.scene
-    const bounds = new THREE.Box3().setFromObject(source)
-    const center = bounds.getCenter(new THREE.Vector3())
-    const size = bounds.getSize(new THREE.Vector3())
-    const scale = 2 / size.y
-    source.scale.setScalar(scale)
-    source.position.copy(center).multiplyScalar(-scale)
-    source.traverse((child) => {
-      if (child.isMesh) child.material = material
-    })
+    const aspect = image.naturalWidth / image.naturalHeight
+    const source = new THREE.Mesh(
+      new THREE.BoxGeometry(2 * aspect, 2, 0.12),
+      [edgeMaterial, edgeMaterial, edgeMaterial, edgeMaterial, frontMaterial, backMaterial],
+    )
+    source.name = cardSources[index].name
 
     const pivot = new THREE.Group()
     pivot.add(source)
