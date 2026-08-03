@@ -1650,8 +1650,10 @@ test('a card leans toward the pointer and settles back', async ({ page }) => {
 
   expect(await angle()).toBe(0)
 
-  const box = await page.locator('.chapter').first().boundingBox()
-  await page.mouse.move(box.x + box.width * 0.85, box.y + box.height * 0.18)
+  const card = page.locator('.chapter').first()
+  const box = await card.boundingBox()
+  const hoverPosition = { x: box.width * 0.85, y: box.height * 0.18 }
+  await card.hover({ position: hoverPosition })
   // polled rather than sampled after a fixed wait: the assertion is that the
   // card leans and then settles, not that it does so by one arbitrary moment
   await expect.poll(angle, { timeout: 3000 }).toBeGreaterThan(3)
@@ -1667,8 +1669,7 @@ test('a card leans toward the pointer and settles back', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
   await page.locator('.experience').scrollIntoViewIfNeeded()
-  const still = await page.locator('.chapter').first().boundingBox()
-  await page.mouse.move(still.x + still.width * 0.85, still.y + still.height * 0.18)
+  await page.locator('.chapter').first().hover({ position: hoverPosition })
   await page.waitForTimeout(300)
   expect(await angle()).toBe(0)
 })
@@ -2014,6 +2015,7 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
           inViewport: box.left >= 0 && box.right <= innerWidth,
           clearOfWindow: box.right <= window.left || box.left >= window.right,
           thread: Number.parseFloat(getComputedStyle(card, '::before').height),
+          width: box.width,
         }
       }),
       windowInsideAlbum: window.left >= album.left && window.right <= album.right,
@@ -2022,9 +2024,15 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
   expect(desktop.hidden).toBe('true')
   expect(desktop.overflow).toBe(0)
   expect(desktop.windowInsideAlbum).toBe(true)
-  expect(desktop.cards.every(({ inViewport, clearOfWindow, thread }) => (
-    inViewport && clearOfWindow && thread > 20
+  expect(desktop.cards.every(({ inViewport, clearOfWindow, thread, width }) => (
+    inViewport && clearOfWindow && thread > 20 && width >= 120
   ))).toBe(true)
+
+  await page.setViewportSize({ width: 1420, height: 1000 })
+  expect(await cards.evaluateAll((elements) => elements.every((card) => {
+    const box = card.getBoundingClientRect()
+    return box.left >= 0 && box.right <= innerWidth
+  }))).toBe(true)
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.locator('.album').scrollIntoViewIfNeeded()
@@ -2041,10 +2049,17 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
       beforeWindow: cards.every((card) => card.bottom <= window.top),
       canvasContained: Math.abs(canvas.width - hanging.width) < 0.5
         && Math.abs(canvas.height - hanging.height) < 0.5,
+      largeEnough: cards.every((card) => card.width >= 120),
       overflow: document.documentElement.scrollWidth - innerWidth,
     }
   })
-  expect(mobile).toEqual({ contained: true, beforeWindow: true, canvasContained: true, overflow: 0 })
+  expect(mobile).toEqual({
+    contained: true,
+    beforeWindow: true,
+    canvasContained: true,
+    largeEnough: true,
+    overflow: 0,
+  })
   await expect.poll(() => stage.evaluate((root) => {
     const canvas = root.querySelector('canvas')
     const context = canvas.getContext('webgl2') || canvas.getContext('webgl')

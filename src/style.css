@@ -3359,7 +3359,7 @@ h1 {
 
   position: relative;
   flex: 0 0 auto;
-  width: 5.35rem;
+  width: 7.25rem;
   margin-top: var(--hang);
   pointer-events: auto;
   filter: drop-shadow(0 0.7rem 0.7rem rgba(0, 0, 0, 0.72));
@@ -3367,7 +3367,7 @@ h1 {
 }
 
 .tarot-hanging__card--sun {
-  width: 6rem;
+  width: 8rem;
   rotate: -2.5deg;
 }
 
@@ -3435,11 +3435,11 @@ h1 {
   .tarot-hanging {
     position: absolute;
     z-index: 2;
-    top: 4.8rem;
-    right: -7.25rem;
-    left: -7.25rem;
+    top: 3.8rem;
+    right: max(-8.5rem, calc(36.5rem - 50vw));
+    left: max(-8.5rem, calc(36.5rem - 50vw));
     display: block;
-    height: 14rem;
+    height: 16rem;
     margin: 0;
   }
 
@@ -3451,13 +3451,13 @@ h1 {
   }
 
   .tarot-hanging__card--sun {
-    left: -0.5rem;
-    width: 7rem;
+    left: -0.25rem;
+    width: 8rem;
   }
 
   .tarot-hanging__card--moon {
     right: 0;
-    width: 6.25rem;
+    width: 7.25rem;
   }
 }
 
