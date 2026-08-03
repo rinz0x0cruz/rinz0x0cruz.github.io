@@ -7,10 +7,14 @@ const cameraHalfHeight = 1.2
 const cardSources = [
   {
     name: 'sun',
+    model: '/models/tarot/sun.glb',
+    texture: '/models/tarot/sun-atlas.webp',
     rotation: [0, 0, -0.044],
   },
   {
     name: 'moon',
+    model: '/models/tarot/moon.glb',
+    texture: '/models/tarot/moon-atlas.webp',
     rotation: [0, 0, 0.035],
   },
 ]
@@ -165,8 +169,14 @@ function failAll() {
 async function initialize() {
   if (renderer || disposed || !canvas.value) return
 
+  let GLTFLoader
   try {
-    THREE = await import('three')
+    const modules = await Promise.all([
+      import('three'),
+      import('three/addons/loaders/GLTFLoader.js'),
+    ])
+    THREE = modules[0]
+    GLTFLoader = modules[1].GLTFLoader
     if (disposed) return
 
     renderer = new THREE.WebGLRenderer({
@@ -198,6 +208,7 @@ async function initialize() {
   if (disposed) return
 
   const cardSlots = slots()
+  const modelLoader = new GLTFLoader()
   const textureLoader = new THREE.TextureLoader()
   cardSources.forEach(({ rotation }, index) => {
     models.push({
@@ -210,19 +221,13 @@ async function initialize() {
     })
   })
 
-  const loads = cardSlots.map(async (slot) => {
+  const loads = cardSources.map(async (card) => {
     try {
-      const image = slot.querySelector('img')
-      if (!image.complete) {
-        await new Promise((resolve, reject) => {
-          image.addEventListener('load', resolve, { once: true })
-          image.addEventListener('error', reject, { once: true })
-        })
-      }
-      if (!image.naturalWidth) throw new Error('Tarot image did not load')
-      await image.decode?.()
-      const texture = await textureLoader.loadAsync(image.currentSrc)
-      return { image, texture }
+      const [gltf, texture] = await Promise.all([
+        modelLoader.loadAsync(card.model),
+        textureLoader.loadAsync(card.texture),
+      ])
+      return { gltf, texture }
     } catch {
       return null
     }
@@ -237,25 +242,30 @@ async function initialize() {
       continue
     }
 
-    const { image, texture } = loaded
+    const { gltf, texture } = loaded
     texture.colorSpace = THREE.SRGBColorSpace
+    // The OBJ UVs are retained verbatim; glTF's usual false value scrambles this atlas.
+    texture.flipY = true
+    texture.needsUpdate = true
     texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy())
     textures.push(texture)
-    const frontMaterial = new THREE.MeshBasicMaterial({
-      alphaTest: 0.01,
+    const material = new THREE.MeshBasicMaterial({
       map: texture,
-      transparent: true,
+      side: THREE.DoubleSide,
     })
-    const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0x6f5730 })
-    const backMaterial = new THREE.MeshBasicMaterial({ color: 0x090909 })
-    materials.push(frontMaterial, edgeMaterial, backMaterial)
+    materials.push(material)
 
-    const aspect = image.naturalWidth / image.naturalHeight
-    const source = new THREE.Mesh(
-      new THREE.BoxGeometry(2 * aspect, 2, 0.06),
-      [edgeMaterial, edgeMaterial, edgeMaterial, edgeMaterial, frontMaterial, backMaterial],
-    )
-    source.name = cardSources[index].name
+    const source = gltf.scene
+    const bounds = new THREE.Box3().setFromObject(source)
+    const center = bounds.getCenter(new THREE.Vector3())
+    const size = bounds.getSize(new THREE.Vector3())
+    const scale = 2 / size.y
+    models[index].slot.dataset.reliefDepth = (size.z / size.y).toFixed(3)
+    source.scale.setScalar(scale)
+    source.position.copy(center).multiplyScalar(-scale)
+    source.traverse((child) => {
+      if (child.isMesh) child.material = material
+    })
 
     const pivot = new THREE.Group()
     pivot.add(source)

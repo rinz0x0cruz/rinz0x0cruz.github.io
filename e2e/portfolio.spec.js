@@ -1958,9 +1958,11 @@ test('public project records route reviewers to their evidence', async ({ page }
 })
 
 test('sun and moon tarot hang clear of the project album', async ({ page }) => {
-  const obsoleteRequests = []
+  const reliefRequests = []
   page.on('request', (request) => {
-    if (request.url().includes('/models/tarot/')) obsoleteRequests.push(request.url())
+    if (request.url().includes('/models/tarot/')) {
+      reliefRequests.push(new URL(request.url()).pathname)
+    }
   })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 1000 })
@@ -1983,7 +1985,18 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(2)
   await expect(stage).toHaveAttribute('data-render-state', 'ready')
   await expect(canvas).toHaveAttribute('data-render-state', 'ready')
-  expect(obsoleteRequests).toEqual([])
+  expect(await stage.locator('[data-model-state="ready"]').evaluateAll((slots) => (
+    slots.map((slot) => Number(slot.dataset.reliefDepth))
+  ))).toEqual(expect.arrayContaining([expect.any(Number), expect.any(Number)]))
+  expect(await stage.locator('[data-model-state="ready"]').evaluateAll((slots) => (
+    slots.every((slot) => Number(slot.dataset.reliefDepth) > 0.25)
+  ))).toBe(true)
+  expect(reliefRequests.sort()).toEqual([
+    '/models/tarot/moon-atlas.webp',
+    '/models/tarot/moon.glb',
+    '/models/tarot/sun-atlas.webp',
+    '/models/tarot/sun.glb',
+  ])
 
   const silhouettes = await stage.evaluate((root) => {
     const canvas = root.querySelector('canvas')
@@ -2156,8 +2169,8 @@ test('tarot cards tilt in 3D and become still for reduced motion', async ({ page
   expect(Number(await canvas.getAttribute('data-render-count'))).toBe(still)
 })
 
-test('tarot renderer failures preserve both static card fallbacks', async ({ page }) => {
-  await page.route(/\/assets\/three\.module-.*\.js$/, (route) => route.abort())
+test('tarot relief failures preserve both static card fallbacks', async ({ page }) => {
+  await page.route('**/models/tarot/**', (route) => route.abort())
   await page.goto('/')
   const stage = page.locator('.tarot-hanging')
   await stage.scrollIntoViewIfNeeded()
@@ -3653,7 +3666,7 @@ test('achievement instruments keep a static reduced-motion render', async ({ pag
 test('reduced data skips the 3D payload and keeps the artwork', async ({ page }) => {
   const requested = []
   page.on('request', (request) => {
-    if (/AchievementInstrument.*\.js$|three\.module-.*\.js$|\.glb$|\.mp4$/.test(request.url())) requested.push(request.url())
+    if (/AchievementInstrument.*\.js$|three\.module-.*\.js$|models\/tarot|\.glb$|\.mp4$/.test(request.url())) requested.push(request.url())
   })
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } })
