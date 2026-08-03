@@ -198,6 +198,7 @@ async function initialize() {
   if (disposed) return
 
   const cardSlots = slots()
+  const textureLoader = new THREE.TextureLoader()
   cardSources.forEach(({ rotation }, index) => {
     models.push({
       index,
@@ -220,8 +221,7 @@ async function initialize() {
       }
       if (!image.naturalWidth) throw new Error('Tarot image did not load')
       await image.decode?.()
-      const texture = new THREE.Texture(image)
-      texture.needsUpdate = true
+      const texture = await textureLoader.loadAsync(image.currentSrc)
       return { image, texture }
     } catch {
       return null
@@ -355,6 +355,8 @@ onBeforeUnmount(() => {
     >
       <img
         src="/tarot-sun.webp"
+        srcset="/tarot-sun-256.webp 256w, /tarot-sun.webp 482w"
+        sizes="128px"
         alt=""
         width="482"
         height="720"
@@ -369,6 +371,8 @@ onBeforeUnmount(() => {
     >
       <img
         src="/tarot-moon.webp"
+        srcset="/tarot-moon-256.webp 256w, /tarot-moon.webp 432w"
+        sizes="116px"
         alt=""
         width="432"
         height="720"

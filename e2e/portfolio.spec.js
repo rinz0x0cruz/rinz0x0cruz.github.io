@@ -1974,7 +1974,10 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
   expect(await cards.locator('img').evaluateAll((images) => images.map((image) => image.alt))).toEqual(['', ''])
   await expect.poll(() => cards.locator('img').evaluateAll((images) => (
     images.map((image) => image.naturalWidth)
-  ))).toEqual([482, 432])
+  ))).toEqual([128, 116])
+  expect(await cards.locator('img').evaluateAll((images) => (
+    images.map((image) => new URL(image.currentSrc).pathname)
+  ))).toEqual(['/tarot-sun-256.webp', '/tarot-moon-256.webp'])
   const stage = page.locator('.tarot-hanging')
   const canvas = stage.locator('canvas')
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(2)
@@ -2165,8 +2168,8 @@ test('tarot renderer failures preserve both static card fallbacks', async ({ pag
     opacity: Number(getComputedStyle(image).opacity),
     width: image.naturalWidth,
   })))).toEqual([
-    { opacity: 1, width: 482 },
-    { opacity: 1, width: 432 },
+    { opacity: 1, width: 128 },
+    { opacity: 1, width: 116 },
   ])
 })
 
