@@ -621,6 +621,41 @@ test('Malscope field note preserves the public release boundary', async ({ page 
   expect(accessibility.violations).toEqual([])
 })
 
+test('Quorum field note separates mechanics, correctness, and judgment', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/blog/')
+  await page.getByRole('link', { name: 'Benchmark before you debate' }).click()
+
+  await expect(page).toHaveURL(/\/blog\/benchmark-before-you-debate\/$/u)
+  await expect(page.getByRole('heading', { name: 'Separate three kinds of proof', level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Use model judges as evidence, not truth', level: 2 })).toBeVisible()
+  await expect(page.locator('.article-body')).toContainText('mock scores do not prove answer quality')
+  await expect(page.locator('.article-body')).toContainText('There is no universal winning strategy')
+  await expect(page.getByRole('link', { name: 'six versioned evaluation packs' })).toHaveAttribute(
+    'href',
+    'https://github.com/rinz0x0cruz/quorum/tree/main/evals/packs',
+  )
+  await expect(page.getByRole('link', { name: 'deterministic matchers' })).toHaveAttribute(
+    'href',
+    'https://github.com/rinz0x0cruz/quorum/blob/main/quorum/grade.py',
+  )
+  await expect(page.getByRole('link', { name: 'Judging LLM-as-a-Judge' })).toHaveAttribute(
+    'href',
+    'https://arxiv.org/abs/2306.05685',
+  )
+  await expect(page.getByRole('link', { name: 'Quorum repository' })).toHaveAttribute(
+    'href',
+    'https://github.com/rinz0x0cruz/quorum',
+  )
+  await expect(page.locator('script[type="module"]')).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze()
+  expect(accessibility.violations).toEqual([])
+})
+
 test('fullscreen keeps outcomes close while the credits sit in the page footer', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1300 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -1836,7 +1871,7 @@ test('public project records route reviewers to their evidence', async ({ page }
     {
       name: 'quorum',
       links: {
-        'Source': 'https://github.com/rinz0x0cruz/quorum',
+        'Case study': 'https://rinz0x0cruz.github.io/blog/benchmark-before-you-debate/',
         'Offline review': 'https://github.com/rinz0x0cruz/quorum#review-path-offline',
       },
     },

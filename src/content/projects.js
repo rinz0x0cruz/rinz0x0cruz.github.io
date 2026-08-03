@@ -56,7 +56,7 @@ export default [
     glyph: '⁂',
     accent: '#c0604c',
     links: [
-      { label: 'Source', href: 'https://github.com/rinz0x0cruz/quorum' },
+      { label: 'Case study', href: 'https://rinz0x0cruz.github.io/blog/benchmark-before-you-debate/' },
       { label: 'Offline review', href: 'https://github.com/rinz0x0cruz/quorum#review-path-offline' },
     ],
   },
