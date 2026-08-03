@@ -515,10 +515,10 @@ test('blog motion settles without layout overflow and respects reduced motion', 
     title: 'note-rise',
   })
 
-  await expect.poll(() => page.locator('.post-item').evaluate((element) => ({
-    opacity: getComputedStyle(element).opacity,
-    transform: getComputedStyle(element).transform,
-  }))).toEqual({ opacity: '1', transform: 'matrix(1, 0, 0, 1, 0, 0)' })
+  await expect.poll(() => page.locator('.post-item').evaluateAll((elements) => elements.every((element) => {
+    const style = getComputedStyle(element)
+    return style.opacity === '1' && style.transform === 'matrix(1, 0, 0, 1, 0, 0)'
+  }))).toBe(true)
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
 
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -550,6 +550,38 @@ test('introduction post renders the Markdown article fixtures', async ({ page })
   await expect(page.getByRole('link', { name: 'portfolio home page' })).toHaveAttribute('href', '/')
   await expect(page.getByRole('link', { name: 'RSS feed' })).toHaveAttribute('href', '/blog/feed.xml')
   await expect(page.locator('script[type="module"]')).toHaveCount(0)
+})
+
+test('ExploitRank field note keeps forecasts, evidence, and applicability distinct', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/blog/')
+  await page.getByRole('link', { name: 'Why ExploitRank uses a fixed review budget' }).click()
+
+  await expect(page).toHaveURL(/\/blog\/fixed-budget-vulnerability-triage\/$/u)
+  await expect(page.getByRole('heading', { name: 'Bound the work first', level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'What the dashboard does not claim', level: 2 })).toBeVisible()
+  await expect(page.locator('.article-body')).toContainText('attention constraint, not a new exploitation probability')
+  await expect(page.locator('.article-body')).toContainText('does not determine whether a CVE affects a specific environment')
+  await expect(page.getByRole('link', { name: 'FIRST EPSS' })).toHaveAttribute('href', 'https://www.first.org/epss/')
+  await expect(page.getByRole('link', { name: 'CISA KEV' })).toHaveAttribute(
+    'href',
+    'https://www.cisa.gov/known-exploited-vulnerabilities-catalog',
+  )
+  await expect(page.getByRole('link', { name: 'live ExploitRank dashboard' })).toHaveAttribute(
+    'href',
+    'https://rinz0x0cruz.github.io/exploitrank/',
+  )
+  await expect(page.getByRole('link', { name: 'public artifact repository' })).toHaveAttribute(
+    'href',
+    'https://github.com/rinz0x0cruz/exploitrank',
+  )
+  await expect(page.locator('script[type="module"]')).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze()
+  expect(accessibility.violations).toEqual([])
 })
 
 test('fullscreen keeps outcomes close while the credits sit in the page footer', async ({ page }) => {
