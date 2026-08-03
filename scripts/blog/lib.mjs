@@ -166,9 +166,22 @@ export function validateSlug(slug) {
 
 export function referencedMediaNames(post) {
   const slug = validateSlug(post.slug)
-  const source = `${post.metadata?.cover ?? post.cover ?? ''}\n${post.body ?? ''}`
-  const pattern = new RegExp(`/blog/media/${slug}/([a-z0-9][a-z0-9._-]{0,79})`, 'gu')
-  return new Set([...source.matchAll(pattern)].map((match) => match[1]))
+  const pattern = new RegExp(`/blog/media/${slug}/([a-z0-9][a-z0-9._-]{0,79})`, 'u')
+  const names = new Set()
+  const add = (source) => {
+    const match = pattern.exec(String(source ?? ''))
+    if (match) names.add(match[1])
+  }
+  const visit = (tokens) => {
+    for (const token of tokens) {
+      if (token.type === 'image') add(token.attrGet('src'))
+      if (token.children) visit(token.children)
+    }
+  }
+
+  add(post.metadata?.cover ?? post.cover)
+  visit(markdown.parse(String(post.body ?? ''), {}))
+  return names
 }
 
 export function validatePost(input, { draft = false } = {}) {

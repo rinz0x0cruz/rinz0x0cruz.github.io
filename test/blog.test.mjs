@@ -6,6 +6,7 @@ import test from 'node:test'
 import { buildBlog } from '../scripts/blog/build.mjs'
 import {
   parsePostSource,
+  referencedMediaNames,
   renderArticle,
   renderMarkdown,
   serializePost,
@@ -124,6 +125,24 @@ test('renders allowlisted videos and privacy-safe external post cards', () => {
   assert.doesNotMatch(escaped, /<script>alert/u)
   assert.match(escaped, /&lt;script&gt;alert/u)
   assert.match(escaped, /value=%22%3E%3Cscript%3E/u)
+})
+
+test('media dependencies include rendered images but ignore code examples', () => {
+  const names = referencedMediaNames({
+    slug: 'path-note',
+    metadata: { cover: '/blog/media/path-note/cover.png' },
+    body: `A prose example: /blog/media/path-note/prose.png
+
+\`/blog/media/path-note/inline.png\`
+
+\`\`\`text
+/blog/media/path-note/fenced.png
+\`\`\`
+
+![Rendered](/blog/media/path-note/rendered.png)`,
+  })
+
+  assert.deepEqual([...names], ['cover.png', 'rendered.png'])
 })
 
 test('enforces metadata and content boundaries', () => {

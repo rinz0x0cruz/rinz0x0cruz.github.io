@@ -11,7 +11,9 @@ const cover = form.elements.cover
 const coverAlt = form.elements.coverAlt
 const bodyCount = document.querySelector('[data-body-count]')
 let slugEdited = false
+let mediaSlug = ''
 let statusTimer
+let publishTrackingId = 0
 let dirty = false
 const mediaExtensions = new Map([
   ['image/avif', 'avif'],
@@ -61,6 +63,17 @@ window.addEventListener('hashchange', () => {
 function slugify(value) {
   return value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/gu, '')
     .replace(/[^a-z0-9]+/gu, '-').replace(/^-+|-+$/gu, '').slice(0, 80)
+}
+
+function syncMediaSlug(nextSlug) {
+  if (!nextSlug) return
+  if (mediaSlug && nextSlug !== mediaSlug) {
+    const currentPrefix = `/blog/media/${mediaSlug}/`
+    const nextPrefix = `/blog/media/${nextSlug}/`
+    cover.value = cover.value.replaceAll(currentPrefix, nextPrefix)
+    body.value = body.value.replaceAll(currentPrefix, nextPrefix)
+  }
+  mediaSlug = nextSlug
 }
 
 function metadata() {
@@ -114,6 +127,7 @@ function insertMarkdown(value) {
   input.setRangeText(`${prefix}${value}${suffix}`, start, end, 'end')
   input.focus()
   updateBodyCount()
+  stopPublishTracking()
   dirty = true
 }
 
@@ -162,16 +176,24 @@ async function api(path, options = {}) {
 }
 
 function busy(value) {
-  for (const button of document.querySelectorAll('button')) button.disabled = value
+  if (value) form.setAttribute('aria-busy', 'true')
+  else form.removeAttribute('aria-busy')
+  for (const control of document.querySelectorAll('button, input, textarea')) control.disabled = value
+}
+
+function stopPublishTracking() {
+  clearTimeout(statusTimer)
+  publishTrackingId += 1
 }
 
 function reset() {
-  clearTimeout(statusTimer)
+  stopPublishTracking()
   form.reset()
   form.elements.published.value = new Date().toISOString().slice(0, 10)
   slug.readOnly = false
   preview.srcdoc = ''
   slugEdited = false
+  mediaSlug = ''
   dirty = false
   updateBodyCount()
   updateCoverValidity()
@@ -197,6 +219,7 @@ async function loadLists() {
 }
 
 async function loadPost(postSlug, source) {
+  stopPublishTracking()
   busy(true)
   try {
     const value = await api(`/api/post?slug=${encodeURIComponent(postSlug)}&source=${source}`)
@@ -204,6 +227,7 @@ async function loadPost(postSlug, source) {
       form.elements[field].value = value[field] ?? ''
     }
     form.elements.slug.value = value.slug
+    mediaSlug = value.slug
     form.elements.tags.value = value.tags.join(', ')
     body.value = value.body
     form.elements.media.value = ''
@@ -230,10 +254,11 @@ async function showPreview() {
   ), value.html)
 }
 
-async function trackPublish(postSlug, remaining = 60) {
+async function trackPublish(postSlug, remaining = 60, trackingId = ++publishTrackingId) {
   clearTimeout(statusTimer)
   try {
     const value = await api(`/api/status?slug=${encodeURIComponent(postSlug)}`)
+    if (trackingId !== publishTrackingId) return
     const pullRequest = value.pullRequest
     if (!pullRequest) {
       setStatus('Publish PR is not visible yet.')
@@ -255,9 +280,12 @@ async function trackPublish(postSlug, remaining = 60) {
       setStatus(message, failed, { url: pullRequest.url, label: `PR #${pullRequest.number}` })
     }
   } catch (error) {
+    if (trackingId !== publishTrackingId) return
     setStatus(error.message, true)
   }
-  if (remaining > 1) statusTimer = setTimeout(() => trackPublish(postSlug, remaining - 1), 5_000)
+  if (remaining > 1) {
+    statusTimer = setTimeout(() => trackPublish(postSlug, remaining - 1, trackingId), 5_000)
+  }
 }
 
 async function saveDraft() {
@@ -315,12 +343,19 @@ async function act(action) {
 }
 
 title.addEventListener('input', () => {
-  if (!slugEdited) slug.value = slugify(title.value)
+  if (!slugEdited) {
+    slug.value = slugify(title.value)
+    syncMediaSlug(slug.value)
+  }
 })
-slug.addEventListener('input', () => { slugEdited = true })
+slug.addEventListener('input', () => {
+  syncMediaSlug(slug.value)
+  slugEdited = true
+})
 form.addEventListener('input', () => {
   updateBodyCount()
   updateCoverValidity()
+  stopPublishTracking()
   dirty = true
   setStatus('Unsaved changes.')
 })
@@ -330,6 +365,7 @@ form.elements.media.addEventListener('change', () => {
     if (files.length === 1 && slug.value && !form.elements.cover.value) {
       form.elements.cover.value = `/blog/media/${slug.value}/${files[0].name}`
     }
+    updateCoverValidity()
     setStatus(files.length
       ? `${files.length} image${files.length === 1 ? '' : 's'} ready; save to persist.`
       : 'No images selected.')

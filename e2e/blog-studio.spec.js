@@ -13,7 +13,7 @@ let server
 let state
 
 test.beforeEach(async () => {
-  state = { drafts: new Map(), media: [], published: [] }
+  state = { drafts: new Map(), media: [], published: [], pullRequestState: 'MERGED' }
   const publisher = {
     async listPosts() {
       return { drafts: [...state.drafts.keys()], published: state.published }
@@ -48,7 +48,7 @@ test.beforeEach(async () => {
         pullRequest: {
           number: 12,
           url: 'https://github.com/rinz0x0cruz/rinz0x0cruz.github.io/pull/12',
-          state: 'MERGED',
+          state: state.pullRequestState,
           statusCheckRollup: [],
         },
       }
@@ -143,6 +143,39 @@ test('owner previews selected media and saves a durable draft', async ({ page })
   expect(errors).toEqual([])
 })
 
+test('selected media paths follow an unsaved slug change', async ({ page }) => {
+  await page.goto(baseUrl)
+  await fillPost(page, 'Media draft')
+  await page.locator('[name="media"]').setInputFiles({
+    name: 'cover.png',
+    mimeType: 'image/png',
+    buffer: png,
+  })
+  await page.locator('[name="coverAlt"]').fill('A one pixel test cover.')
+  await page.getByRole('button', { name: 'Insert images' }).click()
+  await expect(page.locator('[name="cover"]')).toHaveValue('/blog/media/media-draft/cover.png')
+  await expect(page.locator('[name="body"]')).toHaveValue(/\/blog\/media\/media-draft\/cover\.png/u)
+
+  const title = page.locator('[name="title"]')
+  await title.fill('')
+  await title.pressSequentially('Renamed draft')
+
+  await expect(page.locator('[name="slug"]')).toHaveValue('renamed-draft')
+  await expect(page.locator('[name="cover"]')).toHaveValue('/blog/media/renamed-draft/cover.png')
+  await expect(page.locator('[name="body"]')).toHaveValue(/\/blog\/media\/renamed-draft\/cover\.png/u)
+
+  const slug = page.locator('[name="slug"]')
+  await slug.fill('')
+  await slug.pressSequentially('manual-slug')
+  await expect(page.locator('[name="cover"]')).toHaveValue('/blog/media/manual-slug/cover.png')
+  await expect(page.locator('[name="body"]')).toHaveValue(/\/blog\/media\/manual-slug\/cover\.png/u)
+
+  await page.getByRole('button', { name: 'Preview' }).click()
+  const article = page.locator('.preview iframe').contentFrame()
+  await expect(article.locator('.post-cover img')).toHaveAttribute('src', /^data:image\/png;base64,/u)
+  await expect(article.locator('.article-body img')).toHaveAttribute('src', /^data:image\/png;base64,/u)
+})
+
 test('publish reports the merged article without opening a popup', async ({ page }) => {
   await page.goto(baseUrl)
   await fillPost(page, 'Published through checks')
@@ -157,6 +190,57 @@ test('publish reports the merged article without opening a popup', async ({ page
   )
   expect(state.published).toEqual(['published-through-checks'])
   expect(page.context().pages()).toHaveLength(1)
+})
+
+test('loading another post stops previous publish tracking', async ({ page }) => {
+  await page.clock.install()
+  let statusRequests = 0
+  page.on('request', request => {
+    if (request.url().includes('/api/status?')) statusRequests += 1
+  })
+  await page.goto(baseUrl)
+  await fillPost(page, 'Saved draft')
+  await page.getByRole('button', { name: 'Save draft' }).click()
+  await expect(page.getByRole('status')).toContainText('Draft saved at 01234567.')
+
+  await page.getByRole('button', { name: 'New' }).click()
+  await fillPost(page, 'Pending publish')
+  state.pullRequestState = 'OPEN'
+  page.once('dialog', dialog => dialog.accept())
+  await page.getByRole('button', { name: 'Publish' }).click()
+  await expect(page.getByRole('status')).toContainText('Publish PR is awaiting merge.')
+  expect(statusRequests).toBe(1)
+
+  await page.locator('[data-list="drafts"] button', { hasText: 'saved-draft' }).click()
+  await expect(page.getByRole('status')).toHaveText('Loaded draft post.')
+  await page.clock.runFor(5_000)
+  await page.evaluate(() => Promise.resolve())
+
+  expect(statusRequests).toBe(1)
+  await expect(page.getByRole('status')).toHaveText('Loaded draft post.')
+})
+
+test('editing stops publish tracking and preserves unsaved status', async ({ page }) => {
+  await page.clock.install()
+  let statusRequests = 0
+  page.on('request', request => {
+    if (request.url().includes('/api/status?')) statusRequests += 1
+  })
+  await page.goto(baseUrl)
+  await fillPost(page, 'Pending edit')
+  state.pullRequestState = 'OPEN'
+  page.once('dialog', dialog => dialog.accept())
+  await page.getByRole('button', { name: 'Publish' }).click()
+  await expect(page.getByRole('status')).toContainText('Publish PR is awaiting merge.')
+  expect(statusRequests).toBe(1)
+
+  await page.locator('[name="body"]').fill('Unsaved correction.')
+  await expect(page.getByRole('status')).toHaveText('Unsaved changes.')
+  await page.clock.runFor(5_000)
+  await page.evaluate(() => Promise.resolve())
+
+  expect(statusRequests).toBe(1)
+  await expect(page.getByRole('status')).toHaveText('Unsaved changes.')
 })
 
 test('studio inserts allowlisted video and privacy-safe post embeds', async ({ page }) => {
@@ -281,6 +365,27 @@ test('studio blocks invalid forms before any preview or save request', async ({ 
   expect(previewRequests).toBe(2)
 })
 
+test('an automatically selected cover requires alt text before preview', async ({ page }) => {
+  let previewRequests = 0
+  page.on('request', request => {
+    if (request.method() === 'POST' && request.url().endsWith('/api/preview')) previewRequests += 1
+  })
+  await page.goto(baseUrl)
+  await fillPost(page)
+
+  await page.locator('[name="media"]').setInputFiles({
+    name: 'cover.png',
+    mimeType: 'image/png',
+    buffer: png,
+  })
+  await expect(page.locator('[name="cover"]')).toHaveValue('/blog/media/studio-draft/cover.png')
+  await expect(page.locator('[name="coverAlt"]')).toHaveAttribute('required', '')
+
+  await page.getByRole('button', { name: 'Preview' }).click()
+  await expect(page.locator('[name="coverAlt"]')).toBeFocused()
+  expect(previewRequests).toBe(0)
+})
+
 test('studio protects unsaved work and saves with the keyboard', async ({ page }) => {
   await page.goto(baseUrl)
   await expect(page.locator('[name="body"]')).toHaveAttribute('maxlength', '100000')
@@ -349,6 +454,31 @@ test('saving a new draft locks its branch slug', async ({ page }) => {
   await page.getByRole('button', { name: 'Save draft' }).click()
 
   await expect(page.locator('[name="slug"]')).toHaveAttribute('readonly', '')
+})
+
+test('studio locks the editor while a save is in flight', async ({ page }) => {
+  let releaseDraft
+  const draftGate = new Promise(resolve => { releaseDraft = resolve })
+  await page.route('**/api/draft', async route => {
+    await draftGate
+    await route.continue()
+  })
+  await page.goto(baseUrl)
+  await fillPost(page)
+
+  await page.getByRole('button', { name: 'Save draft' }).click()
+  try {
+    await expect(page.locator('[data-editor]')).toHaveAttribute('aria-busy', 'true')
+    await expect(page.locator('[name="title"]')).toBeDisabled()
+    await expect(page.locator('[name="body"]')).toBeDisabled()
+    await expect(page.locator('[name="media"]')).toBeDisabled()
+  } finally {
+    releaseDraft()
+  }
+
+  await expect(page.getByRole('status')).toContainText('Draft saved at 01234567.')
+  await expect(page.locator('[data-editor]')).not.toHaveAttribute('aria-busy')
+  await expect(page.locator('[name="body"]')).toBeEnabled()
 })
 
 test('article preview contains maximum unbroken content', async ({ page }) => {
