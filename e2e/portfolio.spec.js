@@ -1462,8 +1462,35 @@ test('reduced motion moves the rail without coasting', async ({ page }) => {
   expect(await page.evaluate(() => scrollY)).toBe(400)
 })
 
+// Real pointer targeting/capture is covered by the drag test below. Keep throw
+// timing in-page so worker load cannot turn protocol latency into a stale release.
+async function dragStickyNote(note, { distance, hold = 0 }) {
+  return note.evaluate(async (element, options) => {
+    element.setPointerCapture = () => {}
+    element.releasePointerCapture = () => {}
+    const send = (type, clientX) => element.dispatchEvent(new PointerEvent(type, {
+      bubbles: true,
+      button: 0,
+      clientX,
+      clientY: 100,
+      pointerId: 17,
+    }))
+
+    send('pointerdown', 200)
+    for (let step = 1; step <= 4; step += 1) {
+      send('pointermove', 200 + options.distance * (step / 4))
+    }
+    send('pointermove', 200 + options.distance)
+    await new Promise(requestAnimationFrame)
+    const released = Number.parseFloat(getComputedStyle(element).getPropertyValue('--note-x'))
+    if (options.hold) await new Promise((resolve) => setTimeout(resolve, options.hold))
+    send('pointerup', 200 + options.distance)
+    return released
+  }, { distance, hold })
+}
+
 test('a thrown note keeps travelling and stays within reach', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
 
@@ -1471,38 +1498,42 @@ test('a thrown note keeps travelling and stays within reach', async ({ page }) =
   await rail.scrollIntoViewIfNeeded()
   // the note sits under the portrait at the head of the rail now
   await rail.evaluate((el) => el.scrollTo({ left: 0, behavior: 'instant' }))
-  await page.waitForTimeout(300)
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
 
   const note = page.locator('.sticky-note')
-  const start = await note.boundingBox()
-  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2)
-  await page.mouse.down()
-  const release = { x: start.x + start.width / 2 - 120, y: start.y + start.height / 2 }
-  await page.mouse.move(release.x, release.y, { steps: 4 })
-  await page.mouse.move(release.x, release.y)
-  await page.mouse.up()
-
-  const released = await note.boundingBox()
-  await page.waitForTimeout(700)
-  const rest = await note.boundingBox()
+  const released = await dragStickyNote(note, { distance: -120 })
+  await expect.poll(() => note.evaluate((element) => (
+    Number.parseFloat(getComputedStyle(element).getPropertyValue('--note-x'))
+  ))).toBeLessThan(released)
 
   // let go in motion, it coasts past the point the pointer let go of it
-  expect(rest.x).toBeLessThan(released.x)
+  expect(released).toBeLessThan(0)
   // and never past its tether, so a hard throw cannot lose it off the rail
   const carried = await note.evaluate((el) =>
     Math.abs(parseFloat(getComputedStyle(el).getPropertyValue('--note-x'))),
   )
   expect(carried).toBeLessThanOrEqual(260)
+})
 
-  const held = await note.boundingBox()
-  await page.mouse.move(held.x + held.width / 2, held.y + held.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(held.x + held.width / 2 + 80, held.y + held.height / 2, { steps: 4 })
-  await page.waitForTimeout(550)
-  await page.mouse.up()
-  const placed = await note.boundingBox()
-  await page.waitForTimeout(700)
-  expect((await note.boundingBox()).x).toBeCloseTo(placed.x, 0)
+test('a held note stays where it is released', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const note = page.locator('.sticky-note')
+  const placed = await dragStickyNote(note, { distance: 80, hold: 550 })
+  await note.evaluate(() => new Promise((resolve) => {
+    let frames = 0
+    const wait = () => {
+      frames += 1
+      if (frames === 3) resolve()
+      else requestAnimationFrame(wait)
+    }
+    requestAnimationFrame(wait)
+  }))
+  expect(await note.evaluate((element) => (
+    Number.parseFloat(getComputedStyle(element).getPropertyValue('--note-x'))
+  ))).toBeCloseTo(placed, 0)
 })
 
 test('pictures drift against vertical scroll, and hold still when asked', async ({ page }) => {
