@@ -15,8 +15,8 @@ export default [
     glyph: '◈',
     accent: '#d1a35f',
     links: [
-      { label: 'Live dashboard', href: 'https://rinz0x0cruz.github.io/exploitrank/' },
-      { label: 'Dashboard source', href: 'https://github.com/rinz0x0cruz/exploitrank' },
+      { label: 'Dashboard', href: 'https://rinz0x0cruz.github.io/exploitrank/' },
+      { label: 'Case study', href: 'https://rinz0x0cruz.github.io/blog/fixed-budget-vulnerability-triage/' },
     ],
     note: 'Private backend',
   },
@@ -35,7 +35,10 @@ export default [
     flow: ['Resume', 'Reviewed ATS feeds', 'Explainable fit', 'Review-ready pack'],
     glyph: '⌖',
     accent: '#7d8fa2',
-    links: [{ label: 'Source', href: 'https://github.com/rinz0x0cruz/jobscope' }],
+    links: [
+      { label: 'Source', href: 'https://github.com/rinz0x0cruz/jobscope' },
+      { label: 'Offline review', href: 'https://github.com/rinz0x0cruz/jobscope#review-path-offline' },
+    ],
   },
   {
     id: 'quorum',
@@ -52,7 +55,10 @@ export default [
     flow: ['Refine prompt', 'Propose / critique', 'Judge + stop rule', 'Benchmark result'],
     glyph: '⁂',
     accent: '#c0604c',
-    links: [{ label: 'Source', href: 'https://github.com/rinz0x0cruz/quorum' }],
+    links: [
+      { label: 'Source', href: 'https://github.com/rinz0x0cruz/quorum' },
+      { label: 'Offline review', href: 'https://github.com/rinz0x0cruz/quorum#review-path-offline' },
+    ],
   },
   {
     id: 'malscope',
@@ -69,7 +75,10 @@ export default [
     flow: ['Sample fingerprint', 'Analyzer output', 'IOCs + ATT&CK', 'Report + detections'],
     glyph: '⌗',
     accent: '#a7a39b',
-    links: [{ label: 'Dashboard source', href: 'https://github.com/rinz0x0cruz/malscope-dashboard' }],
+    links: [
+      { label: 'Live dashboard', href: 'https://rinz0x0cruz.github.io/malscope-dashboard/' },
+      { label: 'Case study', href: 'https://rinz0x0cruz.github.io/blog/publishing-malware-analysis-evidence/' },
+    ],
     note: 'Private analysis engine',
   },
   {

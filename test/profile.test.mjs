@@ -45,3 +45,23 @@ test('feature collections reject empty, incomplete, and duplicate records', () =
     /flow must contain at least one/u,
   )
 })
+
+test('project evidence links use unique public HTTPS destinations', () => {
+  const allowedHosts = new Set(['github.com', 'rinz0x0cruz.github.io'])
+
+  for (const [projectIndex, project] of profile.projects.entries()) {
+    if (!project.links) continue
+
+    const destinations = new Set()
+    for (const [linkIndex, link] of project.links.entries()) {
+      assert.equal(typeof link.label, 'string', `projects[${projectIndex}].links[${linkIndex}].label`)
+      assert.ok(link.label.trim(), `projects[${projectIndex}].links[${linkIndex}].label`)
+
+      const destination = new URL(link.href)
+      assert.equal(destination.protocol, 'https:', `${project.name}: ${link.href}`)
+      assert.ok(allowedHosts.has(destination.hostname), `${project.name}: ${link.href}`)
+      assert.equal(destinations.has(destination.href), false, `${project.name}: ${link.href}`)
+      destinations.add(destination.href)
+    }
+  }
+})

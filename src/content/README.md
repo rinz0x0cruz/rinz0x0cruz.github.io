@@ -19,6 +19,10 @@ single hyphens. Reordering records is safe. Experience
 is displayed in file order, newest first. Projects can be sorted in the UI.
 Languages and certifications keep the first record selected initially.
 
+Project `links` are optional `{ label, href }` records. Destinations must be
+unique HTTPS URLs on `github.com` or `rinz0x0cruz.github.io`; private projects
+use `note` instead of inventing a public source.
+
 The responsive fixtures verify eight skills, links, languages, and
 certifications; ten achievements; and twelve experience/project records.
 Skills wrap after four columns. Achievements wrap after five desktop columns

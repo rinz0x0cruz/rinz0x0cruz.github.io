@@ -584,6 +584,43 @@ test('ExploitRank field note keeps forecasts, evidence, and applicability distin
   expect(accessibility.violations).toEqual([])
 })
 
+test('Malscope field note preserves the public release boundary', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/blog/')
+  await page.getByRole('link', { name: 'Publishing malware-analysis evidence without publishing the lab' }).click()
+
+  await expect(page).toHaveURL(/\/blog\/publishing-malware-analysis-evidence\/$/u)
+  await expect(page.getByRole('heading', { name: 'Reduce to a public contract', level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'What the public artifact does not claim', level: 2 })).toBeVisible()
+  await expect(page.locator('.article-body')).toContainText('fixture counts, not a production-scale or detection-quality claim')
+  await expect(page.locator('.article-body')).toContainText('accepts only TLP:CLEAR')
+  await expect(page.locator('.article-body')).toContainText('source-public tree permits only the three JSON manifests')
+  await expect(page.locator('.article-body')).toContainText('not malware sample bytes')
+  await expect(page.getByRole('link', { name: 'YARA documentation' })).toHaveAttribute(
+    'href',
+    'https://yara.readthedocs.io/en/stable/',
+  )
+  await expect(page.getByRole('link', { name: 'Sigma documentation' })).toHaveAttribute(
+    'href',
+    'https://sigmahq.io/docs/',
+  )
+  await expect(page.getByRole('link', { name: 'FIRST TLP 2.0' })).toHaveAttribute(
+    'href',
+    'https://www.first.org/tlp/',
+  )
+  await expect(page.getByRole('link', { name: 'public artifact repository' })).toHaveAttribute(
+    'href',
+    'https://github.com/rinz0x0cruz/malscope-dashboard',
+  )
+  await expect(page.locator('script[type="module"]')).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze()
+  expect(accessibility.violations).toEqual([])
+})
+
 test('fullscreen keeps outcomes close while the credits sit in the page footer', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1300 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -1770,6 +1807,10 @@ test('the album holds one stamp per project and opens its catalogue page', async
   // every link must resolve; a private repository shows a note instead
   const links = page.locator('.album__links a')
   await expect(links).toHaveCount(2)
+  await expect(page.getByRole('link', { name: 'Case study', exact: true })).toHaveAttribute(
+    'href',
+    'https://rinz0x0cruz.github.io/blog/fixed-budget-vulnerability-triage/',
+  )
   for (const href of await links.evaluateAll((els) => els.map((el) => el.href))) {
     expect(href).toMatch(/^https:\/\/(github\.com|rinz0x0cruz\.github\.io)\//)
   }
@@ -1777,6 +1818,58 @@ test('the album holds one stamp per project and opens its catalogue page', async
   // clicking the held stamp puts it back
   await exploitrank.click()
   await expect(page.locator('.album__prompt')).toBeVisible()
+})
+
+test('public project records route reviewers to their evidence', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  await page.locator('.album').scrollIntoViewIfNeeded()
+
+  const projects = [
+    {
+      name: 'jobscope',
+      links: {
+        'Source': 'https://github.com/rinz0x0cruz/jobscope',
+        'Offline review': 'https://github.com/rinz0x0cruz/jobscope#review-path-offline',
+      },
+    },
+    {
+      name: 'quorum',
+      links: {
+        'Source': 'https://github.com/rinz0x0cruz/quorum',
+        'Offline review': 'https://github.com/rinz0x0cruz/quorum#review-path-offline',
+      },
+    },
+    {
+      name: 'malscope',
+      links: {
+        'Live dashboard': 'https://rinz0x0cruz.github.io/malscope-dashboard/',
+        'Case study': 'https://rinz0x0cruz.github.io/blog/publishing-malware-analysis-evidence/',
+      },
+    },
+  ]
+
+  for (const project of projects) {
+    await page.locator('.stamp', { hasText: project.name }).click()
+    for (const [label, href] of Object.entries(project.links)) {
+      await expect(page.getByRole('link', { name: label, exact: true })).toHaveAttribute('href', href)
+    }
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.locator('.album').scrollIntoViewIfNeeded()
+  await page.locator('.stamp', { hasText: 'ExploitRank' }).click()
+  expect(await page.locator('.album__page').evaluate((catalogue) => {
+    const bounds = catalogue.getBoundingClientRect()
+    return {
+      linksContained: [...catalogue.querySelectorAll('.album__links a')].every((link) => {
+        const linkBounds = link.getBoundingClientRect()
+        return linkBounds.left >= bounds.left && linkBounds.right <= bounds.right
+      }),
+      pageOverflow: document.documentElement.scrollWidth - innerWidth,
+    }
+  })).toEqual({ linksContained: true, pageOverflow: 0 })
 })
 
 test('no stamp offers a link to a repository that is not public', async ({ page }) => {
