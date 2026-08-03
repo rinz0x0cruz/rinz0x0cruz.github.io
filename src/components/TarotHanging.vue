@@ -246,13 +246,13 @@ async function initialize() {
       map: texture,
       transparent: true,
     })
-    const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0x2a241b })
+    const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0x6f5730 })
     const backMaterial = new THREE.MeshBasicMaterial({ color: 0x090909 })
     materials.push(frontMaterial, edgeMaterial, backMaterial)
 
     const aspect = image.naturalWidth / image.naturalHeight
     const source = new THREE.Mesh(
-      new THREE.BoxGeometry(2 * aspect, 2, 0.12),
+      new THREE.BoxGeometry(2 * aspect, 2, 0.06),
       [edgeMaterial, edgeMaterial, edgeMaterial, edgeMaterial, frontMaterial, backMaterial],
     )
     source.name = cardSources[index].name

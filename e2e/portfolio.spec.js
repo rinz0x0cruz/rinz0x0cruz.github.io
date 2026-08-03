@@ -1962,6 +1962,7 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
   page.on('request', (request) => {
     if (request.url().includes('/models/tarot/')) obsoleteRequests.push(request.url())
   })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/')
   await page.locator('.album').scrollIntoViewIfNeeded()
@@ -1981,7 +1982,7 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
   await expect(canvas).toHaveAttribute('data-render-state', 'ready')
   expect(obsoleteRequests).toEqual([])
 
-  const opaquePixels = await stage.evaluate((root) => {
+  const silhouettes = await stage.evaluate((root) => {
     const canvas = root.querySelector('canvas')
     const context = canvas.getContext('webgl2') || canvas.getContext('webgl')
     const rootBounds = root.getBoundingClientRect()
@@ -1997,14 +1998,27 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
       const pixels = new Uint8Array(width * height * 4)
       context.readPixels(left, bottom, width, height, context.RGBA, context.UNSIGNED_BYTE, pixels)
       let count = 0
-      for (let index = 3; index < pixels.length; index += 4) {
-        if (pixels[index] > 0) count += 1
+      const rows = Array(height).fill(0)
+      const columns = Array(width).fill(0)
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          if (pixels[(y * width + x) * 4 + 3] <= 16) continue
+          count += 1
+          rows[y] += 1
+          columns[x] += 1
+        }
       }
-      return count
+      return {
+        density: count / (width * height),
+        continuousRows: rows.filter((row) => row >= width * 0.5).length / height,
+        continuousColumns: columns.filter((column) => column >= height * 0.5).length / width,
+      }
     })
   })
-  expect(opaquePixels).toHaveLength(2)
-  expect(opaquePixels.every((count) => count > 100)).toBe(true)
+  expect(silhouettes).toHaveLength(2)
+  expect(silhouettes.every(({ density, continuousRows, continuousColumns }) => (
+    density > 0.5 && continuousRows > 0.75 && continuousColumns > 0.65
+  ))).toBe(true)
 
   const desktop = await page.evaluate(() => {
     const album = document.querySelector('.album').getBoundingClientRect()

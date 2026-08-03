@@ -23,6 +23,7 @@ inspectable projects, authoritative sources, or reproducible case studies.
 - Identity-first hero with an interactive portrait, availability state, rotating field notes, and security-discipline band.
 - Expandable profile links for the résumé preview, GitHub, LinkedIn, and Gmail compose.
 - Verified outcome cards with lazy-loaded Three.js instruments and static fallbacks.
+- Hanging Sun and Moon tarot cards rendered in one lazy Three.js canvas, with pointer-driven depth and exact static artwork fallbacks.
 - Keyboard-, wheel-, and drag-accessible career rail with reversible evidence cards.
 - Sortable and shuffleable project stamp album with project details and public links.
 - Independent, data-driven language and certification sections.
