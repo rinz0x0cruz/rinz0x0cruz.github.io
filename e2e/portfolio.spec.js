@@ -1085,6 +1085,7 @@ test('reduced motion stops ambient animation', async ({ page }) => {
   const achievementWindow = page.locator('.achievement-window')
   await achievementWindow.scrollIntoViewIfNeeded()
   await expect(achievementWindow).toHaveClass(/achievement-window--active/)
+  await expect(achievementWindow.locator('.achievement-stage')).toBeVisible()
   await expect(achievementWindow.locator('.achievement-card__foil')).toHaveCount(achievementCount)
   expect(await achievementWindow.evaluate((element) => ({
     cardGlareDisplay: getComputedStyle(element.querySelector('.achievement-card__foil'), '::after').display,
