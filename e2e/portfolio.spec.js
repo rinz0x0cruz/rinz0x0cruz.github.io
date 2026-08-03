@@ -1914,6 +1914,66 @@ test('public project records route reviewers to their evidence', async ({ page }
   })).toEqual({ linksContained: true, pageOverflow: 0 })
 })
 
+test('sun and moon tarot hang clear of the project album', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  await page.locator('.album').scrollIntoViewIfNeeded()
+
+  const cards = page.locator('.tarot-hanging__card')
+  await expect(cards).toHaveCount(2)
+  await expect(page.locator('.tarot-hanging__card--sun img')).toHaveAttribute('src', '/tarot-sun.webp')
+  await expect(page.locator('.tarot-hanging__card--moon img')).toHaveAttribute('src', '/tarot-moon.webp')
+  expect(await cards.locator('img').evaluateAll((images) => images.map((image) => image.alt))).toEqual(['', ''])
+  await expect.poll(() => cards.locator('img').evaluateAll((images) => (
+    images.map((image) => image.naturalWidth)
+  ))).toEqual([482, 432])
+
+  const desktop = await page.evaluate(() => {
+    const album = document.querySelector('.album').getBoundingClientRect()
+    const window = document.querySelector('.album__window').getBoundingClientRect()
+    const hanging = document.querySelector('.tarot-hanging')
+    const cards = [...document.querySelectorAll('.tarot-hanging__card')]
+    return {
+      hidden: hanging.getAttribute('aria-hidden'),
+      overflow: document.documentElement.scrollWidth - innerWidth,
+      cards: cards.map((card) => {
+        const box = card.getBoundingClientRect()
+        return {
+          inViewport: box.left >= 0 && box.right <= innerWidth,
+          clearOfWindow: box.right <= window.left || box.left >= window.right,
+          thread: Number.parseFloat(getComputedStyle(card, '::before').height),
+        }
+      }),
+      windowInsideAlbum: window.left >= album.left && window.right <= album.right,
+    }
+  })
+  expect(desktop.hidden).toBe('true')
+  expect(desktop.overflow).toBe(0)
+  expect(desktop.windowInsideAlbum).toBe(true)
+  expect(desktop.cards.every(({ inViewport, clearOfWindow, thread }) => (
+    inViewport && clearOfWindow && thread > 20
+  ))).toBe(true)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.locator('.album').scrollIntoViewIfNeeded()
+  const mobile = await page.evaluate(() => {
+    const album = document.querySelector('.album').getBoundingClientRect()
+    const window = document.querySelector('.album__window').getBoundingClientRect()
+    const cards = [...document.querySelectorAll('.tarot-hanging__card')].map((card) => (
+      card.getBoundingClientRect()
+    ))
+    return {
+      contained: cards.every((card) => card.left >= album.left && card.right <= album.right),
+      beforeWindow: cards.every((card) => card.bottom <= window.top),
+      overflow: document.documentElement.scrollWidth - innerWidth,
+    }
+  })
+  expect(mobile).toEqual({ contained: true, beforeWindow: true, overflow: 0 })
+
+  await page.emulateMedia({ forcedColors: 'active' })
+  await expect(page.locator('.tarot-hanging')).toBeHidden()
+})
+
 test('no stamp offers a link to a repository that is not public', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/')

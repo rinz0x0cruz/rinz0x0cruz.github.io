@@ -3269,6 +3269,11 @@ h1 {
   margin: clamp(4rem, 12vh, 8rem) auto 0;
 }
 
+.album {
+  position: relative;
+  isolation: isolate;
+}
+
 .album__head {
   display: flex;
   flex-wrap: wrap;
@@ -3339,6 +3344,63 @@ h1 {
   color: #f0ebe1;
 }
 
+.tarot-hanging {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  justify-content: center;
+  margin: -0.2rem auto 1.3rem;
+  pointer-events: none;
+}
+
+.tarot-hanging__card {
+  --hang: 1.5rem;
+
+  position: relative;
+  flex: 0 0 auto;
+  width: 5.35rem;
+  margin-top: var(--hang);
+  filter: drop-shadow(0 0.7rem 0.7rem rgba(0, 0, 0, 0.72));
+  transform-origin: 50% calc(-1 * var(--hang));
+}
+
+.tarot-hanging__card--sun {
+  width: 6rem;
+  rotate: -2.5deg;
+}
+
+.tarot-hanging__card--moon {
+  rotate: 2deg;
+}
+
+.tarot-hanging__card::before {
+  position: absolute;
+  bottom: calc(100% - 0.18rem);
+  left: 50%;
+  width: 1px;
+  height: var(--hang);
+  background: linear-gradient(#8d7a55, #443c30);
+  content: '';
+}
+
+.tarot-hanging__card::after {
+  position: absolute;
+  top: calc(-1 * var(--hang) - 0.18rem);
+  left: calc(50% - 0.18rem);
+  width: 0.36rem;
+  height: 0.36rem;
+  border-radius: 50%;
+  background: #9a7842;
+  box-shadow: 0 1px 0 #332717, 0 0 0 1px #18140e;
+  content: '';
+}
+
+.tarot-hanging__card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* the album is a bound object: a catalogue page on the left, the leaves of
    stamps on the right, both inside one cover */
 .album__window {
@@ -3354,6 +3416,42 @@ h1 {
   box-shadow:
     0 22px 46px rgba(0, 0, 0, 0.55),
     inset 0 1px rgba(255, 255, 255, 0.06);
+}
+
+@media (min-width: 1420px) {
+  .album__head,
+  .album__window {
+    position: relative;
+    z-index: 1;
+  }
+
+  .tarot-hanging {
+    position: absolute;
+    z-index: 2;
+    top: 4.8rem;
+    right: -7.25rem;
+    left: -7.25rem;
+    display: block;
+    height: 14rem;
+    margin: 0;
+  }
+
+  .tarot-hanging__card {
+    --hang: 2.9rem;
+
+    position: absolute;
+    top: 0;
+  }
+
+  .tarot-hanging__card--sun {
+    left: -0.5rem;
+    width: 7rem;
+  }
+
+  .tarot-hanging__card--moon {
+    right: 0;
+    width: 6.25rem;
+  }
 }
 
 .album__page {
@@ -4181,6 +4279,10 @@ h1 {
 
   .certification-seal--active .certification-seal__coin {
     outline: 2px solid Highlight;
+  }
+
+  .tarot-hanging {
+    display: none;
   }
 }
 

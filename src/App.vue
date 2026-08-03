@@ -1232,6 +1232,29 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <div class="tarot-hanging" aria-hidden="true">
+        <span class="tarot-hanging__card tarot-hanging__card--sun">
+          <img
+            src="/tarot-sun.webp"
+            alt=""
+            width="482"
+            height="720"
+            loading="lazy"
+            decoding="async"
+          />
+        </span>
+        <span class="tarot-hanging__card tarot-hanging__card--moon">
+          <img
+            src="/tarot-moon.webp"
+            alt=""
+            width="432"
+            height="720"
+            loading="lazy"
+            decoding="async"
+          />
+        </span>
+      </div>
+
       <div class="album__window">
         <div
           class="album__page"
