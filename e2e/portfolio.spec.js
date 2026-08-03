@@ -539,12 +539,13 @@ test('blog motion settles without layout overflow and respects reduced motion', 
 test('introduction post renders the Markdown article fixtures', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/blog/')
-  await page.getByRole('link', { name: 'Why I publish my methods' }).click()
+  await page.getByRole('link', { name: 'Field notes, not victory laps' }).click()
 
   await expect(page).toHaveURL(/\/blog\/welcome-to-the-field-notes\/$/u)
-  await expect(page.getByRole('heading', { name: 'Why I publish my methods', level: 1 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Why this exists', level: 2 })).toBeVisible()
-  await expect(page.locator('blockquote')).toContainText('inspect the evidence behind it')
+  await expect(page.getByRole('heading', { name: 'Field notes, not victory laps', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'The first draft behaved too well', level: 2 })).toBeVisible()
+  await expect(page.locator('.article-body')).toContainText('175 words long')
+  await expect(page.locator('blockquote')).toContainText('I probably published the conclusion too early')
   await expect(page.locator('pre')).toHaveAttribute('tabindex', '0')
   await expect(page.getByRole('link', { name: 'public projects' })).toHaveAttribute('rel', 'noreferrer')
   await expect(page.getByRole('link', { name: 'portfolio home page' })).toHaveAttribute('href', '/')
@@ -556,11 +557,13 @@ test('ExploitRank field note keeps forecasts, evidence, and applicability distin
   await page.setViewportSize({ width: 390, height: 844 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/blog/')
-  await page.getByRole('link', { name: 'Why ExploitRank uses a fixed review budget' }).click()
+  await page.getByRole('link', { name: '8,218 CVEs, 411 seats' }).click()
 
   await expect(page).toHaveURL(/\/blog\/fixed-budget-vulnerability-triage\/$/u)
-  await expect(page.getByRole('heading', { name: 'Bound the work first', level: 2 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'What the dashboard does not claim', level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'The impossible inbox', level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'The boring rule won', level: 2 })).toBeVisible()
+  await expect(page.locator('.article-body')).toContainText('8,218 eligible CVEs')
+  await expect(page.locator('.article-body')).toContainText('411 review seats')
   await expect(page.locator('.article-body')).toContainText('attention constraint, not a new exploitation probability')
   await expect(page.locator('.article-body')).toContainText('does not determine whether a CVE affects a specific environment')
   await expect(page.getByRole('link', { name: 'FIRST EPSS' })).toHaveAttribute('href', 'https://www.first.org/epss/')
@@ -572,7 +575,7 @@ test('ExploitRank field note keeps forecasts, evidence, and applicability distin
     'href',
     'https://rinz0x0cruz.github.io/exploitrank/',
   )
-  await expect(page.getByRole('link', { name: 'public artifact repository' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'artifact repository' })).toHaveAttribute(
     'href',
     'https://github.com/rinz0x0cruz/exploitrank',
   )
@@ -588,20 +591,23 @@ test('Malscope field note preserves the public release boundary', async ({ page 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/blog/')
-  await page.getByRole('link', { name: 'Publishing malware-analysis evidence without publishing the lab' }).click()
+  await page.getByRole('link', { name: 'The TLP label that stopped this post' }).click()
 
   await expect(page).toHaveURL(/\/blog\/publishing-malware-analysis-evidence\/$/u)
-  await expect(page.getByRole('heading', { name: 'Reduce to a public contract', level: 2 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'What the public artifact does not claim', level: 2 })).toBeVisible()
-  await expect(page.locator('.article-body')).toContainText('fixture counts, not a production-scale or detection-quality claim')
-  await expect(page.locator('.article-body')).toContainText('accepts only TLP:CLEAR')
-  await expect(page.locator('.article-body')).toContainText('source-public tree permits only the three JSON manifests')
-  await expect(page.locator('.article-body')).toContainText('not malware sample bytes')
-  await expect(page.getByRole('link', { name: 'YARA documentation' })).toHaveAttribute(
+  await expect(page.getByRole('heading', { name: 'The sentence that failed its own fact-check', level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Three files, or it does not ship', level: 2 })).toBeVisible()
+  await expect(page.locator('.article-body')).toContainText('the article had found the defect before a reviewer did')
+  await expect(page.locator('.article-body')).toContainText('reports.reports[0].tlp must be TLP:CLEAR')
+  await expect(page.locator('.article-body')).toContainText('sample data, not malware sample bytes')
+  await expect(page.getByRole('link', { name: 'validator' })).toHaveAttribute(
+    'href',
+    'https://github.com/rinz0x0cruz/malscope-dashboard/blob/main/scripts/validate-public-data.mjs',
+  )
+  await expect(page.getByRole('link', { name: 'YARA' })).toHaveAttribute(
     'href',
     'https://yara.readthedocs.io/en/stable/',
   )
-  await expect(page.getByRole('link', { name: 'Sigma documentation' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Sigma' })).toHaveAttribute(
     'href',
     'https://sigmahq.io/docs/',
   )
@@ -625,12 +631,13 @@ test('Quorum field note separates mechanics, correctness, and judgment', async (
   await page.setViewportSize({ width: 390, height: 844 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/blog/')
-  await page.getByRole('link', { name: 'Benchmark before you debate' }).click()
+  await page.getByRole('link', { name: 'The benchmark said 85. Accuracy said zero.' }).click()
 
   await expect(page).toHaveURL(/\/blog\/benchmark-before-you-debate\/$/u)
-  await expect(page.getByRole('heading', { name: 'Separate three kinds of proof', level: 2 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Use model judges as evidence, not truth', level: 2 })).toBeVisible()
-  await expect(page.locator('.article-body')).toContainText('mock scores do not prove answer quality')
+  await expect(page.getByRole('heading', { name: 'A beautiful score for a wrong answer', level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Judges have tells', level: 2 })).toBeVisible()
+  await expect(page.locator('.article-body')).toContainText('zero correct answers')
+  await expect(page.locator('.article-body')).toContainText('Mock scores prove plumbing, not answer quality')
   await expect(page.locator('.article-body')).toContainText('There is no universal winning strategy')
   await expect(page.getByRole('link', { name: 'six versioned evaluation packs' })).toHaveAttribute(
     'href',

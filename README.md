@@ -11,9 +11,9 @@ inspectable projects, authoritative sources, or reproducible case studies.
 
 1. Start with the [portfolio](https://rinz0x0cruz.github.io/) for verified outcomes,
    project boundaries, certifications, and work history.
-2. Read [Why ExploitRank uses a fixed review budget](https://rinz0x0cruz.github.io/blog/fixed-budget-vulnerability-triage/)
+2. Read [8,218 CVEs, 411 seats](https://rinz0x0cruz.github.io/blog/fixed-budget-vulnerability-triage/)
    for a source-linked example of technical reasoning and explicit non-claims.
-3. Read [Publishing malware-analysis evidence without publishing the lab](https://rinz0x0cruz.github.io/blog/publishing-malware-analysis-evidence/)
+3. Read [The TLP label that stopped this post](https://rinz0x0cruz.github.io/blog/publishing-malware-analysis-evidence/)
    for a data-protection and detection-engineering example.
 4. Inspect this repository for the content model, static blog generator, accessibility
    coverage, and build-once GitHub Pages delivery path.
