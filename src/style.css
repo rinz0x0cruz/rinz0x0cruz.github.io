@@ -3345,6 +3345,7 @@ h1 {
 }
 
 .tarot-hanging {
+  position: relative;
   display: flex;
   gap: 2rem;
   align-items: flex-start;
@@ -3360,6 +3361,7 @@ h1 {
   flex: 0 0 auto;
   width: 5.35rem;
   margin-top: var(--hang);
+  pointer-events: auto;
   filter: drop-shadow(0 0.7rem 0.7rem rgba(0, 0, 0, 0.72));
   transform-origin: 50% calc(-1 * var(--hang));
 }
@@ -3399,6 +3401,11 @@ h1 {
   display: block;
   width: 100%;
   height: auto;
+  transition: opacity 180ms ease;
+}
+
+.tarot-hanging__card[data-model-state='ready'] img {
+  opacity: 0;
 }
 
 /* the album is a bound object: a catalogue page on the left, the leaves of

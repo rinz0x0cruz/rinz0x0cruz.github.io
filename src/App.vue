@@ -9,6 +9,7 @@ import DisciplineBand from './components/DisciplineBand.vue'
 import CompanyMark from './components/CompanyMark.vue'
 import GoldFiligree from './components/GoldFiligree.vue'
 import StickyNote from './components/StickyNote.vue'
+import TarotHanging from './components/TarotHanging.vue'
 import { glide, impulseFor } from './motion.js'
 import profile from './profile.js'
 
@@ -1232,28 +1233,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="tarot-hanging" aria-hidden="true">
-        <span class="tarot-hanging__card tarot-hanging__card--sun">
-          <img
-            src="/tarot-sun.webp"
-            alt=""
-            width="482"
-            height="720"
-            loading="lazy"
-            decoding="async"
-          />
-        </span>
-        <span class="tarot-hanging__card tarot-hanging__card--moon">
-          <img
-            src="/tarot-moon.webp"
-            alt=""
-            width="432"
-            height="720"
-            loading="lazy"
-            decoding="async"
-          />
-        </span>
-      </div>
+      <TarotHanging />
 
       <div class="album__window">
         <div

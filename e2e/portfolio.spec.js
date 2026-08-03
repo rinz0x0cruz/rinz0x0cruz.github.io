@@ -1927,6 +1927,36 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
   await expect.poll(() => cards.locator('img').evaluateAll((images) => (
     images.map((image) => image.naturalWidth)
   ))).toEqual([482, 432])
+  const stage = page.locator('.tarot-hanging')
+  const canvas = stage.locator('canvas')
+  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(2)
+  await expect(stage).toHaveAttribute('data-render-state', 'ready')
+  await expect(canvas).toHaveAttribute('data-render-state', 'ready')
+
+  const opaquePixels = await stage.evaluate((root) => {
+    const canvas = root.querySelector('canvas')
+    const context = canvas.getContext('webgl2') || canvas.getContext('webgl')
+    const rootBounds = root.getBoundingClientRect()
+    const scaleX = canvas.width / rootBounds.width
+    const scaleY = canvas.height / rootBounds.height
+
+    return [...root.querySelectorAll('[data-model-state="ready"]')].map((slot) => {
+      const slotBounds = slot.getBoundingClientRect()
+      const left = Math.max(0, Math.floor((slotBounds.left - rootBounds.left) * scaleX))
+      const bottom = Math.max(0, Math.floor((rootBounds.bottom - slotBounds.bottom) * scaleY))
+      const width = Math.min(canvas.width - left, Math.ceil(slotBounds.width * scaleX))
+      const height = Math.min(canvas.height - bottom, Math.ceil(slotBounds.height * scaleY))
+      const pixels = new Uint8Array(width * height * 4)
+      context.readPixels(left, bottom, width, height, context.RGBA, context.UNSIGNED_BYTE, pixels)
+      let count = 0
+      for (let index = 3; index < pixels.length; index += 4) {
+        if (pixels[index] > 0) count += 1
+      }
+      return count
+    })
+  })
+  expect(opaquePixels).toHaveLength(2)
+  expect(opaquePixels.every((count) => count > 100)).toBe(true)
 
   const desktop = await page.evaluate(() => {
     const album = document.querySelector('.album').getBoundingClientRect()
@@ -1959,19 +1989,109 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
   const mobile = await page.evaluate(() => {
     const album = document.querySelector('.album').getBoundingClientRect()
     const window = document.querySelector('.album__window').getBoundingClientRect()
+    const hanging = document.querySelector('.tarot-hanging').getBoundingClientRect()
+    const canvas = document.querySelector('.tarot-hanging canvas').getBoundingClientRect()
     const cards = [...document.querySelectorAll('.tarot-hanging__card')].map((card) => (
       card.getBoundingClientRect()
     ))
     return {
       contained: cards.every((card) => card.left >= album.left && card.right <= album.right),
       beforeWindow: cards.every((card) => card.bottom <= window.top),
+      canvasContained: Math.abs(canvas.width - hanging.width) < 0.5
+        && Math.abs(canvas.height - hanging.height) < 0.5,
       overflow: document.documentElement.scrollWidth - innerWidth,
     }
   })
-  expect(mobile).toEqual({ contained: true, beforeWindow: true, overflow: 0 })
+  expect(mobile).toEqual({ contained: true, beforeWindow: true, canvasContained: true, overflow: 0 })
+  await expect.poll(() => stage.evaluate((root) => {
+    const canvas = root.querySelector('canvas')
+    const context = canvas.getContext('webgl2') || canvas.getContext('webgl')
+    const rootBounds = root.getBoundingClientRect()
+    const scaleX = canvas.width / rootBounds.width
+    const scaleY = canvas.height / rootBounds.height
+    return [...root.querySelectorAll('[data-model-state="ready"]')].map((slot) => {
+      const slotBounds = slot.getBoundingClientRect()
+      const left = Math.max(0, Math.floor((slotBounds.left - rootBounds.left) * scaleX))
+      const bottom = Math.max(0, Math.floor((rootBounds.bottom - slotBounds.bottom) * scaleY))
+      const width = Math.min(canvas.width - left, Math.ceil(slotBounds.width * scaleX))
+      const height = Math.min(canvas.height - bottom, Math.ceil(slotBounds.height * scaleY))
+      const pixels = new Uint8Array(width * height * 4)
+      context.readPixels(left, bottom, width, height, context.RGBA, context.UNSIGNED_BYTE, pixels)
+      let count = 0
+      for (let index = 3; index < pixels.length; index += 4) {
+        if (pixels[index] > 0) count += 1
+      }
+      return count > 100
+    })
+  })).toEqual([true, true])
 
   await page.emulateMedia({ forcedColors: 'active' })
   await expect(page.locator('.tarot-hanging')).toBeHidden()
+})
+
+test('tarot cards tilt in 3D and become still for reduced motion', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  const stage = page.locator('.tarot-hanging')
+  await stage.scrollIntoViewIfNeeded()
+  await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(2)
+  const canvas = stage.locator('canvas')
+
+  await expect.poll(async () => {
+    const before = Number(await canvas.getAttribute('data-render-count'))
+    await page.waitForTimeout(180)
+    return before > 0 && before === Number(await canvas.getAttribute('data-render-count'))
+  }, { timeout: 10_000 }).toBe(true)
+
+  const signature = () => stage.evaluate((root) => {
+    const canvas = root.querySelector('canvas')
+    const context = canvas.getContext('webgl2') || canvas.getContext('webgl')
+    const rootBounds = root.getBoundingClientRect()
+    const slotBounds = root.querySelector('.tarot-hanging__card--sun').getBoundingClientRect()
+    const scaleX = canvas.width / rootBounds.width
+    const scaleY = canvas.height / rootBounds.height
+    const left = Math.floor((slotBounds.left - rootBounds.left) * scaleX)
+    const bottom = Math.floor((rootBounds.bottom - slotBounds.bottom) * scaleY)
+    const width = Math.ceil(slotBounds.width * scaleX)
+    const height = Math.ceil(slotBounds.height * scaleY)
+    const pixels = new Uint8Array(width * height * 4)
+    context.readPixels(left, bottom, width, height, context.RGBA, context.UNSIGNED_BYTE, pixels)
+    let hash = 0
+    for (let index = 0; index < pixels.length; index += 16) {
+      hash = (hash * 31 + pixels[index] + pixels[index + 1] + pixels[index + 2] + pixels[index + 3]) >>> 0
+    }
+    return hash
+  })
+
+  const rest = await signature()
+  const sun = await page.locator('.tarot-hanging__card--sun').boundingBox()
+  await page.mouse.move(sun.x + sun.width * 0.85, sun.y + sun.height * 0.2)
+  await expect.poll(signature).not.toBe(rest)
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.waitForTimeout(250)
+  const still = Number(await canvas.getAttribute('data-render-count'))
+  const moon = await page.locator('.tarot-hanging__card--moon').boundingBox()
+  await page.mouse.move(moon.x + moon.width * 0.2, moon.y + moon.height * 0.8)
+  await page.waitForTimeout(250)
+  expect(Number(await canvas.getAttribute('data-render-count'))).toBe(still)
+})
+
+test('tarot model failures preserve both static card fallbacks', async ({ page }) => {
+  await page.route('**/models/tarot/**', (route) => route.abort())
+  await page.goto('/')
+  const stage = page.locator('.tarot-hanging')
+  await stage.scrollIntoViewIfNeeded()
+  await expect(stage).toHaveAttribute('data-render-state', 'failed')
+  await expect(stage.locator('[data-model-state="failed"]')).toHaveCount(2)
+  await expect(stage.locator('canvas')).toHaveAttribute('data-render-state', 'failed')
+  expect(await stage.locator('img').evaluateAll((images) => images.map((image) => ({
+    opacity: Number(getComputedStyle(image).opacity),
+    width: image.naturalWidth,
+  })))).toEqual([
+    { opacity: 1, width: 482 },
+    { opacity: 1, width: 432 },
+  ])
 })
 
 test('no stamp offers a link to a repository that is not public', async ({ page }) => {
@@ -3456,7 +3576,7 @@ test('achievement instruments keep a static reduced-motion render', async ({ pag
 test('reduced data skips the 3D payload and keeps the artwork', async ({ page }) => {
   const requested = []
   page.on('request', (request) => {
-    if (/AchievementInstrument.*\.js$|\.glb$|\.mp4$/.test(request.url())) requested.push(request.url())
+    if (/AchievementInstrument.*\.js$|models\/tarot|\.glb$|\.mp4$/.test(request.url())) requested.push(request.url())
   })
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } })
@@ -3469,6 +3589,11 @@ test('reduced data skips the 3D payload and keeps the artwork', async ({ page })
   await deck.scrollIntoViewIfNeeded()
   await expect(deck.locator('.achievement-card')).toHaveCount(achievementCount)
   await expect(deck.locator('.achievement-card__visual .achievement-art')).toHaveCount(achievementCount)
+  const tarot = page.locator('.tarot-hanging')
+  await tarot.scrollIntoViewIfNeeded()
+  await expect(tarot).toHaveAttribute('data-render-state', 'fallback')
+  await expect(tarot.locator('[data-model-state="fallback"]')).toHaveCount(2)
+  await expect(tarot.locator('canvas')).toHaveAttribute('data-render-state', 'fallback')
   await page.waitForTimeout(1_500)
   await expect(deck.locator('.achievement-stage')).toHaveCount(0)
   expect(requested).toEqual([])
