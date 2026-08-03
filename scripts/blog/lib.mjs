@@ -406,6 +406,8 @@ export function renderSitemap(posts) {
   const urls = [
     { location: `${SITE_URL}/` },
     { location: `${SITE_URL}/blog/` },
+    { location: `${SITE_URL}/exploitrank/` },
+    { location: `${SITE_URL}/malscope-dashboard/` },
     ...posts.map((post) => ({
       location: `${SITE_URL}/blog/${post.slug}/`,
       modified: post.updated ?? post.published,

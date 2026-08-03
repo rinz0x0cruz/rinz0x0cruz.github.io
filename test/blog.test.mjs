@@ -198,7 +198,10 @@ test('builds physical articles, index, RSS, sitemap, and robots', async () => {
   const feed = await readFile(join(output, 'blog', 'feed.xml'), 'utf8')
   assert.match(feed, /Mohit Sharma — Security field notes/u)
   assert.match(feed, /<item>/u)
-  assert.match(await readFile(join(output, 'sitemap.xml'), 'utf8'), /earliest-public-poc-signals/u)
+  const sitemap = await readFile(join(output, 'sitemap.xml'), 'utf8')
+  assert.match(sitemap, /earliest-public-poc-signals/u)
+  assert.match(sitemap, /\/exploitrank\//u)
+  assert.match(sitemap, /\/malscope-dashboard\//u)
   assert.match(await readFile(join(output, 'robots.txt'), 'utf8'), /Sitemap:/u)
   assert.deepEqual(
     await readFile(join(output, 'blog', 'media', 'earliest-public-poc-signals', 'cover.png')),
