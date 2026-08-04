@@ -3378,7 +3378,7 @@ h1 {
   display: none;
 }
 
-@media (min-width: 1400px) and (min-height: 700px) {
+@media (min-width: 1360px) and (min-height: 641px) {
   .tarot-hanging--hero {
     display: block;
   }

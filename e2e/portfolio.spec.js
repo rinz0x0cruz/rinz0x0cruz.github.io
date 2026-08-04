@@ -2321,14 +2321,49 @@ test('cracked skull frames the namecard while tarot hangs below the project albu
   const artifact = Object.fromEntries(desktop.artifacts.map((item) => [item.name, item]))
   expect(artifact.sun.right).toBeLessThan(artifact.moon.left)
 
-  await page.setViewportSize({ width: 1420, height: 1000 })
+  await page.setViewportSize({ width: 1366, height: 650 })
   await expect(hero).toBeVisible()
+  const laptop = await page.evaluate(() => {
+    const card = document.querySelector('.identity-card').getBoundingClientRect()
+    const root = document.querySelector('.tarot-hanging--hero')
+    const artifacts = [...root.querySelectorAll('[data-tarot-slot]')].map((slot) => {
+      const bounds = slot.getBoundingClientRect()
+      return {
+        name: slot.dataset.artifactName,
+        overlapsCard: bounds.left < card.right
+          && bounds.right > card.left
+          && bounds.top < card.bottom
+          && bounds.bottom > card.top,
+        width: bounds.width,
+      }
+    })
+    const byName = Object.fromEntries(artifacts.map((artifact) => [artifact.name, artifact]))
+    const head = root.querySelector('[data-artifact-name="head"]').getBoundingClientRect()
+    const helios = root.querySelector('[data-artifact-name="helios"]').getBoundingClientRect()
+    return {
+      artifacts,
+      leftGap: card.left - head.right,
+      overflow: document.documentElement.scrollWidth - innerWidth,
+      renderState: root.dataset.renderState,
+      rightGap: helios.left - card.right,
+      visibleArtifacts: Object.keys(byName).sort(),
+    }
+  })
+  expect(laptop.visibleArtifacts).toEqual(['head', 'helios'])
+  expect(laptop.artifacts.every(({ overlapsCard, width }) => !overlapsCard && width > 0)).toBe(true)
+  expect(laptop.leftGap).toBeGreaterThanOrEqual(30)
+  expect(laptop.rightGap).toBeGreaterThanOrEqual(8)
+  expect(laptop.overflow).toBe(0)
+  expect(laptop.renderState).toBe('ready')
   expect(await cards.evaluateAll((elements) => elements.every((card) => {
     const box = card.getBoundingClientRect()
     return box.left >= 0 && box.right <= innerWidth
   }))).toBe(true)
 
-  await page.setViewportSize({ width: 1399, height: 1000 })
+  await page.setViewportSize({ width: 1359, height: 700 })
+  await expect(hero).toBeHidden()
+
+  await page.setViewportSize({ width: 1366, height: 640 })
   await expect(hero).toBeHidden()
 
   await page.setViewportSize({ width: 390, height: 844 })
