@@ -214,6 +214,160 @@ test('quotes rotate in a dedicated card footer', async ({ page }) => {
   expect(rotatedCard.height).toBeCloseTo(initialCard.height, 1)
 })
 
+test('the rotating statement reaches assistive tech as a phrase', async ({ page }) => {
+  await page.goto('/')
+
+  // each letter is its own inline-block span so the line can animate, which
+  // makes the accessible name "E v i d e n c e i n t o ..." - spelled out.
+  // Poll because the quote rotates: both reads must land on the same one.
+  await expect.poll(async () => {
+    const seen = await currentQuote(page)
+    const heard = (await page.locator('.identity-card__statement').ariaSnapshot())
+      .replace(/^\s*-\s*paragraph:\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    return heard === seen.replace(/\s+/g, ' ').trim()
+  }).toBe(true)
+})
+
+test('the turn hint stays legible on the note it sits on', async ({ page }) => {
+  await page.goto('/')
+
+  const hint = page.locator('.sticky-note__hint').first()
+  await hint.scrollIntoViewIfNeeded()
+  await expect(hint).toBeVisible()
+
+  // axe cannot score this text: the note paints a translucent gradient over its
+  // fill, so the backdrop is sampled from the rendered pixels instead. The ink
+  // comes from the computed style because antialiasing never reaches it.
+  const paper = (await hint.screenshot({ scale: 'device' })).toString('base64')
+  const contrast = await hint.evaluate(async (element, encoded) => {
+    const bitmap = await createImageBitmap(
+      await (await fetch(`data:image/png;base64,${encoded}`)).blob(),
+    )
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const context = canvas.getContext('2d')
+    context.drawImage(bitmap, 0, 0)
+    const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height)
+
+    const tally = new Map()
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 250) continue
+      const key = `${data[i]},${data[i + 1]},${data[i + 2]}`
+      tally.set(key, (tally.get(key) ?? 0) + 1)
+    }
+    const backdrop = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0]
+
+    const channel = (value) => {
+      const v = value / 255
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+    }
+    const luminance = (rgb) => {
+      const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).map(Number)
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    }
+    const ink = luminance(getComputedStyle(element).color)
+    const sheet = luminance(backdrop)
+    const [lighter, darker] = ink > sheet ? [ink, sheet] : [sheet, ink]
+    return Number(((lighter + 0.05) / (darker + 0.05)).toFixed(2))
+  }, paper)
+
+  expect(contrast).toBeGreaterThanOrEqual(4.5)
+})
+
+test('the album prompt stays legible on the surface behind it', async ({ page }) => {
+  await page.goto('/')
+
+  const prompt = page.locator('.album__prompt').first()
+  await prompt.scrollIntoViewIfNeeded()
+  await expect(prompt).toBeVisible()
+
+  // this prompt is mostly ink inside its own box, so sampling it the way the
+  // sticky note is sampled would return the text as the "backdrop". Take a
+  // margin around it instead, where the surface actually dominates.
+  const box = await prompt.boundingBox()
+  const viewport = page.viewportSize()
+  const margin = 24
+  const left = Math.max(0, box.x - margin)
+  const top = Math.max(0, box.y - margin)
+  const surface = (await page.screenshot({
+    clip: {
+      x: left,
+      y: top,
+      width: Math.min(box.width + margin * 2, viewport.width - left),
+      height: Math.min(box.height + margin * 2, viewport.height - top),
+    },
+  })).toString('base64')
+
+  const contrast = await prompt.evaluate(async (element, encoded) => {
+    const bitmap = await createImageBitmap(
+      await (await fetch(`data:image/png;base64,${encoded}`)).blob(),
+    )
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const context = canvas.getContext('2d')
+    context.drawImage(bitmap, 0, 0)
+    const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height)
+
+    const tally = new Map()
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 250) continue
+      const key = `${data[i]},${data[i + 1]},${data[i + 2]}`
+      tally.set(key, (tally.get(key) ?? 0) + 1)
+    }
+    const backdrop = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0]
+
+    const channel = (value) => {
+      const v = value / 255
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+    }
+    const luminance = (rgb) => {
+      const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).map(Number)
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    }
+    const ink = luminance(getComputedStyle(element).color)
+    const sheet = luminance(backdrop)
+    const [lighter, darker] = ink > sheet ? [ink, sheet] : [sheet, ink]
+    return Number(((lighter + 0.05) / (darker + 0.05)).toFixed(2))
+  }, surface)
+
+  expect(contrast).toBeGreaterThanOrEqual(4.5)
+})
+
+test('links that stand on their own are big enough to hit', async ({ page }) => {
+  await page.goto('/')
+
+  // WCAG 2.5.8 lets a small target through two ways: it sits inside a sentence,
+  // or nothing else is within a 24px circle of its centre. Only a target that
+  // is both standalone and crowded actually fails.
+  const cramped = await page.evaluate(() => {
+    const targets = [...document.querySelectorAll('a[href],button,[role="button"],input,select,summary')]
+      .map((element) => ({ element, box: element.getBoundingClientRect() }))
+      .filter(({ box }) => box.width > 0 && box.height > 0)
+    const centre = ({ box }) => [box.left + box.width / 2, box.top + box.height / 2]
+
+    return targets
+      .filter(({ element }) => {
+        const label = element.textContent.replace(/\s+/g, ' ').trim()
+        const surrounding = element.parentElement.textContent.replace(/\s+/g, ' ').trim()
+        return surrounding.length <= label.length + 12
+      })
+      .filter(({ box }) => box.width < 24 || box.height < 24)
+      .filter((target) => {
+        const [x, y] = centre(target)
+        return targets.some((other) => {
+          if (other.element === target.element) return false
+          const [ox, oy] = centre(other)
+          return Math.hypot(x - ox, y - oy) < 24
+        })
+      })
+      .map(({ element, box }) => (
+        `${element.textContent.trim().slice(0, 24)} ${Math.round(box.width)}x${Math.round(box.height)}`
+      ))
+  })
+
+  expect(cramped).toEqual([])
+})
+
 test('dossier drawer opens while the identity card remains visible', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
@@ -774,10 +928,22 @@ test('secondary labels meet normal-text contrast', async ({ page }) => {
 test('portfolio has no WCAG A or AA violations', async ({ page }) => {
   const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 
+  // axe cannot score text painted over a gradient or artwork, so it files those
+  // as `incomplete` instead of a violation and an assertion on violations alone
+  // reads clean while the text is unchecked. These ceilings ratchet: unscored
+  // text may shrink, never quietly grow back. Anything other than contrast
+  // becoming unscorable is a new blind spot and fails outright.
+  const unscored = (results) => results.incomplete
+    .filter((result) => result.id === 'color-contrast')
+    .reduce((total, result) => total + result.nodes.length, 0)
+  const otherBlindSpots = (results) => results.incomplete
+    .filter((result) => result.id !== 'color-contrast')
+    .map((result) => result.id)
+
   for (const media of [
-    { forcedColors: 'none', height: 900, width: 1440 },
-    { forcedColors: 'none', height: 844, width: 390 },
-    { forcedColors: 'active', height: 844, width: 390 },
+    { ceiling: { closed: 216, open: 216 }, forcedColors: 'none', height: 900, width: 1440 },
+    { ceiling: { closed: 173, open: 173 }, forcedColors: 'none', height: 844, width: 390 },
+    { ceiling: { closed: 144, open: 144 }, forcedColors: 'active', height: 844, width: 390 },
   ]) {
     await page.setViewportSize({ width: media.width, height: media.height })
     await page.emulateMedia({
@@ -788,11 +954,15 @@ test('portfolio has no WCAG A or AA violations', async ({ page }) => {
 
     const closed = await new AxeBuilder({ page }).withTags(tags).analyze()
     expect(closed.violations).toEqual([])
+    expect(otherBlindSpots(closed)).toEqual([])
+    expect(unscored(closed)).toBeLessThanOrEqual(media.ceiling.closed)
 
     await page.locator('.credential-card__turn').click()
     await expectDossierDrawer(page)
     const open = await new AxeBuilder({ page }).withTags(tags).analyze()
     expect(open.violations).toEqual([])
+    expect(otherBlindSpots(open)).toEqual([])
+    expect(unscored(open)).toBeLessThanOrEqual(media.ceiling.open)
   }
 })
 
@@ -1957,48 +2127,79 @@ test('public project records route reviewers to their evidence', async ({ page }
   })).toEqual({ linksContained: true, pageOverflow: 0 })
 })
 
-test('sun and moon tarot hang clear of the project album', async ({ page }) => {
+test('cracked skull frames the namecard while tarot hangs below the project album', async ({ page }) => {
   const reliefRequests = []
   page.on('request', (request) => {
-    if (request.url().includes('/models/tarot/')) {
+    if (request.url().includes('/models/tarot/') || request.url().includes('/models/artifacts/')) {
       reliefRequests.push(new URL(request.url()).pathname)
     }
   })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/')
-  await page.locator('.album').scrollIntoViewIfNeeded()
 
+  const hero = page.locator('.tarot-hanging--hero')
+  const heroSlots = hero.locator('[data-tarot-slot]')
+  await expect(heroSlots).toHaveCount(2)
+  await expect(page.locator('.tarot-hanging__sculpture--upper')).toHaveCount(0)
+  await expect(page.locator('.tarot-hanging__sculpture--head img')).toHaveAttribute('src', '/models/artifacts/fragmentary-head.webp')
+  await expect(page.locator('.tarot-hanging__sculpture--helios img')).toHaveAttribute('src', '/models/artifacts/helios.webp')
+  expect(await heroSlots.locator('img').evaluateAll((images) => images.map((image) => image.alt))).toEqual(['', ''])
+  await expect.poll(() => heroSlots.locator('img').evaluateAll((images) => (
+    images.map((image) => image.naturalWidth)
+  )), { timeout: 15_000 }).toEqual([640, 280])
+  await expect(hero.locator('[data-model-state="ready"]')).toHaveCount(2, { timeout: 15_000 })
+  await expect(hero).toHaveAttribute('data-render-state', 'ready')
+  await expect(hero.locator('canvas')).toHaveAttribute('data-render-state', 'ready')
+
+  await page.locator('.album').scrollIntoViewIfNeeded()
+  const stage = page.locator('.tarot-hanging--tarot')
+  await stage.scrollIntoViewIfNeeded()
   const cards = page.locator('.tarot-hanging__card')
+  const slots = stage.locator('[data-tarot-slot]')
   await expect(cards).toHaveCount(2)
+  await expect(slots).toHaveCount(2)
   await expect(page.locator('.tarot-hanging__card--sun img')).toHaveAttribute('src', '/tarot-sun.webp')
   await expect(page.locator('.tarot-hanging__card--moon img')).toHaveAttribute('src', '/tarot-moon.webp')
-  expect(await cards.locator('img').evaluateAll((images) => images.map((image) => image.alt))).toEqual(['', ''])
+  expect(await slots.locator('img').evaluateAll((images) => images.map((image) => image.alt))).toEqual(['', ''])
   await expect.poll(() => cards.locator('img').evaluateAll((images) => (
     images.map((image) => image.naturalWidth)
   ))).toEqual([128, 116])
   expect(await cards.locator('img').evaluateAll((images) => (
     images.map((image) => new URL(image.currentSrc).pathname)
   ))).toEqual(['/tarot-sun-256.webp', '/tarot-moon-256.webp'])
-  const stage = page.locator('.tarot-hanging')
   const canvas = stage.locator('canvas')
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(2)
   await expect(stage).toHaveAttribute('data-render-state', 'ready')
   await expect(canvas).toHaveAttribute('data-render-state', 'ready')
-  expect(await stage.locator('[data-model-state="ready"]').evaluateAll((slots) => (
+  expect(await page.locator('.tarot-hanging [data-model-state="ready"]').evaluateAll((slots) => (
     slots.map((slot) => Number(slot.dataset.reliefDepth))
   ))).toEqual(expect.arrayContaining([expect.any(Number), expect.any(Number)]))
-  expect(await stage.locator('[data-model-state="ready"]').evaluateAll((slots) => (
+  expect(await page.locator('.tarot-hanging [data-model-state="ready"]').evaluateAll((slots) => (
     slots.every((slot) => Number(slot.dataset.reliefDepth) > 0.25)
   ))).toBe(true)
   expect(reliefRequests.sort()).toEqual([
+    '/models/artifacts/fragmentary-head.glb',
+    '/models/artifacts/fragmentary-head.webp',
+    '/models/artifacts/helios.glb',
+    '/models/artifacts/helios.webp',
     '/models/tarot/moon-atlas.webp',
     '/models/tarot/moon.glb',
     '/models/tarot/sun-atlas.webp',
     '/models/tarot/sun.glb',
   ])
+  const artifactCredit = page.locator('.font-credit--artifacts')
+  await expect(artifactCredit).toContainText('Helios statue')
+  await expect(artifactCredit).toContainText('Fragmentary colossal marble head of youth')
+  expect(await artifactCredit.locator('a').evaluateAll((links) => links.map((link) => link.href))).toEqual([
+    'https://sketchfab.com/3d-models/helios-statue-48a564cc64554bb9961eaad5216d2f2e',
+    'https://sketchfab.com/kolen',
+    'https://sketchfab.com/3d-models/fragmentary-colossal-marble-head-of-youth-acc071ea2c3b4938b9460510037a50eb',
+    'https://sketchfab.com/enauman',
+    'https://creativecommons.org/licenses/by/4.0/',
+  ])
 
-  const silhouettes = await stage.evaluate((root) => {
+  const readSilhouettes = (target) => target.evaluate((root) => {
     const canvas = root.querySelector('canvas')
     const context = canvas.getContext('webgl2') || canvas.getContext('webgl')
     const rootBounds = root.getBoundingClientRect()
@@ -2025,72 +2226,136 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
         }
       }
       return {
+        name: slot.dataset.artifactName,
         density: count / (width * height),
         continuousRows: rows.filter((row) => row >= width * 0.5).length / height,
         continuousColumns: columns.filter((column) => column >= height * 0.5).length / width,
       }
     })
   })
+  const silhouettes = await readSilhouettes(stage)
   expect(silhouettes).toHaveLength(2)
   expect(silhouettes.every(({ density, continuousRows, continuousColumns }) => (
     density > 0.5 && continuousRows > 0.75 && continuousColumns > 0.65
   ))).toBe(true)
+  const heroSilhouettes = await readSilhouettes(hero)
+  expect(heroSilhouettes).toHaveLength(2)
+  expect(heroSilhouettes.every(({ density }) => (
+    density > 0.08
+  ))).toBe(true)
 
   const desktop = await page.evaluate(() => {
-    const album = document.querySelector('.album').getBoundingClientRect()
+    const album = document.querySelector('.album')
+    const albumBounds = album.getBoundingClientRect()
     const window = document.querySelector('.album__window').getBoundingClientRect()
-    const hanging = document.querySelector('.tarot-hanging')
+    const hanging = document.querySelector('.tarot-hanging--tarot')
+    const hero = document.querySelector('.tarot-hanging--hero')
+    const card = document.querySelector('.identity-card').getBoundingClientRect()
+    const media = document.querySelector('.scene__window').getBoundingClientRect()
     const cards = [...document.querySelectorAll('.tarot-hanging__card')]
+    const artifacts = [...hanging.querySelectorAll('[data-tarot-slot]')].map((slot) => {
+      const box = slot.getBoundingClientRect()
+      return {
+        name: slot.dataset.artifactName,
+        left: box.left,
+        right: box.right,
+        inViewport: box.left >= 0 && box.right <= innerWidth,
+      }
+    })
+    const heroArtifacts = [...hero.querySelectorAll('[data-tarot-slot]')].map((slot) => {
+      const box = slot.getBoundingClientRect()
+      return {
+        name: slot.dataset.artifactName,
+        bottom: box.bottom,
+        height: box.height,
+        left: box.left,
+        right: box.right,
+        top: box.top,
+        width: box.width,
+        inViewport: box.left >= 0 && box.right <= innerWidth,
+      }
+    })
+    const heroByName = Object.fromEntries(heroArtifacts.map((item) => [item.name, item]))
     return {
       hidden: hanging.getAttribute('aria-hidden'),
+      heroHidden: hero.getAttribute('aria-hidden'),
+      heroDisplay: getComputedStyle(hero).display,
       overflow: document.documentElement.scrollWidth - innerWidth,
+      followsAlbum: album.nextElementSibling === hanging,
+      belowAlbum: hanging.getBoundingClientRect().top >= albumBounds.bottom,
       cards: cards.map((card) => {
         const box = card.getBoundingClientRect()
         return {
           inViewport: box.left >= 0 && box.right <= innerWidth,
-          clearOfWindow: box.right <= window.left || box.left >= window.right,
           thread: Number.parseFloat(getComputedStyle(card, '::before').height),
           width: box.width,
         }
       }),
-      windowInsideAlbum: window.left >= album.left && window.right <= album.right,
+      artifacts,
+      heroArtifacts,
+      leftGap: card.left - heroByName.head.right,
+      rightGap: heroByName.helios.left - card.right,
+      windowInsideAlbum: window.left >= albumBounds.left && window.right <= albumBounds.right,
     }
   })
   expect(desktop.hidden).toBe('true')
+  expect(desktop.heroHidden).toBe('true')
+  expect(desktop.heroDisplay).toBe('block')
   expect(desktop.overflow).toBe(0)
+  expect(desktop.followsAlbum).toBe(true)
+  expect(desktop.belowAlbum).toBe(true)
   expect(desktop.windowInsideAlbum).toBe(true)
-  expect(desktop.cards.every(({ inViewport, clearOfWindow, thread, width }) => (
-    inViewport && clearOfWindow && thread > 20 && width >= 120
+  expect(desktop.cards.every(({ inViewport, thread, width }) => (
+    inViewport && thread > 20 && width >= 120
   ))).toBe(true)
+  expect(desktop.artifacts.every(({ inViewport }) => inViewport)).toBe(true)
+  expect(desktop.heroArtifacts.every(({ inViewport }) => inViewport)).toBe(true)
+  const heroArtifact = Object.fromEntries(desktop.heroArtifacts.map((item) => [item.name, item]))
+  expect(heroArtifact.head.width).toBeGreaterThanOrEqual(127)
+  expect(heroArtifact.head.height / heroArtifact.head.width).toBeCloseTo(1.25, 1)
+  expect(heroArtifact.head.width).toBeLessThan(heroArtifact.helios.width)
+  expect(heroArtifact.helios.width).toBeGreaterThanOrEqual(147)
+  expect(desktop.leftGap).toBeGreaterThanOrEqual(40)
+  expect(heroArtifact.head.bottom).toBeGreaterThanOrEqual(heroArtifact.helios.bottom)
+  expect(desktop.rightGap).toBeGreaterThanOrEqual(16)
+  const artifact = Object.fromEntries(desktop.artifacts.map((item) => [item.name, item]))
+  expect(artifact.sun.right).toBeLessThan(artifact.moon.left)
 
   await page.setViewportSize({ width: 1420, height: 1000 })
+  await expect(hero).toBeVisible()
   expect(await cards.evaluateAll((elements) => elements.every((card) => {
     const box = card.getBoundingClientRect()
     return box.left >= 0 && box.right <= innerWidth
   }))).toBe(true)
 
+  await page.setViewportSize({ width: 1399, height: 1000 })
+  await expect(hero).toBeHidden()
+
   await page.setViewportSize({ width: 390, height: 844 })
   await page.locator('.album').scrollIntoViewIfNeeded()
   const mobile = await page.evaluate(() => {
     const album = document.querySelector('.album').getBoundingClientRect()
-    const window = document.querySelector('.album__window').getBoundingClientRect()
-    const hanging = document.querySelector('.tarot-hanging').getBoundingClientRect()
-    const canvas = document.querySelector('.tarot-hanging canvas').getBoundingClientRect()
-    const cards = [...document.querySelectorAll('.tarot-hanging__card')].map((card) => (
-      card.getBoundingClientRect()
+    const hero = document.querySelector('.tarot-hanging--hero')
+    const tarot = document.querySelector('.tarot-hanging--tarot')
+    const hanging = tarot.getBoundingClientRect()
+    const canvas = tarot.querySelector('canvas').getBoundingClientRect()
+    const artifacts = [...tarot.querySelectorAll('[data-tarot-slot]')].map((slot) => (
+      slot.getBoundingClientRect()
     ))
     return {
-      contained: cards.every((card) => card.left >= album.left && card.right <= album.right),
-      beforeWindow: cards.every((card) => card.bottom <= window.top),
+      heroHidden: getComputedStyle(hero).display === 'none',
+      contained: artifacts.every((artifact) => artifact.left >= album.left && artifact.right <= album.right),
+      afterAlbum: hanging.top >= album.bottom,
       canvasContained: Math.abs(canvas.width - hanging.width) < 0.5
         && Math.abs(canvas.height - hanging.height) < 0.5,
-      largeEnough: cards.every((card) => card.width >= 120),
+      largeEnough: artifacts.every((artifact) => artifact.width >= 110),
       overflow: document.documentElement.scrollWidth - innerWidth,
     }
   })
   expect(mobile).toEqual({
+    heroHidden: true,
     contained: true,
-    beforeWindow: true,
+    afterAlbum: true,
     canvasContained: true,
     largeEnough: true,
     overflow: 0,
@@ -2118,13 +2383,14 @@ test('sun and moon tarot hang clear of the project album', async ({ page }) => {
   })).toEqual([true, true])
 
   await page.emulateMedia({ forcedColors: 'active' })
-  await expect(page.locator('.tarot-hanging')).toBeHidden()
+  await expect(hero).toBeHidden()
+  await expect(stage).toBeHidden()
 })
 
 test('tarot cards tilt in 3D and become still for reduced motion', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/')
-  const stage = page.locator('.tarot-hanging')
+  const stage = page.locator('.tarot-hanging--tarot')
   await stage.scrollIntoViewIfNeeded()
   await expect(stage.locator('[data-model-state="ready"]')).toHaveCount(2)
   const canvas = stage.locator('canvas')
@@ -2169,10 +2435,25 @@ test('tarot cards tilt in 3D and become still for reduced motion', async ({ page
   expect(Number(await canvas.getAttribute('data-render-count'))).toBe(still)
 })
 
-test('tarot relief failures preserve both static card fallbacks', async ({ page }) => {
+test('artifact relief failures preserve all static fallbacks', async ({ page }) => {
   await page.route('**/models/tarot/**', (route) => route.abort())
+  await page.route('**/models/artifacts/*.glb', (route) => route.abort())
+  await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
-  const stage = page.locator('.tarot-hanging')
+
+  const hero = page.locator('.tarot-hanging--hero')
+  await expect(hero).toHaveAttribute('data-render-state', 'failed', { timeout: 15_000 })
+  await expect(hero.locator('[data-model-state="failed"]')).toHaveCount(2)
+  await expect(hero.locator('canvas')).toHaveAttribute('data-render-state', 'failed')
+  expect(await hero.locator('img').evaluateAll((images) => images.map((image) => ({
+    opacity: Number(getComputedStyle(image).opacity),
+    width: image.naturalWidth,
+  })))).toEqual([
+    { opacity: 1, width: 640 },
+    { opacity: 1, width: 280 },
+  ])
+
+  const stage = page.locator('.tarot-hanging--tarot')
   await stage.scrollIntoViewIfNeeded()
   await expect(stage).toHaveAttribute('data-render-state', 'failed')
   await expect(stage.locator('[data-model-state="failed"]')).toHaveCount(2)
@@ -3675,11 +3956,15 @@ test('reduced data skips the 3D payload and keeps the artwork', async ({ page })
   await page.goto('/')
 
   await expect(page.locator('.scene__landscape')).toBeVisible()
+  const hero = page.locator('.tarot-hanging--hero')
+  await expect(hero).toHaveAttribute('data-render-state', 'fallback')
+  await expect(hero.locator('[data-model-state="fallback"]')).toHaveCount(2)
+  await expect(hero.locator('canvas')).toHaveAttribute('data-render-state', 'fallback')
   const deck = page.locator('.achievement-deck')
   await deck.scrollIntoViewIfNeeded()
   await expect(deck.locator('.achievement-card')).toHaveCount(achievementCount)
   await expect(deck.locator('.achievement-card__visual .achievement-art')).toHaveCount(achievementCount)
-  const tarot = page.locator('.tarot-hanging')
+  const tarot = page.locator('.tarot-hanging--tarot')
   await tarot.scrollIntoViewIfNeeded()
   await expect(tarot).toHaveAttribute('data-render-state', 'fallback')
   await expect(tarot.locator('[data-model-state="fallback"]')).toHaveCount(2)

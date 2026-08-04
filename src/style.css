@@ -469,7 +469,7 @@ h1 {
 }
 
 .discipline-band__topline b {
-  color: #d1a35f;
+  color: var(--accent);
   font-weight: 400;
 }
 
@@ -490,7 +490,7 @@ h1 {
 }
 
 .discipline-band__abbr {
-  color: #f0ede7;
+  color: var(--text);
   font-family: 'Danviska', serif;
   font-size: 1.95rem;
   font-weight: 400;
@@ -1280,7 +1280,7 @@ h1 {
   transform: scale(1);
 }
 .experience__frontispiece figcaption {
-  color: #a7a39b;
+  color: var(--text-muted);
   font-family: 'Mackie Pixel', 'Kiona', sans-serif;
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -1301,7 +1301,7 @@ h1 {
   padding: 0.6rem 0.5rem 1.5rem;
   border-radius: 3px 3px 0 0;
   background: linear-gradient(to bottom, rgba(5, 5, 4, 0.94), rgba(5, 5, 4, 0.78) 55%, transparent);
-  color: #a7a39b;
+  color: var(--text-muted);
   font-family: 'Recursive Variable', ui-monospace, monospace;
   font-size: 0.62rem;
   letter-spacing: 0.05em;
@@ -1830,7 +1830,8 @@ h1 {
 }
 
 .sticky-note__hint {
-  color: #6b571f;
+  /* 4.6:1 on the note's fill - the lighter pencil tone read as decoration */
+  color: #5c4a18;
   font-family: 'Recursive Variable', ui-monospace, monospace;
   font-size: 0.56rem;
   letter-spacing: 0.08em;
@@ -1906,8 +1907,9 @@ h1 {
   text-align: center;
 }
 
-/* the second credit line continues the first, so it does not repeat its lead */
-.font-credit--photos {
+/* following credit lines continue the first rather than reopening the footer */
+.font-credit--photos,
+.font-credit--artifacts {
   padding-top: 0;
 }
 
@@ -1957,7 +1959,7 @@ h1 {
    dark page through the letter. This second layer paints the same cells in a
    lighter tone, which is what reads as a highlight. */
 .identity-card__quote-shine {
-  color: #f0ede7;
+  color: var(--text);
   font-family: 'Mackie Pixel Shine', monospace;
   pointer-events: none;
   user-select: none;
@@ -1966,6 +1968,20 @@ h1 {
 .identity-card__quote-measure {
   display: grid;
   visibility: hidden;
+}
+
+/* carries the statement for assistive tech only: visibility/display would hide
+   it from the accessibility tree too, so clip it instead */
+.identity-card__quote-spoken {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .identity-card__quote {
@@ -2537,7 +2553,7 @@ h1 {
   position: absolute;
   display: block;
   overflow: visible;
-  color: #d1a35f;
+  color: var(--accent);
   filter: drop-shadow(0 0.25rem 0.3rem rgba(0, 0, 0, 0.75));
 }
 
@@ -2595,7 +2611,7 @@ h1 {
 
 .achievement-filigree__path--stem,
 .achievement-filigree__path--branch {
-  stroke: #d1a35f;
+  stroke: var(--accent);
   stroke-width: 1.6;
 }
 
@@ -2778,7 +2794,7 @@ h1 {
 
 .achievement-vines__leaf-vein {
   fill: none;
-  stroke: #d1a35f;
+  stroke: var(--accent);
   stroke-width: 0.55;
   stroke-linecap: round;
   opacity: 0.66;
@@ -3346,33 +3362,70 @@ h1 {
 
 .tarot-hanging {
   position: relative;
-  display: flex;
-  gap: 2rem;
-  align-items: flex-start;
-  justify-content: center;
-  margin: -0.2rem auto 1.3rem;
   pointer-events: none;
+}
+
+.tarot-hanging--tarot {
+  width: min(72rem, calc(100% - 4rem));
+  height: 16rem;
+  margin: 1.3rem auto;
+}
+
+.tarot-hanging--hero {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: none;
+}
+
+@media (min-width: 1400px) and (min-height: 700px) {
+  .tarot-hanging--hero {
+    display: block;
+  }
+}
+
+.tarot-hanging__card,
+.tarot-hanging__sculpture {
+  position: absolute;
+  z-index: 1;
+  pointer-events: auto;
+  filter: drop-shadow(0 0.7rem 0.7rem rgba(0, 0, 0, 0.72));
 }
 
 .tarot-hanging__card {
   --hang: 1.5rem;
 
-  position: relative;
-  flex: 0 0 auto;
+  top: 0;
   width: 7.25rem;
   margin-top: var(--hang);
-  pointer-events: auto;
-  filter: drop-shadow(0 0.7rem 0.7rem rgba(0, 0, 0, 0.72));
   transform-origin: 50% calc(-1 * var(--hang));
 }
 
 .tarot-hanging__card--sun {
+  left: calc(50% - 12rem);
   width: 8rem;
   rotate: -2.5deg;
 }
 
 .tarot-hanging__card--moon {
+  left: calc(50% + 4rem);
   rotate: 2deg;
+}
+
+.tarot-hanging--hero .tarot-hanging__sculpture--head {
+  top: calc(
+    var(--scene-media-top) + var(--scene-media-height)
+    + clamp(6.0625rem, calc(6.5vw + 0.375rem), 6.875rem)
+    + 2rem
+  );
+  left: max(1rem, calc(50% - 45rem));
+  width: clamp(7.5rem, calc(20vw - 10rem), 10rem);
+}
+
+.tarot-hanging--hero .tarot-hanging__sculpture--helios {
+  top: calc(var(--scene-media-top) + var(--scene-media-height) + 5rem);
+  right: max(1.5rem, calc(50% - 45rem));
+  width: clamp(8.5rem, calc(28vw - 16rem), 12rem);
 }
 
 .tarot-hanging__card::before {
@@ -3397,14 +3450,14 @@ h1 {
   content: '';
 }
 
-.tarot-hanging__card img {
+.tarot-hanging :is(.tarot-hanging__card, .tarot-hanging__sculpture) img {
   display: block;
   width: 100%;
   height: auto;
   transition: opacity 180ms ease;
 }
 
-.tarot-hanging__card[data-model-state='ready'] img {
+.tarot-hanging :is(.tarot-hanging__card, .tarot-hanging__sculpture)[data-model-state='ready'] img {
   opacity: 0;
 }
 
@@ -3425,42 +3478,6 @@ h1 {
     inset 0 1px rgba(255, 255, 255, 0.06);
 }
 
-@media (min-width: 1420px) {
-  .album__head,
-  .album__window {
-    position: relative;
-    z-index: 1;
-  }
-
-  .tarot-hanging {
-    position: absolute;
-    z-index: 2;
-    top: 3.8rem;
-    right: max(-8.5rem, calc(36.5rem - 50vw));
-    left: max(-8.5rem, calc(36.5rem - 50vw));
-    display: block;
-    height: 16rem;
-    margin: 0;
-  }
-
-  .tarot-hanging__card {
-    --hang: 2.9rem;
-
-    position: absolute;
-    top: 0;
-  }
-
-  .tarot-hanging__card--sun {
-    left: -0.25rem;
-    width: 8rem;
-  }
-
-  .tarot-hanging__card--moon {
-    right: 0;
-    width: 7.25rem;
-  }
-}
-
 .album__page {
   display: flex;
   flex-direction: column;
@@ -3475,7 +3492,9 @@ h1 {
 
 .album__prompt {
   margin: 0;
-  color: #6f6b64;
+  /* 4.7:1 on the album surface - this line teaches the stamp interaction, so it
+     is instruction rather than decoration */
+  color: #827e76;
   font-family: 'Caveat Note', cursive;
   font-size: 1.15rem;
 }
@@ -4309,6 +4328,18 @@ h1 {
 
 /* one stamp per row is a postcard, not a stamp: hold two columns instead */
 @media (max-width: 560px) {
+  .tarot-hanging--tarot {
+    width: calc(100% - 2rem);
+  }
+
+  .tarot-hanging__card--sun {
+    left: calc(50% - 9.5rem);
+  }
+
+  .tarot-hanging__card--moon {
+    left: calc(50% + 1rem);
+  }
+
   .album__field {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.9rem 0.7rem;

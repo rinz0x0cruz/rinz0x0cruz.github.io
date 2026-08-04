@@ -751,6 +751,8 @@ onBeforeUnmount(() => {
 
     </div>
 
+    <TarotHanging variant="hero" />
+
     <div class="scene__kanji-layer" aria-hidden="true">
       <span
         v-for="(kanji, index) in activeKanji"
@@ -807,8 +809,11 @@ onBeforeUnmount(() => {
             <span class="identity-card__quote-measure" aria-hidden="true">
               <q v-for="quote in quoteOptions" :key="quote">{{ quote }}</q>
             </span>
+            <!-- the animated copy is one span per letter, which a screen reader
+                 spells out; this is the only layer it should read -->
+            <q class="identity-card__quote-spoken">{{ quoteOptions[activeQuoteIndex] }}</q>
             <Transition name="quote-page" mode="out-in" :duration="{ enter: 900, leave: 520 }">
-              <q :key="activeQuoteIndex" class="identity-card__quote">
+              <q :key="activeQuoteIndex" class="identity-card__quote" aria-hidden="true">
                 <template v-for="(word, wordIndex) in activeQuoteWords" :key="wordIndex"><span class="identity-card__quote-word"><span
                   v-for="letter in word"
                   :key="letter.index"
@@ -1233,8 +1238,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <TarotHanging />
-
       <div class="album__window">
         <div
           class="album__page"
@@ -1309,6 +1312,8 @@ onBeforeUnmount(() => {
         </ul>
       </div>
     </section>
+
+    <TarotHanging />
 
     <section
       class="qualifications qualifications--languages"
@@ -1471,6 +1476,17 @@ onBeforeUnmount(() => {
         {{ credit.subject }} by {{ credit.author }},
         <a :href="credit.href" rel="license external">{{ credit.licence }}</a>
       </template>
+    </p>
+
+    <p class="font-credit font-credit--artifacts">
+      3D artifacts:
+      <a href="https://sketchfab.com/3d-models/helios-statue-48a564cc64554bb9961eaad5216d2f2e" rel="external">Helios statue</a>
+      by <a href="https://sketchfab.com/kolen" rel="author external">kolen</a>
+      <span aria-hidden="true">·</span>
+      <a href="https://sketchfab.com/3d-models/fragmentary-colossal-marble-head-of-youth-acc071ea2c3b4938b9460510037a50eb" rel="external">Fragmentary colossal marble head of youth</a>
+      by <a href="https://sketchfab.com/enauman" rel="author external">enauman</a>
+      <span aria-hidden="true">·</span>
+      Adapted under <a href="https://creativecommons.org/licenses/by/4.0/" rel="license external">CC BY 4.0</a>
     </p>
   </footer>
 </template>
