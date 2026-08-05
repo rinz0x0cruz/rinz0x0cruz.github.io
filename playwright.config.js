@@ -15,17 +15,22 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // These smokes check that the page is usable in another engine, not that it
+    // animates, so motion is off: it costs them nothing and gives the actionability
+    // checks a settled box to wait on. They also carry the browser's cold start on
+    // the two slowest engines, which is what the shared 15s budget had no room for,
+    // so they get their own. Chromium keeps the tight budget and its motion, because
+    // its tests deliberately assert both.
     {
       name: 'firefox-smoke',
       testMatch: /cross-browser\.spec\.js/u,
-      // These smokes check that the page is usable in another engine, not that it
-      // animates. Motion is opt-in here, so turning it off gives the actionability
-      // checks a stable box to wait on instead of a perpetually moving one.
+      timeout: 45_000,
       use: { ...devices['Desktop Firefox'], reducedMotion: 'reduce' },
     },
     {
       name: 'webkit-smoke',
       testMatch: /cross-browser\.spec\.js/u,
+      timeout: 45_000,
       use: { ...devices['Desktop Safari'], reducedMotion: 'reduce' },
     },
   ],
