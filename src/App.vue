@@ -49,6 +49,7 @@ const activeQuoteWords = computed(() => {
 })
 const dossierOpen = ref(false)
 const dossierToggle = ref(null)
+const profileDossier = ref(null)
 const experienceRail = ref(null)
 
 // Three cards borrow a photograph of a place. Attribution lives here rather
@@ -558,8 +559,17 @@ function closeDossier() {
   dossierToggle.value?.focus()
 }
 
-function toggleDossier() {
-  dossierOpen.value = !dossierOpen.value
+async function toggleDossier() {
+  const opening = !dossierOpen.value
+  dossierOpen.value = opening
+  if (!opening) return
+
+  await nextTick()
+  pageGlide.stop()
+  profileDossier.value?.scrollIntoView({
+    behavior: reducedMotionMedia?.matches ? 'auto' : 'smooth',
+    block: 'center',
+  })
 }
 
 function handleDossierKeydown(event) {
@@ -666,7 +676,41 @@ onBeforeUnmount(() => {
   <CursorFollower />
 
   <main class="portfolio" aria-label="Portfolio">
+    <header class="recruiter-nav">
+      <a
+        class="recruiter-nav__identity"
+        href="#profile"
+        aria-label="Mohit Sharma, portfolio overview"
+      >
+        <span class="recruiter-nav__monogram" aria-hidden="true">MS</span>
+        <span class="recruiter-nav__identity-copy">
+          <strong>{{ profile.name }}</strong>
+          <small>Security portfolio</small>
+        </span>
+      </a>
+
+      <nav class="recruiter-nav__sections" aria-label="Portfolio sections">
+        <a href="#outcomes">Outcomes</a>
+        <a href="#experience">Experience</a>
+        <a href="#projects">Projects</a>
+        <a href="#languages">Languages</a>
+        <a href="#credentials">Credentials</a>
+      </nav>
+
+      <button
+        class="recruiter-nav__links"
+        type="button"
+        aria-controls="profile-dossier"
+        :aria-expanded="dossierOpen"
+        :aria-label="dossierOpen ? 'Close profile links' : 'Open profile links'"
+        @click="toggleDossier"
+      >
+        {{ dossierOpen ? 'Close links' : 'Open links' }}
+      </button>
+    </header>
+
     <section
+      id="profile"
       class="scene"
       aria-labelledby="portfolio-name"
       :style="{
@@ -797,6 +841,7 @@ onBeforeUnmount(() => {
         <HireHint v-if="!dossierOpen" />
 
         <section
+          ref="profileDossier"
           id="profile-dossier"
           :class="['credential-card__drawer', { 'credential-card__drawer--scrolling': profileLinksScrollable }]"
           :style="{
@@ -839,7 +884,7 @@ onBeforeUnmount(() => {
     </div>
     </section>
 
-    <section ref="achievementDeck" class="achievement-deck" aria-labelledby="achievement-deck-title">
+    <section id="outcomes" ref="achievementDeck" class="achievement-deck" aria-labelledby="achievement-deck-title">
       <div class="achievement-deck__inner">
         <header class="achievement-deck__header">
           <div>
@@ -930,7 +975,7 @@ onBeforeUnmount(() => {
       <TarotHanging variant="sun" />
     </section>
 
-    <section ref="experienceSection" class="experience" aria-labelledby="experience-title">
+    <section id="experience" ref="experienceSection" class="experience" aria-labelledby="experience-title">
       <div class="experience__head">
         <div>
           <p>Experience / {{ String(profile.experience.length).padStart(2, '0') }}</p>
@@ -1162,7 +1207,7 @@ onBeforeUnmount(() => {
 
     <!-- The tools sit in an album rather than a grid: each one is a small
          issued thing you pick up, and the page next to it is the catalogue. -->
-    <section class="album" aria-labelledby="album-title">
+    <section id="projects" class="album" aria-labelledby="album-title">
       <div class="album__head">
         <div>
           <p>Projects / {{ String(profile.projects.length).padStart(2, '0') }}</p>
@@ -1262,6 +1307,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section
+      id="languages"
       class="qualifications qualifications--languages"
       :class="{ 'qualifications--motion': pageVisible }"
       aria-labelledby="languages-title"
@@ -1326,6 +1372,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section
+      id="credentials"
       class="qualifications qualifications--certifications"
       :class="{ 'qualifications--motion': pageVisible }"
       aria-labelledby="certifications-title"

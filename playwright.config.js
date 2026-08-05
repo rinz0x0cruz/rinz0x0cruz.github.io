@@ -18,12 +18,15 @@ export default defineConfig({
     {
       name: 'firefox-smoke',
       testMatch: /cross-browser\.spec\.js/u,
-      use: { ...devices['Desktop Firefox'] },
+      // These smokes check that the page is usable in another engine, not that it
+      // animates. Motion is opt-in here, so turning it off gives the actionability
+      // checks a stable box to wait on instead of a perpetually moving one.
+      use: { ...devices['Desktop Firefox'], reducedMotion: 'reduce' },
     },
     {
       name: 'webkit-smoke',
       testMatch: /cross-browser\.spec\.js/u,
-      use: { ...devices['Desktop Safari'] },
+      use: { ...devices['Desktop Safari'], reducedMotion: 'reduce' },
     },
   ],
   webServer: {

@@ -86,6 +86,53 @@ test('the static page identifies itself to search and social crawlers', async ({
   })
 })
 
+test('recruiter navigation traverses the portfolio and frames opened profile links', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+
+  const index = page.locator('.recruiter-nav')
+  const sections = page.getByRole('navigation', { name: 'Portfolio sections' })
+  const sectionLinks = sections.getByRole('link')
+  await expect(index).toBeVisible()
+  await expect(sectionLinks).toHaveCount(5)
+  expect(await sectionLinks.evaluateAll((links) => links.map((link) => link.getAttribute('href')))).toEqual([
+    '#outcomes',
+    '#experience',
+    '#projects',
+    '#languages',
+    '#credentials',
+  ])
+
+  await sections.getByRole('link', { name: 'Experience' }).click()
+  await expect(page).toHaveURL(/#experience$/u)
+  expect(await page.evaluate(() => {
+    const navigation = document.querySelector('.recruiter-nav').getBoundingClientRect()
+    const section = document.querySelector('#experience').getBoundingClientRect()
+    return {
+      belowNavigation: section.top >= navigation.bottom - 1,
+      nearNavigation: section.top - navigation.bottom <= 16,
+      overflowX: document.documentElement.scrollWidth - innerWidth,
+    }
+  })).toEqual({ belowNavigation: true, nearNavigation: true, overflowX: 0 })
+
+  await page.getByRole('link', { name: 'Mohit Sharma, portfolio overview' }).click()
+  const toggle = page.locator('.credential-card__turn')
+  const before = await page.evaluate(() => scrollY)
+  await toggle.click()
+  await expectDossierDrawer(page)
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before)
+
+  expect(await page.evaluate(() => {
+    const navigation = document.querySelector('.recruiter-nav').getBoundingClientRect()
+    const drawer = document.querySelector('.credential-card__drawer').getBoundingClientRect()
+    return {
+      belowNavigation: drawer.top >= navigation.bottom,
+      fullyVisible: drawer.bottom <= innerHeight,
+    }
+  })).toEqual({ belowNavigation: true, fullyVisible: true })
+})
+
 test('the essential profile remains usable without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({
     baseURL: test.info().project.use.baseURL,
@@ -909,7 +956,7 @@ test('portfolio has no WCAG A or AA violations', async ({ page }) => {
     expect(otherBlindSpots(closed)).toEqual([])
     expect(unscored(closed)).toBeLessThanOrEqual(media.ceiling.closed)
 
-    await page.locator('.credential-card__turn').click()
+    await page.locator('.recruiter-nav__links').click()
     await expectDossierDrawer(page)
     const open = await new AxeBuilder({ page }).withTags(tags).analyze()
     expect(open.violations).toEqual([])
@@ -3080,6 +3127,40 @@ test('certification seals expose exact statuses and only authoritative sources',
   // Issuer and standards pages support the claim; none is presented as a
   // personal verification URL that the repository does not have.
   await expect(page.locator('.certification-press')).not.toContainText('Verified')
+})
+
+test('selecting a certification never exposes transient scrollbars', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('.qualifications--certifications').scrollIntoViewIfNeeded()
+
+  const overflow = await page.locator('.certification-press__seals').evaluate(async (shelf) => {
+    const samples = []
+    const startedAt = performance.now()
+    shelf.querySelector('.certification-seal:last-child').click()
+
+    await new Promise((resolve) => {
+      const sample = () => {
+        samples.push({
+          pageX: document.documentElement.scrollWidth - innerWidth,
+          shelfX: shelf.scrollWidth - shelf.clientWidth,
+          shelfY: shelf.scrollHeight - shelf.clientHeight,
+        })
+        if (performance.now() - startedAt < 850) requestAnimationFrame(sample)
+        else resolve()
+      }
+      requestAnimationFrame(sample)
+    })
+
+    return {
+      pageX: Math.max(...samples.map(({ pageX }) => pageX)),
+      shelfX: Math.max(...samples.map(({ shelfX }) => shelfX)),
+      shelfY: Math.max(...samples.map(({ shelfY }) => shelfY)),
+    }
+  })
+
+  expect(overflow).toEqual({ pageX: 0, shelfX: 0, shelfY: 0 })
 })
 
 test('a certification seal tilts, lifts, and traces the selected source', async ({ page }) => {

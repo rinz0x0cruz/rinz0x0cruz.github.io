@@ -95,6 +95,10 @@ body,
   background: #000;
 }
 
+html {
+  scroll-padding-top: 4rem;
+}
+
 body {
   min-height: 100vh;
   min-height: 100svh;
@@ -109,6 +113,168 @@ body {
   min-height: 100svh;
   overflow: clip;
   background: #000;
+}
+
+.recruiter-nav {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: minmax(12rem, auto) minmax(0, 1fr) auto;
+  min-height: 3.25rem;
+  border-bottom: 1px solid #2d2c29;
+  background: #050505;
+}
+
+.recruiter-nav::after {
+  position: absolute;
+  bottom: -1px;
+  left: 1rem;
+  width: 3rem;
+  height: 1px;
+  background: var(--accent);
+  content: '';
+  pointer-events: none;
+}
+
+.recruiter-nav__identity,
+.recruiter-nav__sections a,
+.recruiter-nav__links {
+  min-height: 3.25rem;
+  color: #cbc6bd;
+  font-family: 'Kiona', sans-serif;
+  letter-spacing: 0;
+  text-decoration: none;
+}
+
+.recruiter-nav__identity {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.4rem 1rem;
+  border-right: 1px solid #24231f;
+}
+
+.recruiter-nav__monogram {
+  color: var(--accent);
+  font-family: 'Mackie Pixel', 'Kiona', sans-serif;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.recruiter-nav__identity-copy {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.recruiter-nav__identity-copy strong,
+.recruiter-nav__identity-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recruiter-nav__identity-copy strong {
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.recruiter-nav__identity-copy small {
+  color: #918c84;
+  font-family: 'Recursive Variable', 'Segoe UI', sans-serif;
+  font-size: 0.64rem;
+}
+
+.recruiter-nav__sections {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.recruiter-nav__sections::-webkit-scrollbar {
+  display: none;
+}
+
+.recruiter-nav__sections a {
+  display: grid;
+  flex: 1 0 auto;
+  min-width: 6.75rem;
+  place-items: center;
+  padding: 0.4rem 0.8rem;
+  border-right: 1px solid #1f1e1b;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.recruiter-nav__links {
+  min-width: 7.5rem;
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  border-left: 1px solid #2d2c29;
+  border-radius: 0;
+  background: #0d0d0c;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.recruiter-nav__identity:hover,
+.recruiter-nav__sections a:hover,
+.recruiter-nav__links:hover,
+.recruiter-nav__links[aria-expanded='true'] {
+  color: var(--accent);
+  background: #15130f;
+}
+
+.recruiter-nav__identity:focus-visible,
+.recruiter-nav__sections a:focus-visible,
+.recruiter-nav__links:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid #e7c88e;
+  outline-offset: -3px;
+}
+
+@media (max-width: 700px) {
+  .recruiter-nav {
+    grid-template-columns: 3.25rem minmax(0, 1fr) 4.75rem;
+  }
+
+  .recruiter-nav::after {
+    left: 0.7rem;
+    width: 1.85rem;
+  }
+
+  .recruiter-nav__identity {
+    grid-template-columns: 1fr;
+    padding-inline: 0.65rem;
+  }
+
+  .recruiter-nav__identity-copy {
+    display: none;
+  }
+
+  .recruiter-nav__sections a {
+    min-width: 5.75rem;
+    padding-inline: 0.65rem;
+    font-size: 0.62rem;
+  }
+
+  .recruiter-nav__links {
+    min-width: 4.75rem;
+    padding-inline: 0.45rem;
+    font-size: 0.6rem;
+  }
 }
 
 .scene {
@@ -3351,9 +3517,9 @@ h1 {
 
   .tarot-hanging--sun {
     top: 15rem;
-    right: calc(50% + 38.5rem);
-    left: auto;
-    width: min(7rem, calc((100vw - 72rem) / 2 - 2.5rem));
+    right: auto;
+    left: max(0rem, calc(50% - 45rem));
+    width: min(6.25rem, calc((100vw - 72rem) / 2 - 2.5rem));
   }
 
   .tarot-hanging--moon {
@@ -4047,7 +4213,7 @@ h1 {
 
 .certification-seal__coin::before {
   position: absolute;
-  inset: -0.35rem;
+  inset: 0.2rem;
   border: 2px solid transparent;
   border-top-color: var(--certification-accent);
   border-right-color: var(--certification-accent);
@@ -4888,6 +5054,11 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .recruiter-nav__sections a,
+  .recruiter-nav__links {
+    transition: none;
+  }
+
   /* the note still turns over, it just stops swinging through the rotation */
   .sticky-note__face {
     transition: none;
@@ -5089,6 +5260,22 @@ h1 {
 
   .scene__window {
     display: none;
+  }
+
+  .recruiter-nav {
+    border-color: CanvasText;
+    background: Canvas;
+  }
+
+  .recruiter-nav::after {
+    background: CanvasText;
+  }
+
+  .recruiter-nav__identity,
+  .recruiter-nav__sections a,
+  .recruiter-nav__links {
+    border-color: CanvasText;
+    background: Canvas;
   }
 
   /* the starfield is decoration and carries no meaning */
