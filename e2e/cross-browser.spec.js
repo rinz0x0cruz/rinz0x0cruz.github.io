@@ -8,8 +8,9 @@ test('portfolio core experience remains usable', async ({ page }) => {
   await expect(page.locator('.album__name')).toBeAttached()
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0)
 
+  // click() scrolls the stamp into view itself; asking first only bought a second
+  // wait for the element to hold still, which is what timed out on a cold runner.
   const project = page.locator('.stamp', { hasText: 'jobscope' })
-  await project.scrollIntoViewIfNeeded()
   await project.click()
   await expect(page.locator('.album__name')).toHaveText('jobscope')
   await expect(project).toHaveAttribute('aria-pressed', 'true')
