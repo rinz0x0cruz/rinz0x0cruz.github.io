@@ -250,6 +250,25 @@ h2 { font-size: 1.75rem; line-height: 1.1; }
 
 .external-post a { font-weight: 700; }
 
+.article-evidence {
+  margin-top: 3.5rem;
+  border-block: 1px solid var(--line);
+  padding: 1.75rem 0;
+  animation: note-rise 620ms var(--motion-enter) 420ms both;
+}
+
+.article-evidence__label {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.article-evidence h2 { margin: 0.35rem 0 0.75rem; }
+.article-evidence__meta { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.article-evidence ol { display: grid; gap: 0.65rem; margin: 1.25rem 0 0; padding-left: 1.25rem; }
+.article-evidence a { overflow-wrap: anywhere; }
+
 .article-footer {
   margin-top: 4rem;
   border-top: 1px solid var(--line);
@@ -333,6 +352,7 @@ h2 { font-size: 1.75rem; line-height: 1.1; }
   .post-cover,
   .post-cover img,
   .article-body,
+  .article-evidence,
   .article-footer,
   .empty-blog,
   .empty-blog::before,
@@ -374,6 +394,7 @@ h2 { font-size: 1.75rem; line-height: 1.1; }
   .article-body pre,
   .media-embed,
   .external-post,
+  .article-evidence,
   .article-footer { border-color: CanvasText; }
   .post-item h2 a { color: LinkText; background: none; text-decoration: underline; }
   .post-item h2 a:hover,
@@ -383,5 +404,7 @@ h2 { font-size: 1.75rem; line-height: 1.1; }
   .media-embed,
   .external-post { background: Canvas; color: CanvasText; }
   .external-post__meta { color: CanvasText; }
+  .article-evidence__label,
+  .article-evidence__meta { color: CanvasText; }
   .empty-blog::before { border-color: CanvasText; }
 }

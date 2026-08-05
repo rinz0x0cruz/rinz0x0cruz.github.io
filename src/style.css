@@ -55,15 +55,6 @@
   font-weight: 400 600;
 }
 
-@font-face {
-  font-family: 'Kouzan Mouhitsu';
-  src: url('/fonts/KouzanMouhitsu-Kanji.woff2') format('woff2');
-  font-display: swap;
-  font-style: normal;
-  font-weight: 400;
-  unicode-range: U+5C45, U+591C, U+5F71, U+6708, U+708E, U+98A8, U+9B3C, U+9B42, U+9CE5;
-}
-
 /* Registered so two scroll timelines can each animate one axis of a picture's
    travel and compose into a single translate. Unregistered custom properties
    are not interpolatable, so the pictures would jump between keyframes. */
@@ -227,50 +218,6 @@ body {
   height: 100%;
   object-fit: cover;
   object-position: center 50%;
-}
-
-.scene__kanji-layer {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  display: none;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.scene__kanji {
-  position: absolute;
-  color: #7d8fa2;
-  font-family: 'Kouzan Mouhitsu', 'Yu Mincho', serif;
-  font-size: 4rem;
-  font-synthesis: none;
-  font-weight: 400;
-  line-height: 0.88;
-  text-orientation: upright;
-  text-shadow:
-    0.025em 0.018em 0 rgba(17, 29, 47, 0.55),
-    0 0 6px rgba(121, 174, 219, 0.28),
-    0 0 18px rgba(65, 119, 176, 0.16);
-  writing-mode: vertical-rl;
-  opacity: 0;
-  user-select: none;
-  transform: translate(-50%, -50%) rotate(var(--kanji-rotation));
-  animation: kanji-ink-fade 9s ease-in-out var(--kanji-delay) infinite;
-}
-
-.scene__kanji--left {
-  top: calc(var(--scene-media-top) + var(--scene-media-height) + 3.5rem);
-  left: max(3.5rem, calc(50% - 38rem));
-}
-
-.scene__kanji--right {
-  top: calc(var(--scene-media-top) + var(--scene-media-height) + 5.75rem);
-  left: min(calc(100% - 3.5rem), calc(50% + 38rem));
-}
-
-.scene__kanji--bottom {
-  top: calc(var(--scene-media-top) + var(--scene-media-height) + 8.75rem);
-  left: max(3.5rem, calc(50% - 38rem));
 }
 
 .identity-card {
@@ -1850,67 +1797,69 @@ h1 {
 
 .site-footer {
   position: relative;
-  overflow: hidden;
-  border-top: 4px solid var(--border);
+  border-top: 1px solid var(--border);
+  background: #050505;
 }
 
-/* The vine art is authored against .achievement-window, so the footer only has
-   to supply the box and re-place the five branches across a wide, short band. */
-.site-footer .achievement-vines {
-  inset: 0;
+.site-footer__credits {
+  width: min(72rem, calc(100% - 2rem));
+  margin-inline: auto;
 }
 
-.site-footer .achievement-vines__branch--crown {
-  top: -3.4rem;
-  left: -1.5rem;
-  width: clamp(15rem, 30%, 24rem);
+.site-footer__credits > summary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  color: #aaa49a;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  list-style: none;
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
-.site-footer .achievement-vines__branch--runner {
-  top: -2.2rem;
-  right: 26%;
-  width: clamp(13rem, 25%, 20rem);
-}
-
-.site-footer .achievement-vines__branch--drop {
-  top: -1.5rem;
-  right: 19%;
-  width: 3.6rem;
-}
-
-.site-footer .achievement-vines__branch--climb {
-  top: auto;
-  bottom: -1.75rem;
-  left: 24%;
-  width: 3.2rem;
-}
-
-.site-footer .achievement-vines__branch--return {
-  right: -1.5rem;
-  bottom: -2.4rem;
-  width: clamp(13rem, 27%, 21rem);
-}
-
-.site-footer .achievement-vines__growth {
+.site-footer__credits > summary::-webkit-details-marker {
   display: none;
 }
 
-.font-credit {
-  position: relative;
-  z-index: 1;
-  width: min(72rem, calc(100% - 4rem));
-  margin: 0 auto;
-  padding-block: 3rem;
-  color: #8f897f;
-  font-size: 0.75rem;
-  line-height: 1.4;
-  text-align: center;
+.site-footer__credits > summary::after {
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.2rem;
+  border-right: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  content: '';
+  transform: rotate(45deg);
+  transition: transform 180ms ease;
 }
 
-/* following credit lines continue the first rather than reopening the footer */
-.font-credit--photos,
-.font-credit--artifacts {
-  padding-top: 0;
+.site-footer__credits[open] > summary::after {
+  transform: rotate(225deg);
+}
+
+.site-footer__credits > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.site-footer__credit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  padding: 0.75rem 0 1rem;
+  border-top: 1px solid #24231f;
+}
+
+.font-credit {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  color: #8f897f;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-align: left;
 }
 
 .font-credit a {
@@ -2841,21 +2790,21 @@ h1 {
   transform: rotate(164deg);
 }
 
-:is(.achievement-window--active, .site-footer--grown) .achievement-vines {
+.achievement-window--active .achievement-vines {
   animation: achievement-vines-arrive 180ms 220ms ease-out both;
 }
 
-:is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem-shadow,
-:is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem,
-:is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem-light {
+.achievement-window--active .achievement-vines__stem-shadow,
+.achievement-window--active .achievement-vines__stem,
+.achievement-window--active .achievement-vines__stem-light {
   animation: achievement-vine-grow 900ms var(--vine-delay) cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-:is(.achievement-window--active, .site-footer--grown) .achievement-vines__tendril {
+.achievement-window--active .achievement-vines__tendril {
   animation: achievement-vine-grow 660ms calc(var(--vine-delay) + 260ms) cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-:is(.achievement-window--active, .site-footer--grown) .achievement-vines__leaf {
+.achievement-window--active .achievement-vines__leaf {
   animation: achievement-vine-unfurl 320ms calc(var(--vine-delay) + var(--leaf-delay)) cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -2867,8 +2816,8 @@ h1 {
   animation: achievement-vine-sprout 520ms 920ms steps(1, end) both;
 }
 
-:is(.achievement-window--ambient, .site-footer--grown) .achievement-vines__leaf-sway,
-:is(.achievement-window--ambient, .site-footer--grown) .achievement-vines .achievement-vines__branch .achievement-vines__leaf-face {
+.achievement-window--ambient .achievement-vines__leaf-sway,
+.achievement-window--ambient .achievement-vines .achievement-vines__branch .achievement-vines__leaf-face {
   animation-play-state: running;
 }
 
@@ -3365,10 +3314,18 @@ h1 {
   pointer-events: none;
 }
 
-.tarot-hanging--tarot {
-  width: min(72rem, calc(100% - 4rem));
-  height: 16rem;
-  margin: 1.3rem auto;
+.tarot-hanging--sun,
+.tarot-hanging--moon {
+  width: 7rem;
+  height: 13.5rem;
+}
+
+.tarot-hanging--sun {
+  margin: 1.5rem auto 0 1rem;
+}
+
+.tarot-hanging--moon {
+  margin: 1.5rem 1rem 0 auto;
 }
 
 .tarot-hanging--hero {
@@ -3381,6 +3338,27 @@ h1 {
 @media (min-width: 1360px) and (min-height: 641px) {
   .tarot-hanging--hero {
     display: block;
+  }
+
+  .tarot-hanging--sun,
+  .tarot-hanging--moon {
+    position: absolute;
+    z-index: 3;
+    width: min(8rem, calc((100vw - 72rem) / 2 - 0.75rem));
+    height: 15.5rem;
+    margin: 0;
+  }
+
+  .tarot-hanging--sun {
+    top: 15rem;
+    right: calc(50% + 38.5rem);
+    left: auto;
+    width: min(7rem, calc((100vw - 72rem) / 2 - 2.5rem));
+  }
+
+  .tarot-hanging--moon {
+    top: 7rem;
+    right: calc((72rem - 100vw) / 2 + 0.5rem);
   }
 }
 
@@ -3402,24 +3380,17 @@ h1 {
 }
 
 .tarot-hanging__card--sun {
-  left: calc(50% - 12rem);
-  width: 8rem;
-  rotate: -2.5deg;
+  left: 0;
+  width: 100%;
+  rotate: -4deg;
 }
 
 .tarot-hanging__card--moon {
-  left: calc(50% + 4rem);
-  rotate: 2deg;
-}
-
-.tarot-hanging--hero .tarot-hanging__sculpture--head {
-  top: calc(
-    var(--scene-media-top) + var(--scene-media-height)
-    + clamp(6.0625rem, calc(6.5vw + 0.375rem), 6.875rem)
-    + 2rem
-  );
-  left: max(1rem, calc(50% - 45rem));
-  width: clamp(7.5rem, calc(20vw - 10rem), 10rem);
+  top: 0.5rem;
+  right: 0;
+  left: auto;
+  width: 100%;
+  rotate: 3deg;
 }
 
 .tarot-hanging--hero .tarot-hanging__sculpture--helios {
@@ -3484,6 +3455,7 @@ h1 {
   align-items: flex-start;
   padding-right: 1.5rem;
   border-right: 1px solid #26251f;
+  background: #0c0c0a;
 }
 
 .album__page--empty {
@@ -3501,7 +3473,7 @@ h1 {
 
 .album__catalogue {
   margin: 0 0 0.5rem;
-  color: #6f6b64;
+  color: #918c84;
   font-family: 'Mackie Pixel', 'Kiona', sans-serif;
   font-size: 12px;
   letter-spacing: 0.16em;
@@ -3588,7 +3560,7 @@ h1 {
 }
 
 .album__facts dt {
-  color: #6f6b64;
+  color: #918c84;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -3646,14 +3618,16 @@ h1 {
   font-family: 'Kiona', sans-serif;
   font-size: 0.7rem;
   letter-spacing: 0.1em;
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.25em;
   text-transform: uppercase;
-  background: linear-gradient(currentcolor, currentcolor) 0 100% / 0 1px no-repeat;
+  transition: text-decoration-color 180ms ease;
 }
 
 .album__links a:hover,
 .album__links a:focus-visible {
-  background-size: 100% 1px;
+  text-decoration-color: currentcolor;
 }
 
 .album__field {
@@ -3785,9 +3759,16 @@ h1 {
 }
 
 .stamp--held .stamp__paper {
-  --pop: 30px;
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  --pop: 0px;
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    inset 0 1px rgba(255, 255, 255, 0.7),
+    inset 0 -2px 2px rgba(60, 52, 38, 0.24);
+}
+
+.stamp--held:hover .stamp__paper,
+.stamp--held:focus-visible .stamp__paper {
+  --pop: 16px;
 }
 
 /* tipped out of the album rather than laid in rows */
@@ -3806,6 +3787,7 @@ h1 {
 /* ---- Languages and certifications ------------------------------------- */
 
 .qualifications__instrument {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-height: 24rem;
@@ -3818,8 +3800,25 @@ h1 {
     inset 0 1px rgba(255, 255, 255, 0.06);
 }
 
+.qualifications__instrument::before {
+  position: absolute;
+  top: -1px;
+  left: 1.2rem;
+  z-index: 2;
+  width: 3.5rem;
+  height: 1px;
+  background: var(--accent);
+  content: '';
+  opacity: 0.78;
+  pointer-events: none;
+}
+
 .qualifications--languages .qualifications__instrument {
   min-height: 0;
+}
+
+.qualifications--languages + .qualifications--certifications {
+  margin-top: clamp(3.5rem, 8vh, 5rem);
 }
 
 .qualifications--certifications {
@@ -4310,6 +4309,10 @@ h1 {
   .tarot-hanging {
     display: none;
   }
+
+  .qualifications__instrument::before {
+    display: none;
+  }
 }
 
 @media (max-width: 900px) {
@@ -4328,18 +4331,6 @@ h1 {
 
 /* one stamp per row is a postcard, not a stamp: hold two columns instead */
 @media (max-width: 560px) {
-  .tarot-hanging--tarot {
-    width: calc(100% - 2rem);
-  }
-
-  .tarot-hanging__card--sun {
-    left: calc(50% - 9.5rem);
-  }
-
-  .tarot-hanging__card--moon {
-    left: calc(50% + 1rem);
-  }
-
   .album__field {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.9rem 0.7rem;
@@ -4760,47 +4751,6 @@ h1 {
   }
 }
 
-@keyframes kanji-ink-fade {
-  0%,
-  12%,
-  88%,
-  100% {
-    opacity: 0;
-  }
-
-  38%,
-  62% {
-    opacity: 0.34;
-  }
-}
-
-@media (min-width: 1280px) and (min-height: 700px) {
-  .scene__kanji-layer {
-    display: block;
-  }
-}
-
-@media (min-width: 1400px) and (min-height: 850px) {
-  .scene__kanji--left,
-  .scene__kanji--right {
-    top: calc(var(--scene-media-top) + var(--scene-media-height) + 5rem);
-  }
-
-  .scene__kanji--left {
-    left: calc(25% - 15.5rem);
-  }
-
-  .scene__kanji--right {
-    left: calc(75% + 15.5rem);
-  }
-
-  .scene__kanji--bottom {
-    top: calc(100vh - 5.5rem);
-    top: calc(100svh - 5.5rem);
-    left: calc(25% - 15.5rem);
-  }
-}
-
 @media (max-width: 999px) {
   .scene__content {
     --card-offset-y: 0rem;
@@ -4881,33 +4831,10 @@ h1 {
     line-height: 1.25;
   }
 
-  .font-credit {
-    width: calc(100% - 2rem);
-  }
-
-  /* There is no room beside a 2-line credit at this width, so the vines keep to
-     the padding above and a sliver below instead of crossing the text. */
-  .site-footer .achievement-vines__branch--drop,
-  .site-footer .achievement-vines__branch--climb {
-    display: none;
-  }
-
-  .site-footer .achievement-vines__branch--crown {
-    top: -2.4rem;
-    left: -1.25rem;
-    width: 8.5rem;
-  }
-
-  .site-footer .achievement-vines__branch--runner {
-    top: -1.9rem;
-    right: -1rem;
-    width: 8rem;
-  }
-
-  .site-footer .achievement-vines__branch--return {
-    right: 22%;
-    bottom: -2rem;
-    width: 8.5rem;
+  .site-footer__credit-grid {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+    padding-block: 0.65rem 0.8rem;
   }
 
 }
@@ -4997,11 +4924,6 @@ h1 {
     display: none;
   }
 
-  .scene__kanji {
-    opacity: 0;
-    animation: none;
-  }
-
   .quote-page-enter-active,
   .quote-page-leave-active {
     transition: none;
@@ -5068,13 +4990,13 @@ h1 {
   .achievement-window--active .achievement-filigree__path--thread,
   .achievement-window--active .achievement-filigree__leaves path,
   .achievement-window--active .achievement-filigree__stitch,
-  :is(.achievement-window--active, .site-footer--grown) .achievement-vines,
-  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem-shadow,
-  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem,
-  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__stem-light,
-  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__tendril,
-  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__leaf,
-  :is(.achievement-window--active, .site-footer--grown) .achievement-vines__growth,
+  .achievement-window--active .achievement-vines,
+  .achievement-window--active .achievement-vines__stem-shadow,
+  .achievement-window--active .achievement-vines__stem,
+  .achievement-window--active .achievement-vines__stem-light,
+  .achievement-window--active .achievement-vines__tendril,
+  .achievement-window--active .achievement-vines__leaf,
+  .achievement-window--active .achievement-vines__growth,
   .achievement-vines__leaf-sway,
   .achievement-vines__leaf-face {
     animation: none;
@@ -5151,7 +5073,7 @@ h1 {
   }
 
   :where(.portfolio, .site-footer) :where(
-    h1, h2, h3, h4, p, span, small, strong, b, em, dt, dd, label, li
+    h1, h2, h3, h4, p, span, small, strong, b, em, dt, dd, label, li, summary
   ) {
     color: CanvasText !important;
     text-shadow: none;
@@ -5165,8 +5087,7 @@ h1 {
     color: ButtonText !important;
   }
 
-  .scene__window,
-  .scene__kanji-layer {
+  .scene__window {
     display: none;
   }
 

@@ -175,6 +175,68 @@ test('enforces metadata and content boundaries', () => {
   }
 })
 
+test('validates, serializes, and renders evidence metadata', () => {
+  const sources = [
+    'https://www.first.org/tlp/',
+    'https://attack.mitre.org/techniques/enterprise/',
+  ]
+  const post = validatePost({
+    slug: 'evidence-note',
+    metadata: {
+      title: 'Evidence note',
+      summary: 'A bounded set of inspectable primary sources.',
+      published: '2026-08-03',
+      snapshotDate: '2026-08-02',
+      tlp: 'TLP:CLEAR',
+      sources,
+    },
+    body: 'Evidence remains separate from inference.',
+  })
+
+  assert.deepEqual(post.sources, sources)
+  assert.equal(post.snapshotDate, '2026-08-02')
+  assert.equal(post.tlp, 'TLP:CLEAR')
+  assert.deepEqual(parsePostSource(serializePost(post), post.slug), post)
+
+  const article = renderArticle(post)
+  assert.match(article, /class="article-evidence"/u)
+  assert.match(article, /Evidence snapshot/u)
+  assert.match(article, /TLP:CLEAR/u)
+  const structuredData = JSON.parse(article.match(
+    /<script type="application\/ld\+json">([^<]+)<\/script>/u,
+  )[1])
+  assert.deepEqual(structuredData.citation, sources)
+
+  const valid = {
+    slug: 'evidence-boundary',
+    metadata: {
+      title: 'Evidence boundary',
+      summary: 'Validation cases for public evidence metadata.',
+      published: '2026-08-03',
+      snapshotDate: '2026-08-02',
+      tlp: 'TLP:CLEAR',
+      sources: ['https://example.com/source'],
+    },
+    body: 'Evidence.',
+  }
+  const cases = [
+    ['non-array sources', (value) => { value.metadata.sources = 'https://example.com' }, /at most 12/u],
+    ['too many sources', (value) => { value.metadata.sources = Array.from({ length: 13 }, (_, index) => `https://example.com/${index}`) }, /at most 12/u],
+    ['insecure source', (value) => { value.metadata.sources = ['http://example.com'] }, /HTTPS/u],
+    ['credentialed source', (value) => { value.metadata.sources = ['https://user:secret@example.com'] }, /HTTPS/u],
+    ['duplicate source', (value) => { value.metadata.sources.push('https://example.com/source') }, /must be unique/u],
+    ['missing snapshot', (value) => { delete value.metadata.snapshotDate }, /snapshotDate is required/u],
+    ['snapshot without sources', (value) => { delete value.metadata.sources; delete value.metadata.tlp }, /requires at least one source/u],
+    ['snapshot after post', (value) => { value.metadata.snapshotDate = '2026-08-04' }, /cannot follow/u],
+    ['non-public TLP', (value) => { value.metadata.tlp = 'TLP:AMBER' }, /only use TLP:CLEAR/u],
+  ]
+  for (const [label, mutate, expected] of cases) {
+    const value = structuredClone(valid)
+    mutate(value)
+    assert.throws(() => validatePost(value), expected, label)
+  }
+})
+
 test('builds physical articles, index, RSS, sitemap, and robots', async () => {
   const root = await mkdtemp(join(tmpdir(), 'portfolio-blog-'))
   const posts = join(root, 'posts')
@@ -184,7 +246,8 @@ test('builds physical articles, index, RSS, sitemap, and robots', async () => {
   await writeFile(join(posts, 'earliest-public-poc-signals.md'), sourceWithCover, 'utf8')
   await writeFile(join(output, 'blog', 'media', 'earliest-public-poc-signals', 'cover.png'), png)
 
-  const built = await buildBlog({ postsDir: posts, outDir: output })
+  const revision = 'a'.repeat(40)
+  const built = await buildBlog({ postsDir: posts, outDir: output, revision })
   assert.equal(built.length, 1)
   const index = await readFile(join(output, 'blog', 'index.html'), 'utf8')
   assert.match(index, /<title>Security field notes — Mohit Sharma<\/title>/u)
@@ -203,6 +266,10 @@ test('builds physical articles, index, RSS, sitemap, and robots', async () => {
   assert.match(sitemap, /\/exploitrank\//u)
   assert.match(sitemap, /\/malscope-dashboard\//u)
   assert.match(await readFile(join(output, 'robots.txt'), 'utf8'), /Sitemap:/u)
+  assert.deepEqual(
+    JSON.parse(await readFile(join(output, 'build-meta.json'), 'utf8')),
+    { revision },
+  )
   assert.deepEqual(
     await readFile(join(output, 'blog', 'media', 'earliest-public-poc-signals', 'cover.png')),
     png,

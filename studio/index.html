@@ -26,6 +26,9 @@
         <label>Published<input name="published" type="date"></label>
         <label>Updated<input name="updated" type="date"></label>
         <label class="wide">Tags<input name="tags" placeholder="Security, Measurement"></label>
+        <label>Evidence snapshot<input name="snapshotDate" type="date"></label>
+        <label>Sharing<select name="tlp"><option value="">Not specified</option><option value="TLP:CLEAR">TLP:CLEAR</option></select></label>
+        <label class="wide">Evidence sources<textarea name="sources" maxlength="6012" rows="3" placeholder="One HTTPS source URL per line"></textarea></label>
         <label class="wide">Cover path<input name="cover" maxlength="240" placeholder="/blog/media/post-slug/cover.webp"></label>
         <label class="wide">Cover alt<input name="coverAlt" maxlength="180"></label>
         <label class="wide">Images<input name="media" type="file" accept="image/avif,image/gif,image/jpeg,image/png,image/webp" multiple></label>

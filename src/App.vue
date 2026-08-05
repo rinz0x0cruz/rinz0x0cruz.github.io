@@ -10,6 +10,7 @@ import CompanyMark from './components/CompanyMark.vue'
 import GoldFiligree from './components/GoldFiligree.vue'
 import StickyNote from './components/StickyNote.vue'
 import TarotHanging from './components/TarotHanging.vue'
+import { scheduleIdleEnhancement } from './loading.js'
 import { glide, impulseFor } from './motion.js'
 import profile from './profile.js'
 
@@ -291,7 +292,7 @@ function turn(id) {
 
 // which stamp is being held, how the album is arranged, and the loose lean each
 // stamp takes when the collection is tipped out rather than laid in rows
-const focused = ref(null)
+const focused = ref(profile.projects[0]?.id ?? null)
 const albumSort = ref('field')
 const albumScatter = ref(false)
 const scatter = ref({})
@@ -307,7 +308,7 @@ const arrangedProjects = computed(() => {
 })
 
 function holdStamp(id) {
-  focused.value = focused.value === id ? null : id
+  focused.value = id
 }
 
 function shuffleAlbum() {
@@ -495,11 +496,8 @@ const instrumentStatuses = ref([])
 const instrumentsVisible = ref(false)
 const achievementInView = ref(false)
 const landscapeVideo = ref(null)
-const siteFooter = ref(null)
-const footerGrown = ref(false)
 let achievementObserver
 let achievementVisibilityObserver
-let footerObserver
 let achievementIntersecting = false
 let quoteRotationTimer
 let reducedMotionMedia
@@ -507,6 +505,7 @@ let forcedColorsMedia
 let landscapeVideoStopping = false
 let landscapeVideoArmed = false
 let startLandscapeVideo
+let cancelLandscapeVideoStart = () => {}
 
 function stopQuoteRotation() {
   window.clearInterval(quoteRotationTimer)
@@ -608,37 +607,6 @@ async function activateAchievementWindow() {
   instrumentsVisible.value = true
 }
 
-// The brush webfont is a 9-glyph subset (U+5C45 591C 5F71 6708 708E 98A8 9B3C
-// 9B42 9CE5). Any other kanji silently falls back to a serif face, so these
-// pools may only draw from that set.
-const singleKanjiOptions = ['影', '鬼', '夜', '鳥', '炎', '風', '魂']
-const kanjiOptions = ['鳥居', ...singleKanjiOptions, '炎鳥', '夜風', '鬼影', '炎魂', '風魂', '夜魂', '鳥影']
-const kanjiSlots = ['left', 'right', 'bottom']
-const activeKanji = ref([
-  // delays are a third of the cycle apart, so they must track the duration in
-  // .scene__kanji or the three fade together instead of taking turns
-  { text: singleKanjiOptions[0], slot: kanjiSlots[0], rotation: '-7deg', delay: '0s' },
-  { text: singleKanjiOptions[1], slot: kanjiSlots[1], rotation: '5deg', delay: '-3s' },
-  { text: kanjiOptions[0], slot: kanjiSlots[2], rotation: '-2deg', delay: '-6s' },
-])
-
-function randomizeKanji(index) {
-  const current = activeKanji.value[index]
-  const slotOptions = current.slot === 'bottom' ? kanjiOptions : singleKanjiOptions
-  const candidates = slotOptions.filter((option) => (
-    option !== current.text && !activeKanji.value.some((kanji, activeIndex) => activeIndex !== index && kanji.text === option)
-  ))
-
-  activeKanji.value[index] = {
-    text: candidates[Math.floor(Math.random() * candidates.length)],
-    slot: current.slot,
-    rotation: `${-10 + Math.random() * 20}deg`,
-    delay: current.delay,
-  }
-}
-
-activeKanji.value.forEach((_, index) => randomizeKanji(index))
-
 onMounted(() => {
   landscapeVideoStopping = false
   landscapeVideoArmed = false
@@ -659,15 +627,6 @@ onMounted(() => {
     syncPageState()
   }, { threshold: 0.01 })
   achievementVisibilityObserver.observe(achievementWindow.value)
-  // The footer vines only read as growth if they start when the footer is
-  // reached, so they wait rather than running out of sight during the scroll.
-  footerObserver = new IntersectionObserver(([entry]) => {
-    if (!entry.isIntersecting) return
-
-    footerGrown.value = true
-    footerObserver.disconnect()
-  }, { rootMargin: '80px' })
-  footerObserver.observe(siteFooter.value)
   syncPageState()
 
   // The loop is decoration. preload="none" keeps its video payload out of the critical
@@ -675,6 +634,7 @@ onMounted(() => {
   startLandscapeVideo = () => {
     if (
       landscapeVideoStopping
+      || landscapeVideoArmed
       || prefersReducedData()
       || reducedMotionMedia.matches
       || forcedColorsMedia.matches
@@ -683,8 +643,7 @@ onMounted(() => {
     landscapeVideo.value?.load()
     syncLandscapeVideo()
   }
-  if (document.readyState === 'complete') startLandscapeVideo()
-  else window.addEventListener('load', startLandscapeVideo, { once: true })
+  cancelLandscapeVideoStart = scheduleIdleEnhancement(startLandscapeVideo)
 })
 
 onBeforeUnmount(() => {
@@ -693,12 +652,11 @@ onBeforeUnmount(() => {
   pageGlide.stop()
   window.removeEventListener('wheel', handlePageWheel)
   document.removeEventListener('visibilitychange', syncPageState)
-  if (startLandscapeVideo) window.removeEventListener('load', startLandscapeVideo)
+  cancelLandscapeVideoStart()
   reducedMotionMedia?.removeEventListener('change', handleReducedMotionChange)
   forcedColorsMedia?.removeEventListener('change', handleForcedColorsChange)
   achievementObserver?.disconnect()
   achievementVisibilityObserver?.disconnect()
-  footerObserver?.disconnect()
   stopQuoteRotation()
   landscapeVideo.value?.pause()
 })
@@ -752,19 +710,6 @@ onBeforeUnmount(() => {
     </div>
 
     <TarotHanging variant="hero" />
-
-    <div class="scene__kanji-layer" aria-hidden="true">
-      <span
-        v-for="(kanji, index) in activeKanji"
-        :key="kanji.slot"
-        :class="['scene__kanji', `scene__kanji--${kanji.slot}`]"
-        :style="{
-          '--kanji-rotation': kanji.rotation,
-          '--kanji-delay': kanji.delay,
-        }"
-        @animationiteration="randomizeKanji(index)"
-      >{{ kanji.text }}</span>
-    </div>
 
     <div
       :class="['scene__content', { 'scene__content--dossier-open': dossierOpen }]"
@@ -982,6 +927,7 @@ onBeforeUnmount(() => {
           </component>
         </div>
       </div>
+      <TarotHanging variant="sun" />
     </section>
 
     <section ref="experienceSection" class="experience" aria-labelledby="experience-title">
@@ -1028,6 +974,7 @@ onBeforeUnmount(() => {
                   :alt="profile.portrait.alt"
                   :width="profile.portrait.w"
                   :height="profile.portrait.h"
+                  loading="lazy"
                   decoding="async"
                 />
                 <span class="plate-credit">
@@ -1311,9 +1258,8 @@ onBeforeUnmount(() => {
           </li>
         </ul>
       </div>
+      <TarotHanging variant="moon" />
     </section>
-
-    <TarotHanging />
 
     <section
       class="qualifications qualifications--languages"
@@ -1452,41 +1398,37 @@ onBeforeUnmount(() => {
     </section>
   </main>
 
-  <footer
-    ref="siteFooter"
-    class="site-footer"
-    :class="{ 'site-footer--grown': footerGrown }"
-  >
-    <AchievementVines />
+  <footer class="site-footer">
+    <details class="site-footer__credits">
+      <summary>Credits &amp; licenses</summary>
+      <div class="site-footer__credit-grid">
+        <p class="font-credit">
+          Danviska by <a href="https://pixesia.com/danviska/" rel="author external">Pixesia&nbsp;Studio</a>
+          <span aria-hidden="true">·</span>
+          Webfont via <a href="https://www.onlinewebfonts.com" rel="external">OnlineWebFonts</a>
+          <span aria-hidden="true">·</span>
+          Mackie&nbsp;Pixel by rinzler
+          <span aria-hidden="true">·</span>
+          <a href="https://fonts.google.com/specimen/Pixelify+Sans" rel="external">Pixelify&nbsp;Sans</a> under the SIL&nbsp;Open&nbsp;Font&nbsp;License
+        </p>
 
-    <p class="font-credit">
-      Danviska by <a href="https://pixesia.com/danviska/" rel="author external">Pixesia&nbsp;Studio</a>
-      <span aria-hidden="true">·</span>
-      Webfont via <a href="https://www.onlinewebfonts.com" rel="external">OnlineWebFonts</a>
-      <span aria-hidden="true">·</span>
-      Mackie&nbsp;Pixel by rinzler
-      <span aria-hidden="true">·</span>
-      <a href="https://fonts.google.com/specimen/Pixelify+Sans" rel="external">Pixelify&nbsp;Sans</a> under the SIL&nbsp;Open&nbsp;Font&nbsp;License
-    </p>
+        <p class="font-credit font-credit--photos">
+          Place photographs:
+          <template v-for="(credit, index) in photoCredits" :key="credit.subject">
+            <span v-if="index" aria-hidden="true"> · </span>
+            {{ credit.subject }} by {{ credit.author }},
+            <a :href="credit.href" rel="license external">{{ credit.licence }}</a>
+          </template>
+        </p>
 
-    <p class="font-credit font-credit--photos">
-      Place photographs:
-      <template v-for="(credit, index) in photoCredits" :key="credit.subject">
-        <span v-if="index" aria-hidden="true"> · </span>
-        {{ credit.subject }} by {{ credit.author }},
-        <a :href="credit.href" rel="license external">{{ credit.licence }}</a>
-      </template>
-    </p>
-
-    <p class="font-credit font-credit--artifacts">
-      3D artifacts:
-      <a href="https://sketchfab.com/3d-models/helios-statue-48a564cc64554bb9961eaad5216d2f2e" rel="external">Helios statue</a>
-      by <a href="https://sketchfab.com/kolen" rel="author external">kolen</a>
-      <span aria-hidden="true">·</span>
-      <a href="https://sketchfab.com/3d-models/fragmentary-colossal-marble-head-of-youth-acc071ea2c3b4938b9460510037a50eb" rel="external">Fragmentary colossal marble head of youth</a>
-      by <a href="https://sketchfab.com/enauman" rel="author external">enauman</a>
-      <span aria-hidden="true">·</span>
-      Adapted under <a href="https://creativecommons.org/licenses/by/4.0/" rel="license external">CC BY 4.0</a>
-    </p>
+        <p class="font-credit font-credit--artifacts">
+          3D artifacts:
+          <a href="https://sketchfab.com/3d-models/helios-statue-48a564cc64554bb9961eaad5216d2f2e" rel="external">Helios statue</a>
+          by <a href="https://sketchfab.com/kolen" rel="author external">kolen</a>
+          <span aria-hidden="true">·</span>
+          Adapted under <a href="https://creativecommons.org/licenses/by/4.0/" rel="license external">CC BY 4.0</a>
+        </p>
+      </div>
+    </details>
   </footer>
 </template>

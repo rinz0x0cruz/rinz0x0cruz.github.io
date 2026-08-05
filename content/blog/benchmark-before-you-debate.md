@@ -7,6 +7,15 @@ tags:
   - Benchmarking
   - LLM
   - Reproducibility
+snapshotDate: 2026-08-03
+tlp: TLP:CLEAR
+sources:
+  - https://github.com/rinz0x0cruz/quorum/blob/main/quorum/grade.py
+  - https://github.com/rinz0x0cruz/quorum/tree/main/evals/packs
+  - https://arxiv.org/abs/2306.05685
+  - https://www.nist.gov/itl/ai-risk-management-framework
+  - https://arxiv.org/abs/2311.17371
+  - https://github.com/rinz0x0cruz/quorum
 ---
 
 ## A beautiful score for a wrong answer

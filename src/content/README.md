@@ -2,7 +2,8 @@
 
 Add, remove, or reorder records in the matching file. `profile.js` assembles
 them for the existing components; it should not need to change when content is
-added.
+added. The content layer is plain JavaScript data and requires no AI service or
+content-management system.
 
 | Feature | File | Required fields |
 | --- | --- | --- |
@@ -22,6 +23,12 @@ Languages and certifications keep the first record selected initially.
 Project `links` are optional `{ label, href }` records. Destinations must be
 unique HTTPS URLs on `github.com` or `rinz0x0cruz.github.io`; private projects
 use `note` instead of inventing a public source.
+
+Images referenced by a content record belong under `public/` and use a
+root-relative URL such as `/experience/example.webp`. Supply intrinsic `w` and
+`h` values, meaningful `alt` text, a stable focal `position`, and source/licence
+metadata when the image is not original work. Keep public photo attribution in
+`public/PHOTO-NOTICE.md` and in the record's `credit` object.
 
 The responsive fixtures verify eight skills, links, languages, and
 certifications; ten achievements; and twelve experience/project records.
@@ -54,4 +61,18 @@ is used; with one, keep the model path and rotation beside the achievement:
 
 Run `npm run test:profile` after editing content, then `npm test` before
 publishing. The profile test rejects empty collections, missing required fields,
-and duplicate IDs.
+and duplicate IDs. The browser suite also exercises larger synthetic collections,
+so do not hard-code layout dimensions to today's record count.
+
+## Human editing workflow
+
+1. Edit only the matching module in this directory.
+2. Put any new public asset and its provenance notice under `public/`.
+3. Run `npm run test:profile`.
+4. Run `npm run dev` and inspect the affected desktop and mobile section.
+5. Run `npm run test:smoke` for a bounded browser check.
+6. Run `npm test` before opening or merging the final pull request.
+
+If validation reports a duplicate ID, missing field, unsupported link, or page
+overflow, correct the content or responsive layout rather than weakening the
+validator. Generated `dist/` files are never the editing source.

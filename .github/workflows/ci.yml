@@ -25,7 +25,8 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npm run audit
+      - run: npm run setup:browsers:with-deps
       - run: npm test
       # npm test builds before running the suite, so dist is exactly what passed
       - name: Upload Pages artifact
@@ -61,20 +62,26 @@ jobs:
     steps:
       - name: Verify live site
         env:
+          EXPECTED_REVISION: ${{ github.sha }}
           PAGE_URL: ${{ needs.deploy.outputs.page_url }}
         run: |
           set -euo pipefail
           base_url="${PAGE_URL%/}"
+          verify_revision() {
+            python3 -c 'import json, os, sys; metadata = json.load(sys.stdin); sys.exit(0 if metadata.get("revision") == os.environ["EXPECTED_REVISION"] else 1)'
+          }
           for attempt in {1..12}; do
             if html="$(curl --fail --silent --show-error --location "$base_url/")" \
               && blog="$(curl --fail --silent --show-error --location "$base_url/blog/")" \
+              && build_meta="$(curl --fail --silent --show-error --location "$base_url/build-meta.json")" \
               && grep -Fq '<title>Mohit Sharma — Security Researcher</title>' <<<"$html" \
               && grep -Fq 'content="https://rinz0x0cruz.github.io/social-card.jpg"' <<<"$html" \
-              && grep -Fq '<link rel="canonical" href="https://rinz0x0cruz.github.io/blog/">' <<<"$blog"; then
+              && grep -Fq '<link rel="canonical" href="https://rinz0x0cruz.github.io/blog/">' <<<"$blog" \
+              && verify_revision <<<"$build_meta"; then
               break
             fi
             if [[ "$attempt" == 12 ]]; then
-              echo "Expected portfolio and blog artifacts did not reach $PAGE_URL" >&2
+              echo "Revision $EXPECTED_REVISION and its expected artifacts did not reach $PAGE_URL" >&2
               exit 1
             fi
             sleep 5

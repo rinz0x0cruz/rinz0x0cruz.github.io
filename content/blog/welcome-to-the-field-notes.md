@@ -7,6 +7,13 @@ tags:
   - Security research
   - Threat intelligence
   - ATT&CK
+snapshotDate: 2026-08-03
+tlp: TLP:CLEAR
+sources:
+  - https://attack.mitre.org/
+  - https://github.com/rinz0x0cruz/exploitrank
+  - https://github.com/rinz0x0cruz/malscope-dashboard
+  - https://github.com/rinz0x0cruz/quorum
 ---
 
 ## The first draft behaved too well

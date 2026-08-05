@@ -13,24 +13,67 @@ let server
 let state
 
 test.beforeEach(async () => {
-  state = { drafts: new Map(), media: [], published: [], pullRequestState: 'MERGED' }
+  state = {
+    drafts: new Map(),
+    media: [],
+    published: [],
+    pullRequestState: 'MERGED',
+    rebaseOnPublish: false,
+    revisions: new Map(),
+    revisionCounter: 0,
+  }
+  const nextRevision = () => {
+    state.revisionCounter += 1
+    return `01234567${state.revisionCounter.toString(16).padStart(32, '0')}`
+  }
+  const assertRevision = (slug, expectedRevision) => {
+    if ((state.revisions.get(slug) ?? null) === expectedRevision) return
+    const error = new Error('This draft changed after it was loaded. Reload it before saving again.')
+    error.code = 'BLOG_REVISION_CONFLICT'
+    throw error
+  }
   const publisher = {
     async listPosts() {
       return { drafts: [...state.drafts.keys()], published: state.published }
     },
     async readPost(slug) {
-      return state.drafts.get(slug)
+      return {
+        post: state.drafts.get(slug),
+        revision: state.revisions.get(slug),
+      }
     },
     async readMedia(_slug, name) {
       const entry = state.media.find((item) => item.name === name)
       if (!entry) throw new Error('Media not found.')
       return { buffer: Buffer.from(entry.data, 'base64'), contentType: 'image/png' }
     },
-    async saveDraft(post, media) {
+    async saveDraft(post, media, expectedRevision) {
       const validated = validatePost(post, { draft: true })
+      assertRevision(validated.slug, expectedRevision)
+      const revision = nextRevision()
       state.drafts.set(validated.slug, validated)
+      state.revisions.set(validated.slug, revision)
       state.media = media
-      return { branch: `draft/blog/${validated.slug}`, sha: '0123456789abcdef', media: [] }
+      return { branch: `draft/blog/${validated.slug}`, sha: revision, media: [] }
+    },
+    async saveAndPublish(post, media, expectedRevision) {
+      const validated = validatePost(post)
+      assertRevision(validated.slug, expectedRevision)
+      const draftRevision = nextRevision()
+      const publishedRevision = state.rebaseOnPublish ? nextRevision() : draftRevision
+      state.drafts.set(validated.slug, validated)
+      state.revisions.set(validated.slug, publishedRevision)
+      state.media = media
+      state.published.push(validated.slug)
+      return {
+        draft: { branch: `draft/blog/${validated.slug}`, sha: draftRevision, media: [] },
+        published: {
+          branch: `draft/blog/${validated.slug}`,
+          sha: publishedRevision,
+          pullRequest: { number: 12, url: 'https://github.com/rinz0x0cruz/rinz0x0cruz.github.io/pull/12' },
+          autoMergeQueued: true,
+        },
+      }
     },
     async publish(slug) {
       state.published.push(slug)
@@ -143,6 +186,62 @@ test('owner previews selected media and saves a durable draft', async ({ page })
   expect(errors).toEqual([])
 })
 
+test('a stale save preserves the local editor text', async ({ page }) => {
+  await page.goto(baseUrl)
+  await fillPost(page, 'Conflict draft')
+  await page.getByRole('button', { name: 'Save draft' }).click()
+  await expect(page.getByRole('status')).toContainText('Draft saved at 01234567.')
+
+  const body = page.locator('[name="body"]')
+  await body.fill('An unsaved local correction that must survive.')
+  state.revisions.set('conflict-draft', 'f'.repeat(40))
+  await page.getByRole('button', { name: 'Save draft' }).click()
+
+  await expect(page.getByRole('status')).toHaveText(
+    'This draft changed after it was loaded. Reload it before saving again.',
+  )
+  await expect(body).toHaveValue('An unsaved local correction that must survive.')
+  expect(state.drafts.get('conflict-draft').body).toContain('production renderer')
+  expect(await page.evaluate(() => {
+    const event = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(event)
+    return event.defaultPrevented
+  })).toBe(true)
+})
+
+test('studio previews and preserves evidence metadata', async ({ page }) => {
+  await page.goto(baseUrl)
+  await fillPost(page, 'Evidence draft')
+  await page.locator('[name="snapshotDate"]').fill('2026-08-02')
+  await page.locator('[name="tlp"]').selectOption('TLP:CLEAR')
+  await page.locator('[name="sources"]').fill([
+    'https://www.first.org/tlp/',
+    'https://attack.mitre.org/techniques/enterprise/',
+  ].join('\n'))
+
+  await page.getByRole('button', { name: 'Preview' }).click()
+  const preview = page.locator('.preview iframe').contentFrame()
+  await expect(preview.getByRole('heading', { name: 'Sources' })).toBeVisible()
+  await expect(preview.locator('.article-evidence')).toContainText('TLP:CLEAR')
+  await expect(preview.locator('.article-evidence a')).toHaveCount(2)
+
+  await page.getByRole('button', { name: 'Save draft' }).click()
+  expect(state.drafts.get('evidence-draft')).toMatchObject({
+    snapshotDate: '2026-08-02',
+    tlp: 'TLP:CLEAR',
+    sources: [
+      'https://www.first.org/tlp/',
+      'https://attack.mitre.org/techniques/enterprise/',
+    ],
+  })
+
+  await page.getByRole('button', { name: 'New' }).click()
+  await page.locator('[data-list="drafts"] button').click()
+  await expect(page.locator('[name="snapshotDate"]')).toHaveValue('2026-08-02')
+  await expect(page.locator('[name="tlp"]')).toHaveValue('TLP:CLEAR')
+  await expect(page.locator('[name="sources"]')).toHaveValue(/first\.org.*attack\.mitre\.org/su)
+})
+
 test('selected media paths follow an unsaved slug change', async ({ page }) => {
   await page.goto(baseUrl)
   await fillPost(page, 'Media draft')
@@ -190,6 +289,21 @@ test('publish reports the merged article without opening a popup', async ({ page
   )
   expect(state.published).toEqual(['published-through-checks'])
   expect(page.context().pages()).toHaveLength(1)
+})
+
+test('owner can keep editing after publish rebases the draft', async ({ page }) => {
+  state.rebaseOnPublish = true
+  await page.goto(baseUrl)
+  await fillPost(page, 'Rebased publish')
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Publish' }).click()
+  await expect(page.getByRole('status')).toContainText('Published.')
+
+  await page.locator('[name="body"]').fill('A correction after the rebased publish.')
+  await page.getByRole('button', { name: 'Save draft' }).click()
+
+  await expect(page.getByRole('status')).toContainText('Draft saved at 01234567.')
+  expect(state.drafts.get('rebased-publish').body).toBe('A correction after the rebased publish.')
 })
 
 test('loading another post stops previous publish tracking', async ({ page }) => {
@@ -470,6 +584,7 @@ test('studio locks the editor while a save is in flight', async ({ page }) => {
   try {
     await expect(page.locator('[data-editor]')).toHaveAttribute('aria-busy', 'true')
     await expect(page.locator('[name="title"]')).toBeDisabled()
+    await expect(page.locator('[name="tlp"]')).toBeDisabled()
     await expect(page.locator('[name="body"]')).toBeDisabled()
     await expect(page.locator('[name="media"]')).toBeDisabled()
   } finally {
@@ -478,6 +593,7 @@ test('studio locks the editor while a save is in flight', async ({ page }) => {
 
   await expect(page.getByRole('status')).toContainText('Draft saved at 01234567.')
   await expect(page.locator('[data-editor]')).not.toHaveAttribute('aria-busy')
+  await expect(page.locator('[name="tlp"]')).toBeEnabled()
   await expect(page.locator('[name="body"]')).toBeEnabled()
 })
 

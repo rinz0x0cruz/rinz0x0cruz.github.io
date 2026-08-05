@@ -27,8 +27,8 @@ export default [
   },
   {
     id: 'ingestion-specs-authored',
-    metric: '9/10',
-    title: 'Normalization specs authored',
+    metric: '47%',
+    title: 'False positives reduced',
     detail: 'Across 10+ security products',
     motif: 'prism',
     glyph: '△',

@@ -44,6 +44,25 @@ function json(response, status, value) {
   send(response, status, `${JSON.stringify(value)}\n`, 'application/json; charset=utf-8')
 }
 
+function expectedRevision(payload) {
+  if (!payload || typeof payload !== 'object' || !Object.hasOwn(payload, 'expectedRevision')) {
+    const error = new Error('A draft revision is required. Reload the post before saving.')
+    error.code = 'BLOG_REVISION_REQUIRED'
+    throw error
+  }
+  const value = payload.expectedRevision
+  if (value !== null && (typeof value !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(value))) {
+    throw new Error('expectedRevision must be null or a Git revision.')
+  }
+  return value
+}
+
+function errorStatus(error) {
+  if (error.code === 'BLOG_REVISION_REQUIRED') return 428
+  if (error.code === 'BLOG_REVISION_CONFLICT') return 412
+  return 400
+}
+
 function matchesToken(value, expected) {
   if (typeof value !== 'string') return false
   const actual = Buffer.from(value)
@@ -174,20 +193,29 @@ export function createStudioServer({
         return
       }
       if (url.pathname === '/api/draft') {
-        json(response, 200, await publisher.saveDraft(payload.post, payload.media ?? []))
+        json(response, 200, await publisher.saveDraft(
+          payload.post,
+          payload.media ?? [],
+          expectedRevision(payload),
+        ))
         return
       }
       if (url.pathname === '/api/publish') {
         validatePost(payload.post)
-        const draft = await publisher.saveDraft(payload.post, payload.media ?? [])
-        const published = await publisher.publish(payload.post.slug)
-        json(response, 200, { draft, published })
+        json(response, 200, await publisher.saveAndPublish(
+          payload.post,
+          payload.media ?? [],
+          expectedRevision(payload),
+        ))
         return
       }
       send(response, 404, 'Not found.')
     } catch (error) {
       logger.error(error)
-      json(response, 400, { error: error.message })
+      json(response, errorStatus(error), {
+        error: error.message,
+        ...(error.code ? { code: error.code } : {}),
+      })
     }
   })
 }

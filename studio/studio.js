@@ -15,6 +15,7 @@ let mediaSlug = ''
 let statusTimer
 let publishTrackingId = 0
 let dirty = false
+let revision = null
 const mediaExtensions = new Map([
   ['image/avif', 'avif'],
   ['image/gif', 'gif'],
@@ -83,6 +84,9 @@ function metadata() {
     published: form.elements.published.value,
     updated: form.elements.updated.value,
     tags: form.elements.tags.value.split(',').map((tag) => tag.trim()).filter(Boolean),
+    snapshotDate: form.elements.snapshotDate.value,
+    tlp: form.elements.tlp.value,
+    sources: form.elements.sources.value.split(/\r?\n/u).map((source) => source.trim()).filter(Boolean),
     cover: form.elements.cover.value,
     coverAlt: form.elements.coverAlt.value,
   }
@@ -171,14 +175,19 @@ async function api(path, options = {}) {
     },
   })
   const value = await response.json()
-  if (!response.ok) throw new Error(value.error ?? `Request failed (${response.status}).`)
+  if (!response.ok) {
+    const error = new Error(value.error ?? `Request failed (${response.status}).`)
+    error.code = value.code
+    error.status = response.status
+    throw error
+  }
   return value
 }
 
 function busy(value) {
   if (value) form.setAttribute('aria-busy', 'true')
   else form.removeAttribute('aria-busy')
-  for (const control of document.querySelectorAll('button, input, textarea')) control.disabled = value
+  for (const control of document.querySelectorAll('button, input, select, textarea')) control.disabled = value
 }
 
 function stopPublishTracking() {
@@ -195,6 +204,7 @@ function reset() {
   slugEdited = false
   mediaSlug = ''
   dirty = false
+  revision = null
   updateBodyCount()
   updateCoverValidity()
   setStatus('New draft.')
@@ -222,13 +232,16 @@ async function loadPost(postSlug, source) {
   stopPublishTracking()
   busy(true)
   try {
-    const value = await api(`/api/post?slug=${encodeURIComponent(postSlug)}&source=${source}`)
-    for (const field of ['title', 'summary', 'published', 'updated', 'cover', 'coverAlt']) {
+    const loaded = await api(`/api/post?slug=${encodeURIComponent(postSlug)}&source=${source}`)
+    const value = loaded.post
+    revision = loaded.revision
+    for (const field of ['title', 'summary', 'published', 'updated', 'snapshotDate', 'tlp', 'cover', 'coverAlt']) {
       form.elements[field].value = value[field] ?? ''
     }
     form.elements.slug.value = value.slug
     mediaSlug = value.slug
     form.elements.tags.value = value.tags.join(', ')
+    form.elements.sources.value = value.sources.join('\n')
     body.value = value.body
     form.elements.media.value = ''
     slug.readOnly = true
@@ -294,8 +307,10 @@ async function saveDraft() {
     body: JSON.stringify({
       post: post(),
       media: (await media()).map(({ name, data }) => ({ name, data })),
+      expectedRevision: revision,
     }),
   })
+  revision = value.sha
   setStatus(`Draft saved at ${value.sha.slice(0, 8)}.`)
   slug.readOnly = true
   slugEdited = true
@@ -311,9 +326,11 @@ async function publish() {
     body: JSON.stringify({
       post: post(),
       media: (await media()).map(({ name, data }) => ({ name, data })),
+      expectedRevision: revision,
     }),
   })
   const result = value.published
+  revision = result.sha
   dirty = false
   const message = result.autoMergeQueued
     ? 'Publish PR created; merge is queued.'

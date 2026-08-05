@@ -23,6 +23,14 @@ async function writeAtomic(path, content) {
   await rename(temporary, path)
 }
 
+function normalizeRevision(value) {
+  if (value === 'local') return value
+  if (typeof value !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu.test(value)) {
+    throw new Error('Build revision must be a Git SHA or "local".')
+  }
+  return value.toLowerCase()
+}
+
 export async function loadPublishedPosts(directory = postsDirectory) {
   await mkdir(directory, { recursive: true })
   const entries = (await readdir(directory, { withFileTypes: true }))
@@ -38,7 +46,12 @@ export async function loadPublishedPosts(directory = postsDirectory) {
   ))
 }
 
-export async function buildBlog({ postsDir = postsDirectory, outDir = outputDirectory } = {}) {
+export async function buildBlog({
+  postsDir = postsDirectory,
+  outDir = outputDirectory,
+  revision = process.env.GITHUB_SHA ?? 'local',
+} = {}) {
+  const buildRevision = normalizeRevision(revision)
   const posts = await loadPublishedPosts(postsDir)
   const blogDirectory = join(outDir, 'blog')
   await mkdir(blogDirectory, { recursive: true })
@@ -63,6 +76,7 @@ export async function buildBlog({ postsDir = postsDirectory, outDir = outputDire
   }
   await writeAtomic(join(outDir, 'sitemap.xml'), renderSitemap(posts))
   await writeAtomic(join(outDir, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE_URL}/sitemap.xml\n`)
+  await writeAtomic(join(outDir, 'build-meta.json'), `${JSON.stringify({ revision: buildRevision })}\n`)
   return posts
 }
 

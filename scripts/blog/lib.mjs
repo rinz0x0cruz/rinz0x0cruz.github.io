@@ -17,6 +17,9 @@ const allowedKeys = new Set([
   'tags',
   'cover',
   'coverAlt',
+  'snapshotDate',
+  'tlp',
+  'sources',
 ])
 
 const markdown = new MarkdownIt({ html: false, linkify: true, typographer: false })
@@ -142,6 +145,25 @@ function validateTags(value) {
   return tags
 }
 
+function validateSources(value) {
+  if (value === undefined || value === null) return []
+  if (!Array.isArray(value) || value.length > 12) {
+    throw new Error('sources must contain at most 12 HTTPS URLs.')
+  }
+  const sources = value.map((source) => {
+    const normalized = requireString(source, 'source', 500)
+    return requireHttpsUrl(normalized, 'source').href
+  })
+  if (new Set(sources).size !== sources.length) throw new Error('sources must be unique.')
+  return sources
+}
+
+function validateTlp(value) {
+  if (value === undefined || value === null || value === '') return undefined
+  if (value !== 'TLP:CLEAR') throw new Error('Public posts may only use TLP:CLEAR.')
+  return value
+}
+
 function validateCover(value, coverAlt, slug) {
   if (value === undefined || value === null || value === '') {
     if (coverAlt) throw new Error('coverAlt requires cover.')
@@ -203,6 +225,15 @@ export function validatePost(input, { draft = false } = {}) {
   const body = requireString(input.body, 'body', 100_000)
   const tags = validateTags(metadata.tags)
   const { cover, coverAlt } = validateCover(metadata.cover, metadata.coverAlt, slug)
+  const sources = validateSources(metadata.sources)
+  const snapshotDate = optionalDate(metadata.snapshotDate, 'snapshotDate')
+  const tlp = validateTlp(metadata.tlp)
+  if (sources.length && !snapshotDate) throw new Error('snapshotDate is required when sources are present.')
+  if (!sources.length && snapshotDate) throw new Error('snapshotDate requires at least one source.')
+  if (tlp && !sources.length) throw new Error('tlp requires at least one source.')
+  if (snapshotDate && (updated ?? published) && snapshotDate > (updated ?? published)) {
+    throw new Error('snapshotDate cannot follow the post date.')
+  }
 
   return {
     slug,
@@ -213,6 +244,9 @@ export function validatePost(input, { draft = false } = {}) {
     tags,
     cover,
     coverAlt,
+    snapshotDate,
+    tlp,
+    sources,
     body,
     readingMinutes: Math.max(1, Math.ceil(body.split(/\s+/u).length / 220)),
   }
@@ -241,6 +275,9 @@ export function serializePost(post, { draft = false } = {}) {
           tags: post.tags,
           cover: post.cover,
           coverAlt: post.coverAlt,
+          snapshotDate: post.snapshotDate,
+          tlp: post.tlp,
+          sources: post.sources,
         },
       }
   const validated = validatePost(input, { draft })
@@ -251,6 +288,9 @@ export function serializePost(post, { draft = false } = {}) {
     ...(validated.updated ? { updated: validated.updated } : {}),
     ...(validated.tags.length ? { tags: validated.tags } : {}),
     ...(validated.cover ? { cover: validated.cover, coverAlt: validated.coverAlt } : {}),
+    ...(validated.snapshotDate ? { snapshotDate: validated.snapshotDate } : {}),
+    ...(validated.tlp ? { tlp: validated.tlp } : {}),
+    ...(validated.sources.length ? { sources: validated.sources } : {}),
   }
   return `---\n${stringifyYaml(metadata, { lineWidth: 0 }).trim()}\n---\n\n${validated.body.trim()}\n`
 }
@@ -307,6 +347,11 @@ function dateText(value) {
   }).format(new Date(`${value}T00:00:00Z`))
 }
 
+function sourceLabel(source) {
+  const url = new URL(source)
+  return `${url.hostname}${url.pathname === '/' ? '' : url.pathname}${url.search}`
+}
+
 export function renderArticle(post, { preview = false } = {}) {
   const published = post.published ?? new Date().toISOString().slice(0, 10)
   const canonical = `${SITE_URL}/blog/${post.slug}/`
@@ -314,6 +359,14 @@ export function renderArticle(post, { preview = false } = {}) {
   const tags = post.tags.map((tag) => `<li>${escapeHtml(tag)}</li>`).join('')
   const cover = post.cover
     ? `<figure class="post-cover"><img src="${escapeHtml(post.cover)}" alt="${escapeHtml(post.coverAlt)}" width="1600" height="900" fetchpriority="high"></figure>`
+    : ''
+  const evidence = post.sources.length
+    ? `<section class="article-evidence" aria-labelledby="evidence-heading">
+      <p class="article-evidence__label">Evidence record</p>
+      <h2 id="evidence-heading">Sources</h2>
+      <p class="article-evidence__meta">Evidence snapshot <time datetime="${escapeHtml(post.snapshotDate)}">${escapeHtml(dateText(post.snapshotDate))}</time>${post.tlp ? ` · ${escapeHtml(post.tlp)}` : ''}</p>
+      <ol>${post.sources.map((source) => `<li><a href="${escapeHtml(source)}" rel="noreferrer">${escapeHtml(sourceLabel(source))}</a></li>`).join('')}</ol>
+    </section>`
     : ''
   const body = `<header class="site-head"><a class="site-name" href="/">Mohit Sharma</a><nav aria-label="Primary"><a href="/blog/">Blog</a><a href="/Mohit-Sharma-Resume.pdf">Résumé</a></nav></header>
 <main class="article-shell">
@@ -327,6 +380,7 @@ export function renderArticle(post, { preview = false } = {}) {
     </header>
     ${cover}
     <div class="article-body">${renderMarkdown(post.body)}</div>
+    ${evidence}
   </article>
   <footer class="article-footer"><a href="/blog/">← All posts</a></footer>
 </main>`
@@ -346,6 +400,7 @@ export function renderArticle(post, { preview = false } = {}) {
       mainEntityOfPage: canonical,
       image,
       author: { '@type': 'Person', name: AUTHOR.name, url: AUTHOR.url },
+      ...(post.sources.length ? { citation: post.sources } : {}),
     },
     body,
   })

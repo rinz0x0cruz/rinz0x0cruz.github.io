@@ -1,11 +1,12 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { scheduleIdleEnhancement } from '../loading.js'
 
 const props = defineProps({
   variant: {
     type: String,
-    default: 'tarot',
-    validator: (value) => ['hero', 'tarot'].includes(value),
+    default: 'sun',
+    validator: (value) => ['hero', 'sun', 'moon'].includes(value),
   },
 })
 
@@ -15,27 +16,21 @@ const cameraHalfHeight = 1.2
 const sourceSets = {
   hero: [
     {
-      name: 'head',
-      frame: 'bronze',
-      model: '/models/artifacts/fragmentary-head.glb',
-      material: 'source',
-      orientation: [-Math.PI / 2, 0, 0],
-      rotation: [0, -0.1, 0.025],
-    },
-    {
       name: 'helios',
       model: '/models/artifacts/helios.glb',
       material: 'helios',
       rotation: [0, -0.5, -0.025],
     },
   ],
-  tarot: [
+  sun: [
     {
       name: 'sun',
       model: '/models/tarot/sun.glb',
       texture: '/models/tarot/sun-atlas.webp',
       rotation: [0, 0, -0.044],
     },
+  ],
+  moon: [
     {
       name: 'moon',
       model: '/models/tarot/moon.glb',
@@ -51,6 +46,7 @@ let MeshoptDecoder
 let animationEnd = 0
 let animationFrame
 let camera
+let cancelHeroInitialization = () => {}
 let disposed = false
 let intersectionObserver
 let pageReady = false
@@ -297,7 +293,6 @@ async function initialize() {
     const { gltf, texture } = loaded
     const card = cardSources[index]
     const source = gltf.scene
-    if (card.orientation) source.rotation.set(...card.orientation)
     if (texture) {
       texture.colorSpace = THREE.SRGBColorSpace
       // The OBJ UVs are retained verbatim; glTF's usual false value scrambles this atlas.
@@ -357,55 +352,6 @@ async function initialize() {
     source.position.copy(center).multiplyScalar(-scale)
     const assembly = new THREE.Group()
     assembly.add(source)
-
-    if (card.frame === 'bronze') {
-      source.updateMatrixWorld(true)
-      const fittedBounds = new THREE.Box3().setFromObject(source)
-      const backingMaterial = new THREE.MeshStandardMaterial({
-        color: 0x171614,
-        metalness: 0.08,
-        roughness: 0.88,
-      })
-      const frameMaterial = new THREE.MeshStandardMaterial({
-        color: 0x8f6a33,
-        metalness: 0.68,
-        roughness: 0.36,
-        side: THREE.DoubleSide,
-      })
-      materials.push(backingMaterial, frameMaterial)
-      const backing = new THREE.Mesh(
-        new THREE.BoxGeometry(1.68, 2.08, 0.1),
-        backingMaterial,
-      )
-      backing.position.z = fittedBounds.min.z - 0.08
-
-      const frameShape = new THREE.Shape()
-      frameShape.moveTo(-0.88, -1.09)
-      frameShape.lineTo(0.88, -1.09)
-      frameShape.lineTo(0.88, 1.09)
-      frameShape.lineTo(-0.88, 1.09)
-      frameShape.closePath()
-      const opening = new THREE.Path()
-      opening.moveTo(-0.78, -0.99)
-      opening.lineTo(-0.78, 0.99)
-      opening.lineTo(0.78, 0.99)
-      opening.lineTo(0.78, -0.99)
-      opening.closePath()
-      frameShape.holes.push(opening)
-      const frameGeometry = new THREE.ExtrudeGeometry(frameShape, {
-        bevelEnabled: true,
-        bevelSegments: 3,
-        bevelSize: 0.025,
-        bevelThickness: 0.025,
-        curveSegments: 1,
-        depth: 0.11,
-        steps: 1,
-      })
-      frameGeometry.center()
-      const frame = new THREE.Mesh(frameGeometry, frameMaterial)
-      frame.position.z = fittedBounds.max.z + 0.05
-      assembly.add(backing, frame)
-    }
 
     assembly.updateMatrixWorld(true)
     const assemblySize = new THREE.Box3().setFromObject(assembly).getSize(new THREE.Vector3())
@@ -467,12 +413,6 @@ function syncHeroVisibility() {
     && bounds.top < window.innerHeight
 }
 
-function handlePageLoad() {
-  pageReady = true
-  if (props.variant === 'hero') syncHeroVisibility()
-  initializeVisible()
-}
-
 onMounted(() => {
   reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
   reducedMotionMedia.addEventListener('change', syncMotion)
@@ -485,8 +425,7 @@ onMounted(() => {
     return
   }
 
-  pageReady = props.variant !== 'hero' || document.readyState === 'complete'
-  if (!pageReady) window.addEventListener('load', handlePageLoad, { once: true })
+  pageReady = props.variant !== 'hero'
 
   intersectionObserver = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting
@@ -497,16 +436,20 @@ onMounted(() => {
   intersectionObserver.observe(container.value)
   if (props.variant === 'hero') {
     syncHeroVisibility()
-    initializeVisible()
+    cancelHeroInitialization = scheduleIdleEnhancement(() => {
+      pageReady = true
+      syncHeroVisibility()
+      initializeVisible()
+    })
   }
 })
 
 onBeforeUnmount(() => {
   disposed = true
   stopAnimation()
+  cancelHeroInitialization()
   reducedMotionMedia?.removeEventListener('change', syncMotion)
   document.removeEventListener('visibilitychange', handleVisibility)
-  window.removeEventListener('load', handlePageLoad)
   intersectionObserver?.disconnect()
   resizeObserver?.disconnect()
   models.forEach(({ pivot }) => pivot?.traverse((child) => child.geometry?.dispose()))
@@ -533,21 +476,6 @@ onBeforeUnmount(() => {
     ></canvas>
     <template v-if="variant === 'hero'">
       <span
-        class="tarot-hanging__sculpture tarot-hanging__sculpture--head"
-        data-artifact-name="head"
-        data-model-state="loading"
-        data-tarot-slot
-      >
-        <img
-          src="/models/artifacts/fragmentary-head.webp"
-          alt=""
-          width="320"
-          height="400"
-          loading="lazy"
-          decoding="async"
-        />
-      </span>
-      <span
         class="tarot-hanging__sculpture tarot-hanging__sculpture--helios"
         data-artifact-name="helios"
         data-model-state="loading"
@@ -563,7 +491,7 @@ onBeforeUnmount(() => {
         />
       </span>
     </template>
-    <template v-else>
+    <template v-else-if="variant === 'sun'">
       <span
         class="tarot-hanging__card tarot-hanging__card--sun"
         data-artifact-name="sun"
@@ -581,6 +509,8 @@ onBeforeUnmount(() => {
           decoding="async"
         />
       </span>
+    </template>
+    <template v-else>
       <span
         class="tarot-hanging__card tarot-hanging__card--moon"
         data-artifact-name="moon"

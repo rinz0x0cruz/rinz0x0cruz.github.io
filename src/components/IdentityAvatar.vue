@@ -1,8 +1,6 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import defaultMaskSource from '../assets/avatar-yokai-mask.svg?url'
-
-const defaultMaskMarkup = ref('')
 
 const props = defineProps({
   frameSrc: {
@@ -49,21 +47,6 @@ const props = defineProps({
     type: String,
     default: '01',
   },
-})
-
-const usesInlineMask = computed(
-  () => props.maskSrc === defaultMaskSource && Boolean(defaultMaskMarkup.value),
-)
-
-onMounted(async () => {
-  try {
-    const response = await fetch(defaultMaskSource)
-    if (!response.ok) return
-
-    defaultMaskMarkup.value = (await response.text()).replace(/^<\?xml[^>]*>\s*/, '')
-  } catch {
-    defaultMaskMarkup.value = ''
-  }
 })
 
 const avatarStyle = computed(() => ({
@@ -133,13 +116,7 @@ onBeforeUnmount(() => window.clearTimeout(maskAnimationTimer))
         @click="toggleMask"
         @animationend="finishMaskAnimation"
       >
-        <span
-          v-if="usesInlineMask"
-          class="identity-avatar__mask-art"
-          aria-hidden="true"
-          v-html="defaultMaskMarkup"
-        ></span>
-        <img v-else :src="maskSrc" alt="" />
+        <span class="identity-avatar__mask-art" aria-hidden="true"></span>
         <i v-for="fragment in 4" :key="fragment" aria-hidden="true"></i>
       </button>
       <span class="identity-avatar__prompt" aria-hidden="true">
@@ -283,7 +260,6 @@ onBeforeUnmount(() => window.clearTimeout(maskAnimationTimer))
 }
 
 .identity-avatar__mask-art,
-.identity-avatar__mask img,
 .identity-avatar__mask i {
   position: absolute;
   inset: 0;
@@ -293,10 +269,8 @@ onBeforeUnmount(() => window.clearTimeout(maskAnimationTimer))
   image-rendering: pixelated;
 }
 
-.identity-avatar__mask-art :deep(svg) {
-  display: block;
-  width: 100%;
-  height: 100%;
+.identity-avatar__mask-art {
+  background: var(--mask-image) center / 100% 100% no-repeat;
 }
 
 .identity-avatar__mask i {
@@ -315,7 +289,7 @@ onBeforeUnmount(() => window.clearTimeout(maskAnimationTimer))
 }
 
 .identity-avatar__mask--dismissing .identity-avatar__mask-art,
-.identity-avatar__mask--dismissing img {
+.identity-avatar__mask--dismissing .identity-avatar__mask-art {
   animation: mask-core-fizzle 520ms steps(7, end) forwards;
 }
 
@@ -589,7 +563,6 @@ onBeforeUnmount(() => window.clearTimeout(maskAnimationTimer))
   .identity-avatar__mask,
   .identity-avatar__mask::after,
   .identity-avatar__mask-art,
-  .identity-avatar__mask img,
   .identity-avatar__mask i {
     animation: none;
   }

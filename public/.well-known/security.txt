@@ -1,0 +1,5 @@
+Contact: mailto:rinz0x0cruz@gmail.com
+Expires: 2027-07-31T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://rinz0x0cruz.github.io/.well-known/security.txt
+Policy: https://github.com/rinz0x0cruz/rinz0x0cruz.github.io/security/policy

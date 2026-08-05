@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import profile from '../src/profile.js'
 import { defineCollection } from '../src/content/define.js'
@@ -64,4 +65,27 @@ test('project evidence links use unique public HTTPS destinations', () => {
       destinations.add(destination.href)
     }
   }
+})
+
+test('false-positive reduction outcome matches work-history evidence', () => {
+  const achievement = profile.achievements.find(({ id }) => id === 'ingestion-specs-authored')
+
+  assert.equal(achievement.metric, '47%')
+  assert.equal(achievement.title, 'False positives reduced')
+  assert.ok(profile.experience.some(({ outcome }) => (
+    outcome.includes('Reduced false-positive volume by 47% across 10+ products')
+  )))
+})
+
+test('security.txt publishes a current canonical disclosure contact', async () => {
+  const source = await readFile(new URL('../public/.well-known/security.txt', import.meta.url), 'utf8')
+  const fields = new Map(source.trim().split(/\r?\n/u).map((line) => line.split(/:\s+/u, 2)))
+
+  assert.equal(fields.get('Contact'), 'mailto:rinz0x0cruz@gmail.com')
+  assert.equal(fields.get('Canonical'), 'https://rinz0x0cruz.github.io/.well-known/security.txt')
+  assert.equal(fields.get('Preferred-Languages'), 'en')
+  const expires = Date.parse(fields.get('Expires'))
+  assert.ok(Number.isFinite(expires))
+  assert.ok(expires > Date.now(), 'security.txt must not be expired')
+  assert.ok(expires - Date.now() <= 366 * 24 * 60 * 60_000, 'security.txt expiry must stay within one year')
 })
