@@ -116,7 +116,15 @@ onBeforeUnmount(() => window.clearTimeout(maskAnimationTimer))
         @click="toggleMask"
         @animationend="finishMaskAnimation"
       >
-        <span class="identity-avatar__mask-art" aria-hidden="true"></span>
+        <img
+          class="identity-avatar__mask-art"
+          :src="maskSrc"
+          alt=""
+          :width="maskRect.width"
+          :height="maskRect.height"
+          decoding="async"
+          fetchpriority="high"
+        />
         <i v-for="fragment in 4" :key="fragment" aria-hidden="true"></i>
       </button>
       <span class="identity-avatar__prompt" aria-hidden="true">
@@ -270,7 +278,7 @@ onBeforeUnmount(() => window.clearTimeout(maskAnimationTimer))
 }
 
 .identity-avatar__mask-art {
-  background: var(--mask-image) center / 100% 100% no-repeat;
+  object-fit: contain;
 }
 
 .identity-avatar__mask i {

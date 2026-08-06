@@ -1,6 +1,5 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { scheduleIdleEnhancement } from '../loading.js'
 
 const props = defineProps({
   variant: {
@@ -46,7 +45,6 @@ let MeshoptDecoder
 let animationEnd = 0
 let animationFrame
 let camera
-let cancelHeroInitialization = () => {}
 let disposed = false
 let intersectionObserver
 let pageReady = false
@@ -180,6 +178,14 @@ function handlePointerMove(event) {
   scheduleAnimation()
 }
 
+function activateHero() {
+  if (props.variant !== 'hero' || pageReady) return
+
+  pageReady = true
+  syncHeroVisibility()
+  initializeVisible()
+}
+
 function resetPointer() {
   models.forEach(({ pointer }) => pointer.set(0, 0))
   scheduleAnimation()
@@ -207,6 +213,10 @@ function trackMaterial(material) {
 
 async function initialize() {
   if (renderer || disposed || !canvas.value) return
+
+  container.value.dataset.renderState = 'loading'
+  canvas.value.dataset.renderState = 'loading'
+  slots().forEach((slot) => { slot.dataset.modelState = 'loading' })
 
   let GLTFLoader
   try {
@@ -361,15 +371,12 @@ async function initialize() {
     pivot.visible = false
     scene.add(pivot)
     models[index].pivot = pivot
-    models[index].slot.dataset.modelState = 'ready'
     await yieldToMain()
     if (disposed) return
   }
 
   const readyModels = models.filter(({ pivot }) => pivot)
   const allReady = readyModels.length === cardSources.length
-  container.value.dataset.renderState = allReady ? 'ready' : readyModels.length ? 'partial' : 'failed'
-  canvas.value.dataset.renderState = readyModels.length ? 'ready' : 'failed'
 
   if (readyModels.length && renderer.compileAsync) {
     readyModels.forEach(({ pivot }) => { pivot.visible = true })
@@ -386,6 +393,9 @@ async function initialize() {
   resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(container.value)
   resize()
+  readyModels.forEach(({ slot }) => { slot.dataset.modelState = 'ready' })
+  container.value.dataset.renderState = allReady ? 'ready' : readyModels.length ? 'partial' : 'failed'
+  canvas.value.dataset.renderState = readyModels.length ? 'ready' : 'failed'
   scheduleAnimation(620)
 }
 
@@ -436,18 +446,12 @@ onMounted(() => {
   intersectionObserver.observe(container.value)
   if (props.variant === 'hero') {
     syncHeroVisibility()
-    cancelHeroInitialization = scheduleIdleEnhancement(() => {
-      pageReady = true
-      syncHeroVisibility()
-      initializeVisible()
-    })
   }
 })
 
 onBeforeUnmount(() => {
   disposed = true
   stopAnimation()
-  cancelHeroInitialization()
   reducedMotionMedia?.removeEventListener('change', syncMotion)
   document.removeEventListener('visibilitychange', handleVisibility)
   intersectionObserver?.disconnect()
@@ -464,7 +468,7 @@ onBeforeUnmount(() => {
     ref="container"
     :class="['tarot-hanging', `tarot-hanging--${variant}`]"
     aria-hidden="true"
-    data-render-state="loading"
+    :data-render-state="variant === 'hero' ? 'standby' : 'loading'"
     @pointermove="handlePointerMove"
     @pointerleave="resetPointer"
   >
@@ -472,14 +476,15 @@ onBeforeUnmount(() => {
       ref="canvas"
       class="tarot-hanging__canvas"
       data-render-count="0"
-      data-render-state="loading"
+      :data-render-state="variant === 'hero' ? 'standby' : 'loading'"
     ></canvas>
     <template v-if="variant === 'hero'">
       <span
         class="tarot-hanging__sculpture tarot-hanging__sculpture--helios"
         data-artifact-name="helios"
-        data-model-state="loading"
+        data-model-state="standby"
         data-tarot-slot
+        @pointerenter="activateHero"
       >
         <img
           src="/models/artifacts/helios.webp"
@@ -540,13 +545,21 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: 100%;
+  opacity: 0;
   pointer-events: none;
   filter: drop-shadow(0 0.75rem 0.7rem rgba(0, 0, 0, 0.72));
+  transition: opacity 720ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tarot-hanging[data-render-state='ready'] .tarot-hanging__canvas,
+.tarot-hanging[data-render-state='partial'] .tarot-hanging__canvas {
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tarot-hanging__canvas {
     filter: none;
+    transition: none;
   }
 }
 

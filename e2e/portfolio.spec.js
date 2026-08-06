@@ -133,6 +133,47 @@ test('recruiter navigation traverses the portfolio and frames opened profile lin
   })).toEqual({ belowNavigation: true, fullyVisible: true })
 })
 
+test('opening and refreshing never exposes a partially loaded identity', async ({ page }) => {
+  const client = await page.context().newCDPSession(page)
+  await client.send('Network.setCacheDisabled', { cacheDisabled: true })
+  let resourceGate = Promise.resolve()
+  let releaseResources = () => {}
+
+  await page.route(/Danviska-Regular\.woff2|avatar-interactive-person\.webp|avatar-yokai-mask-.*\.svg/u, async (route) => {
+    const gate = resourceGate
+    await gate
+    await route.continue()
+  })
+
+  const verifyNavigation = async (navigate) => {
+    resourceGate = new Promise((resolve) => { releaseResources = resolve })
+    await navigate()
+
+    const portfolio = page.locator('.portfolio')
+    const identity = page.locator('.scene__content')
+    await expect(portfolio).toHaveAttribute('aria-busy', 'true')
+    await expect(portfolio).not.toHaveClass(/portfolio--critical-ready/)
+    await expect(identity).toHaveCSS('visibility', 'hidden')
+    await expect(identity).toHaveCSS('opacity', '0')
+
+    releaseResources()
+    await expect(portfolio).toHaveClass(/portfolio--critical-ready/)
+    await expect(portfolio).toHaveAttribute('aria-busy', 'false')
+    await expect(identity).toHaveCSS('visibility', 'visible')
+    await expect(identity).toHaveCSS('opacity', '1')
+    expect(await page.evaluate(() => ({
+      fontReady: document.fonts.check('400 1rem "Danviska"'),
+      imagesReady: [
+        document.querySelector('.identity-avatar__person'),
+        document.querySelector('.identity-avatar__mask-art'),
+      ].every((image) => image.complete && image.naturalWidth > 0),
+    }))).toEqual({ fontReady: true, imagesReady: true })
+  }
+
+  await verifyNavigation(() => page.goto('/', { waitUntil: 'domcontentloaded' }))
+  await verifyNavigation(() => page.reload({ waitUntil: 'domcontentloaded' }))
+})
+
 test('the essential profile remains usable without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({
     baseURL: test.info().project.use.baseURL,
@@ -2144,6 +2185,7 @@ test('artifacts occupy separate page gutters without the left hero fragment', as
   await expect(page.locator('[data-artifact-name="head"]')).toHaveCount(0)
   await expect(page.locator('[data-artifact-name]')).toHaveCount(3)
   await expect(page.locator('[data-model-state="ready"]', { has: page.locator('[data-artifact-name]') })).toHaveCount(0)
+  await page.locator('[data-artifact-name="helios"]').hover()
   await expect(page.locator('[data-artifact-name="helios"][data-model-state="ready"]')).toHaveCount(1, { timeout: 15_000 })
   await page.locator('.achievement-deck').scrollIntoViewIfNeeded()
   await expect(page.locator('[data-artifact-name="sun"][data-model-state="ready"]')).toHaveCount(1, { timeout: 15_000 })
@@ -2195,6 +2237,7 @@ test('scattered reliefs load with complete fallbacks and provenance', async ({ p
   await expect.poll(() => heroSlots.locator('img').evaluateAll((images) => (
     images.map((image) => image.naturalWidth)
   )), { timeout: 15_000 }).toEqual([280])
+  await heroSlots.hover()
   await expect(hero.locator('[data-model-state="ready"]')).toHaveCount(1, { timeout: 15_000 })
   await expect(hero).toHaveAttribute('data-render-state', 'ready')
   await expect(hero.locator('canvas')).toHaveAttribute('data-render-state', 'ready')
@@ -2567,6 +2610,7 @@ test('artifact relief failures preserve all static fallbacks', async ({ page }) 
   ]
   for (const [stage, width] of cases) {
     await stage.scrollIntoViewIfNeeded()
+    if (width === 280) await stage.locator('[data-tarot-slot]').hover()
     await expect(stage).toHaveAttribute('data-render-state', 'failed', { timeout: 15_000 })
     await expect(stage.locator('[data-model-state="failed"]')).toHaveCount(1)
     await expect(stage.locator('canvas')).toHaveAttribute('data-render-state', 'failed')
@@ -3959,10 +4003,12 @@ test('living border growth advances continuously without geometry jitter', async
   expect(presentation.vineLeaf.uniqueValues).toBeGreaterThan(12)
 })
 
-test('achievement code waits until the deck enters the viewport', async ({ page }) => {
+test('achievement 3D payload waits until the deck enters the viewport', async ({ page }) => {
   const requested = []
   page.on('request', (request) => {
-    if (/AchievementInstrument.*\.js$/.test(request.url())) requested.push(request.url())
+    if (profile.achievements.some(({ instrument }) => instrument?.src && request.url().endsWith(instrument.src))) {
+      requested.push(request.url())
+    }
   })
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
@@ -3972,9 +4018,12 @@ test('achievement code waits until the deck enters the viewport', async ({ page 
   expect(await page.evaluate(() => scrollY)).toBe(0)
 
   const deck = page.locator('.achievement-deck')
+  await expect(deck.locator('.achievement-stage')).toHaveCount(1)
+  await expect(deck.locator('.achievement-card')).toHaveCount(achievementCount)
+  await expect(deck.locator('.achievement-stage__canvas')).toHaveAttribute('data-render-state', 'standby')
   await deck.scrollIntoViewIfNeeded()
   await expect(deck.locator('.achievement-stage [data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
-  expect(requested).toHaveLength(1)
+  expect(requested).toHaveLength(instrumentedAchievementCount)
 })
 
 test('reload settles the living border before initializing 3D instruments', async ({ page }) => {
@@ -4005,9 +4054,46 @@ test('reload settles the living border before initializing 3D instruments', asyn
   expect(entryAnimations.names).toContain('achievement-vine-unfurl')
   expect(entryAnimations.playbackRates).toEqual([2.4])
   expect(entryAnimations.maximumEffectiveEnd).toBeLessThanOrEqual(775)
-  await expect(window.locator('.achievement-stage')).toHaveCount(0)
+  const stage = window.locator('.achievement-stage')
+  await expect(stage).toHaveCount(1)
+  await expect(stage.locator('.achievement-card')).toHaveCount(achievementCount)
+  await expect(stage.locator('canvas')).toHaveAttribute('data-render-state', 'standby')
   await page.waitForTimeout(100)
-  await expect(window.locator('.achievement-stage')).toHaveCount(0)
+  await expect(stage).toHaveCount(1)
+  await expect(stage.locator('.achievement-card')).toHaveCount(achievementCount)
+
+  await window.evaluate((element) => {
+    const stage = element.querySelector('.achievement-stage')
+    const state = {
+      heights: [],
+      minimumCards: stage.querySelectorAll('.achievement-card').length,
+      removedCards: 0,
+    }
+    window.__achievementReloadContinuity = state
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.removedNodes) {
+          if (node.matches?.('.achievement-card') || node.querySelector?.('.achievement-card')) {
+            state.removedCards += 1
+          }
+        }
+      }
+    })
+    observer.observe(stage, { childList: true, subtree: true })
+    const sample = () => {
+      state.minimumCards = Math.min(
+        state.minimumCards,
+        stage.querySelectorAll('.achievement-card').length,
+      )
+      state.heights.push(stage.getBoundingClientRect().height)
+      if (stage.querySelector('canvas').dataset.renderState === 'ready') {
+        observer.disconnect()
+        return
+      }
+      requestAnimationFrame(sample)
+    }
+    requestAnimationFrame(sample)
+  })
 
   await window.evaluate((element) => {
     element.getAnimations({ subtree: true })
@@ -4015,6 +4101,14 @@ test('reload settles the living border before initializing 3D instruments', asyn
       .forEach((animation) => animation.finish())
   })
   await expect(window.locator('[data-model-state="ready"]')).toHaveCount(instrumentedAchievementCount)
+  expect(await page.evaluate(() => {
+    const state = window.__achievementReloadContinuity
+    return {
+      heightRange: Math.max(...state.heights) - Math.min(...state.heights),
+      minimumCards: state.minimumCards,
+      removedCards: state.removedCards,
+    }
+  })).toEqual({ heightRange: 0, minimumCards: achievementCount, removedCards: 0 })
 })
 
 test('living border pauses ambient motion outside the achievement window', async ({ page }) => {
@@ -4094,7 +4188,7 @@ test('achievement instruments keep a static reduced-motion render', async ({ pag
 test('reduced data skips the 3D payload and keeps the artwork', async ({ page }) => {
   const requested = []
   page.on('request', (request) => {
-    if (/AchievementInstrument.*\.js$|three\.module-.*\.js$|models\/tarot|\.glb$|\.mp4$/.test(request.url())) requested.push(request.url())
+    if (/three\.module-.*\.js$|models\/tarot|\.glb$|\.mp4$/.test(request.url())) requested.push(request.url())
   })
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } })
@@ -4118,7 +4212,8 @@ test('reduced data skips the 3D payload and keeps the artwork', async ({ page })
     await expect(stage.locator('canvas')).toHaveAttribute('data-render-state', 'fallback')
   }
   await page.waitForTimeout(1_500)
-  await expect(deck.locator('.achievement-stage')).toHaveCount(0)
+  await expect(deck.locator('.achievement-stage')).toHaveCount(1)
+  await expect(deck.locator('.achievement-stage__canvas')).toHaveAttribute('data-render-state', 'standby')
   expect(requested).toEqual([])
 })
 
@@ -4541,14 +4636,79 @@ test('decorative hero enhancements wait until the page is idle', async ({ page }
   await page.goto('/')
   await page.waitForLoadState('load')
 
+  const video = page.locator('.scene__landscape-video')
+  const hero = page.locator('.tarot-hanging--hero')
+  const heroCanvas = hero.locator('canvas')
+  const heroFallback = hero.locator('[data-artifact-name="helios"] img')
+  const portfolio = page.locator('.portfolio')
+  const criticalPreloads = await page.locator('link[rel="preload"]').evaluateAll((links) => (
+    links.map((link) => ({
+      as: link.getAttribute('as'),
+      href: new URL(link.href).pathname,
+      media: link.getAttribute('media'),
+    }))
+  ))
+  expect(criticalPreloads).toEqual(expect.arrayContaining([
+    { as: 'font', href: '/fonts/Danviska-Regular.woff2', media: null },
+    { as: 'font', href: '/fonts/Recursive-Latin.woff2', media: null },
+    { as: 'image', href: '/avatar-interactive-frame.webp', media: null },
+    { as: 'image', href: '/avatar-interactive-person.webp', media: null },
+    {
+      as: 'image',
+      href: expect.stringMatching(/^\/assets\/avatar-yokai-mask-.*\.svg$/u),
+      media: null,
+    },
+    {
+      as: 'image',
+      href: '/models/artifacts/helios.webp',
+      media: '(min-width: 1360px) and (min-height: 641px)',
+    },
+  ]))
   await expect(page.locator('.scene__landscape')).not.toHaveCSS('background-image', 'none')
-  await expect(page.locator('.tarot-hanging__sculpture--helios img')).toBeVisible()
+  await expect(heroFallback).toBeVisible()
+  await expect(hero).toHaveAttribute('data-render-state', 'standby')
+  await expect(hero.locator('[data-tarot-slot]')).toHaveAttribute('data-model-state', 'standby')
+  await expect(video).not.toHaveClass(/scene__landscape-video--ready/)
+  await expect(video).toHaveCSS('opacity', '0')
+  await expect(heroCanvas).toHaveCSS('opacity', '0')
+  await expect(portfolio).toHaveClass(/portfolio--critical-ready/)
+  await expect(portfolio).toHaveAttribute('aria-busy', 'false')
+  expect(await page.evaluate(() => ({
+    fontsReady: [
+      document.fonts.check('400 1rem "Danviska"'),
+      document.fonts.check('400 1rem "Kiona"'),
+      document.fonts.check('400 1rem "Recursive Variable"'),
+    ].every(Boolean),
+    imagesReady: [...document.querySelectorAll(
+      '.identity-avatar__frame, .identity-avatar__person, .identity-avatar__mask-art, .tarot-hanging--hero img',
+    )].filter((image) => image.getClientRects().length > 0).every((image) => (
+      image.complete && image.naturalWidth > 0
+    )),
+  }))).toEqual({ fontsReady: true, imagesReady: true })
+  await expect(portfolio).not.toHaveClass(/portfolio--settled/)
+  expect(await page.locator('.scene__content').evaluate((element) => (
+    element.getAnimations().find(({ animationName }) => animationName === 'identity-card-float')?.playState
+  ))).toBe('paused')
   expect(requested).toEqual([])
 
   await page.evaluate(() => window.runIdleEnhancements())
+  await expect(portfolio).toHaveClass(/portfolio--settled/, { timeout: 2_000 })
+  expect(await page.locator('.scene__content').evaluate((element) => (
+    element.getAnimations().find(({ animationName }) => animationName === 'identity-card-float')?.playState
+  ))).toBe('running')
   await expect.poll(() => requested.some((url) => url.endsWith('.mp4'))).toBe(true)
+  expect(requested.some((url) => /three\.module-.*\.js$/.test(url))).toBe(false)
+  expect(requested.some((url) => url.endsWith('/models/artifacts/helios.glb'))).toBe(false)
+  await expect(video).toHaveClass(/scene__landscape-video--ready/, { timeout: 15_000 })
+  await expect(video).toHaveCSS('opacity', '0.92')
+
+  await heroFallback.hover()
   await expect.poll(() => requested.some((url) => /three\.module-.*\.js$/.test(url))).toBe(true)
   await expect.poll(() => requested.some((url) => url.endsWith('/models/artifacts/helios.glb'))).toBe(true)
+  await expect(hero).toHaveAttribute('data-render-state', 'ready', { timeout: 15_000 })
+  await expect.poll(() => heroCanvas.getAttribute('data-render-count')).not.toBe('0')
+  await expect(heroCanvas).toHaveCSS('opacity', '1')
+  await expect(heroFallback).toHaveCSS('opacity', '0')
 })
 
 test('decorative video starts when reduced motion is disabled later', async ({ page }) => {
