@@ -319,7 +319,30 @@ body {
   width: min(64rem, 100%);
   justify-self: center;
   will-change: transform;
+  opacity: 0;
+  visibility: hidden;
   animation: identity-card-float 10s ease-in-out infinite;
+  transition: opacity 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.portfolio--critical-ready .scene__content {
+  opacity: 1;
+  visibility: visible;
+}
+
+.portfolio:not(.portfolio--settled) .scene__content,
+.portfolio:not(.portfolio--settled) .identity-avatar,
+.portfolio:not(.portfolio--settled) .identity-avatar::after,
+.portfolio:not(.portfolio--settled) .identity-avatar__character,
+.portfolio:not(.portfolio--settled) .identity-avatar__wink,
+.portfolio:not(.portfolio--settled) .identity-avatar__mask::after,
+.portfolio:not(.portfolio--settled) .discipline-band--active :is(
+  .discipline-band__abbr,
+  .discipline-band__rule,
+  .discipline-band__name,
+  .discipline-band__detail
+) {
+  animation-play-state: paused;
 }
 
 .scene__content:has(.identity-avatar__mask:hover),
@@ -357,6 +380,8 @@ body {
 }
 
 .scene__media {
+  --scene-landscape-opacity: 0.92;
+
   position: absolute;
   z-index: 1;
   inset: 0;
@@ -368,7 +393,7 @@ body {
   z-index: 0;
   inset: 0;
   filter: grayscale(0.08) saturate(0.82) brightness(0.64) contrast(1.12);
-  opacity: 0.92;
+  opacity: var(--scene-landscape-opacity);
   pointer-events: none;
   transform: none;
   user-select: none;
@@ -384,6 +409,12 @@ body {
   height: 100%;
   object-fit: cover;
   object-position: center 50%;
+  opacity: 0;
+  transition: opacity 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scene__landscape-video--ready {
+  opacity: var(--scene-landscape-opacity);
 }
 
 .identity-card {
@@ -4926,6 +4957,10 @@ h1 {
 }
 
 @media (max-width: 700px), (max-height: 640px) {
+  .scene__media {
+    --scene-landscape-opacity: 0.9;
+  }
+
   .scene {
     --scene-inline: 1rem;
   }
@@ -4933,7 +4968,6 @@ h1 {
   .scene__landscape,
   .scene__landscape-video {
     filter: grayscale(0.08) saturate(0.82) brightness(0.58) contrast(1.12);
-    opacity: 0.9;
   }
 
   .scene__landscape {
@@ -5085,6 +5119,7 @@ h1 {
   .scene__content {
     transform: translateY(var(--card-offset-y));
     animation: none;
+    transition: none;
   }
 
   .scene {
@@ -5093,6 +5128,7 @@ h1 {
 
   .scene__landscape-video {
     display: none;
+    transition: none;
   }
 
   .quote-page-enter-active,

@@ -1,10 +1,11 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import * as THREE from 'three'
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
+  active: {
+    type: Boolean,
+    default: false,
+  },
   instruments: {
     type: Array,
     required: true,
@@ -25,6 +26,9 @@ let reducedMotionMedia
 let renderer
 let resizeObserver
 let scene
+let THREE
+let GLTFLoader
+let MeshoptDecoder
 let visible = false
 let disposed = false
 const models = []
@@ -148,6 +152,17 @@ async function initialize() {
   if (renderer || !canvas.value) return
 
   try {
+    canvas.value.dataset.renderState = 'loading'
+    const modules = await Promise.all([
+      import('three'),
+      import('three/addons/loaders/GLTFLoader.js'),
+      import('three/addons/libs/meshopt_decoder.module.js'),
+    ])
+    THREE = modules[0]
+    GLTFLoader = modules[1].GLTFLoader
+    MeshoptDecoder = modules[2].MeshoptDecoder
+    if (disposed) return
+
     renderer = new THREE.WebGLRenderer({
       alpha: true,
       antialias: true,
@@ -243,7 +258,6 @@ async function initialize() {
       scene.add(pivot)
       models[index].pivot = pivot
       models[index].status = 'ready'
-      models[index].slot.dataset.modelState = 'ready'
     }
 
     await yieldToMain()
@@ -251,8 +265,6 @@ async function initialize() {
   }
 
   const readyModels = models.filter(({ pivot }) => pivot)
-  emit('resolve', models.map(({ status }) => status))
-  canvas.value.setAttribute('data-render-state', readyModels.length ? 'ready' : 'failed')
 
   if (readyModels.length && renderer.compileAsync) {
     readyModels.forEach((state) => {
@@ -272,7 +284,18 @@ async function initialize() {
   resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(container.value)
   resize()
+  models.forEach(({ slot, status }) => { slot.dataset.modelState = status })
+  emit('resolve', models.map(({ status }) => status))
+  canvas.value.dataset.renderState = readyModels.length ? 'ready' : 'failed'
   if (!reducedMotionMedia.matches) scheduleAnimation(520)
+}
+
+function initializeVisible() {
+  if (
+    props.active
+    && visible
+    && !window.matchMedia('(forced-colors: active)').matches
+  ) void initialize()
 }
 
 onMounted(() => {
@@ -280,11 +303,13 @@ onMounted(() => {
   reducedMotionMedia.addEventListener('change', syncAnimation)
   intersectionObserver = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting
-    if (visible && !window.matchMedia('(forced-colors: active)').matches) void initialize()
+    initializeVisible()
     syncAnimation()
   }, { rootMargin: '160px' })
   intersectionObserver.observe(container.value)
 })
+
+watch(() => props.active, initializeVisible)
 
 onBeforeUnmount(() => {
   disposed = true
@@ -309,7 +334,7 @@ onBeforeUnmount(() => {
       ref="canvas"
       class="achievement-stage__canvas"
       data-render-count="0"
-      data-render-state="loading"
+      data-render-state="standby"
     ></canvas>
     <slot></slot>
   </div>

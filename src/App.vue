@@ -1,6 +1,7 @@
 <script setup>
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AchievementArtwork from './components/AchievementArtwork.vue'
+import AchievementInstrument from './components/AchievementInstrument.vue'
 import AchievementVines from './components/AchievementVines.vue'
 import CursorFollower from './components/CursorFollower.vue'
 import HireHint from './components/HireHint.vue'
@@ -14,8 +15,6 @@ import { scheduleIdleEnhancement } from './loading.js'
 import { glide, impulseFor } from './motion.js'
 import profile from './profile.js'
 
-const loadAchievementInstrument = () => import('./components/AchievementInstrument.vue')
-const AchievementInstrument = defineAsyncComponent(loadAchievementInstrument)
 const achievementEntrancePlaybackRate = 2.4
 
 document.title = `${profile.name} — ${profile.position}`
@@ -61,6 +60,8 @@ const photoCredits = computed(() =>
 const activeLanguage = ref(profile.languages[0].id)
 const activeCertification = ref(profile.certifications[0].id)
 const pageVisible = ref(!document.hidden)
+const criticalReady = ref(false)
+const startupSettled = ref(false)
 const activeLanguageRecord = computed(() =>
   profile.languages.find(({ id }) => id === activeLanguage.value) ?? profile.languages[0],
 )
@@ -497,6 +498,7 @@ const instrumentStatuses = ref([])
 const instrumentsVisible = ref(false)
 const achievementInView = ref(false)
 const landscapeVideo = ref(null)
+const landscapeVideoReady = ref(false)
 let achievementObserver
 let achievementVisibilityObserver
 let achievementIntersecting = false
@@ -507,6 +509,32 @@ let landscapeVideoStopping = false
 let landscapeVideoArmed = false
 let startLandscapeVideo
 let cancelLandscapeVideoStart = () => {}
+let startupCancelled = false
+let startupSettleTimer
+
+async function prepareCriticalSurface() {
+  const visibleImages = [
+    ...document.querySelectorAll(
+      '.identity-avatar__frame, .identity-avatar__person, .identity-avatar__mask-art, .tarot-hanging--hero img',
+    ),
+  ].filter((image) => image.getClientRects().length > 0)
+  const criticalResources = [
+    document.fonts.load('400 1rem "Danviska"'),
+    document.fonts.load('400 1rem "Kiona"'),
+    document.fonts.load('400 1rem "Recursive Variable"'),
+    ...visibleImages.map((image) => image.decode?.() ?? Promise.resolve()),
+  ]
+
+  await Promise.allSettled(criticalResources)
+  if (startupCancelled) return
+
+  criticalReady.value = true
+  // The reveal owns 420ms in CSS. Start ambient loops only after that authored
+  // transition, so the first stable state never moves while it is arriving.
+  startupSettleTimer = window.setTimeout(() => {
+    startupSettled.value = true
+  }, 460)
+}
 
 function stopQuoteRotation() {
   window.clearInterval(quoteRotationTimer)
@@ -532,6 +560,11 @@ function syncLandscapeVideo() {
     // preload="none", putting the loop back in the critical window
     void video.play().catch(() => {})
   }
+}
+
+function handleLandscapeVideoReady() {
+  landscapeVideoReady.value = true
+  syncLandscapeVideo()
 }
 
 function syncPageState() {
@@ -595,7 +628,6 @@ async function activateAchievementWindow() {
     return
   }
 
-  const instrumentModule = loadAchievementInstrument()
   await nextTick()
 
   const entryAnimations = achievementWindow.value.getAnimations({ subtree: true }).filter((animation) => (
@@ -604,20 +636,13 @@ async function activateAchievementWindow() {
   entryAnimations.forEach((animation) => {
     animation.playbackRate = achievementEntrancePlaybackRate
   })
-  const [instrumentResult] = await Promise.allSettled([
-    instrumentModule,
-    ...entryAnimations.map((animation) => animation.finished),
-  ])
-
-  if (instrumentResult.status === 'rejected') {
-    instrumentsUnavailable.value = true
-    return
-  }
+  await Promise.allSettled(entryAnimations.map((animation) => animation.finished))
 
   instrumentsVisible.value = true
 }
 
 onMounted(() => {
+  startupCancelled = false
   landscapeVideoStopping = false
   landscapeVideoArmed = false
   reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -654,15 +679,18 @@ onMounted(() => {
     syncLandscapeVideo()
   }
   cancelLandscapeVideoStart = scheduleIdleEnhancement(startLandscapeVideo)
+  void prepareCriticalSurface()
 })
 
 onBeforeUnmount(() => {
+  startupCancelled = true
   landscapeVideoStopping = true
   railGlide.stop()
   pageGlide.stop()
   window.removeEventListener('wheel', handlePageWheel)
   document.removeEventListener('visibilitychange', syncPageState)
   cancelLandscapeVideoStart()
+  window.clearTimeout(startupSettleTimer)
   reducedMotionMedia?.removeEventListener('change', handleReducedMotionChange)
   forcedColorsMedia?.removeEventListener('change', handleForcedColorsChange)
   achievementObserver?.disconnect()
@@ -675,7 +703,17 @@ onBeforeUnmount(() => {
 <template>
   <CursorFollower />
 
-  <main class="portfolio" aria-label="Portfolio">
+  <main
+    :class="[
+      'portfolio',
+      {
+        'portfolio--critical-ready': criticalReady,
+        'portfolio--settled': startupSettled,
+      },
+    ]"
+    aria-label="Portfolio"
+    :aria-busy="!criticalReady"
+  >
     <header class="recruiter-nav">
       <a
         class="recruiter-nav__identity"
@@ -735,7 +773,10 @@ onBeforeUnmount(() => {
         <span class="scene__landscape"></span>
         <video
           ref="landscapeVideo"
-          class="scene__landscape-video"
+          :class="[
+            'scene__landscape-video',
+            { 'scene__landscape-video--ready': landscapeVideoReady },
+          ]"
           muted
           loop
           playsinline
@@ -743,7 +784,7 @@ onBeforeUnmount(() => {
           tabindex="-1"
           disablepictureinpicture
           disableremoteplayback
-          @canplay="syncLandscapeVideo"
+          @canplay="handleLandscapeVideoReady"
           @pause="syncLandscapeVideo"
         >
           <source src="/background-study-loop-wide.mp4" type="video/mp4" media="(min-width: 701px)" />
@@ -909,11 +950,11 @@ onBeforeUnmount(() => {
 
           <AchievementVines />
 
-          <component
-            :is="instrumentsVisible ? AchievementInstrument : 'div'"
+          <AchievementInstrument
             class="achievement-grid"
+            :active="instrumentsVisible"
             :style="{ '--achievement-columns': achievementColumns }"
-            v-bind="instrumentsVisible ? { instruments: achievementInstruments } : {}"
+            :instruments="achievementInstruments"
             @resolve="instrumentStatuses = $event"
           >
             <article
@@ -969,7 +1010,7 @@ onBeforeUnmount(() => {
                 <small>{{ achievement.detail }}</small>
               </div>
             </article>
-          </component>
+          </AchievementInstrument>
         </div>
       </div>
       <TarotHanging variant="sun" />
