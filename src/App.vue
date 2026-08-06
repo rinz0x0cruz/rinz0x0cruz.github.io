@@ -61,6 +61,7 @@ const activeLanguage = ref(profile.languages[0].id)
 const activeCertification = ref(profile.certifications[0].id)
 const pageVisible = ref(!document.hidden)
 const criticalReady = ref(false)
+const criticalState = ref('loading')
 const startupSettled = ref(false)
 const activeLanguageRecord = computed(() =>
   profile.languages.find(({ id }) => id === activeLanguage.value) ?? profile.languages[0],
@@ -511,6 +512,17 @@ let startLandscapeVideo
 let cancelLandscapeVideoStart = () => {}
 let startupCancelled = false
 let startupSettleTimer
+const criticalSurfaceTimeout = 4_000
+
+function settleCriticalResources(resources) {
+  let timeoutId
+  return Promise.race([
+    Promise.allSettled(resources).then(() => 'ready'),
+    new Promise((resolve) => {
+      timeoutId = window.setTimeout(() => resolve('timed-out'), criticalSurfaceTimeout)
+    }),
+  ]).finally(() => window.clearTimeout(timeoutId))
+}
 
 async function prepareCriticalSurface() {
   const visibleImages = [
@@ -525,9 +537,10 @@ async function prepareCriticalSurface() {
     ...visibleImages.map((image) => image.decode?.() ?? Promise.resolve()),
   ]
 
-  await Promise.allSettled(criticalResources)
+  const state = await settleCriticalResources(criticalResources)
   if (startupCancelled) return
 
+  criticalState.value = state
   criticalReady.value = true
   // The reveal owns 420ms in CSS. Start ambient loops only after that authored
   // transition, so the first stable state never moves while it is arriving.
@@ -713,6 +726,7 @@ onBeforeUnmount(() => {
     ]"
     aria-label="Portfolio"
     :aria-busy="!criticalReady"
+    :data-critical-state="criticalState"
   >
     <header class="recruiter-nav">
       <a

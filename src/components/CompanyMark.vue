@@ -1,10 +1,12 @@
 <script setup>
+import { isCompanyMark } from '../content/contracts.js'
+
 // Marks are drawn rather than imported: every other graphic on this site is
 // hand-built SVG, a pasted-in brand raster would read as foreign, and drawing
 // them keeps this to nominative use of each company's shapes rather than
 // redistributing their artwork.
 defineProps({
-  mark: { type: String, required: true },
+  mark: { type: String, required: true, validator: isCompanyMark },
 })
 </script>
 

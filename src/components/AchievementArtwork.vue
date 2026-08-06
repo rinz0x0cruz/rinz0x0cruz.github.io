@@ -1,16 +1,22 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
+import { achievementMotifs, isAchievementMotif } from '../content/contracts.js'
 
 const props = defineProps({
   motif: {
     type: String,
     required: true,
+    validator: isAchievementMotif,
   },
 })
 
-const dotsId = computed(() => `achievement-dots-${props.motif}`)
-const denseDotsId = computed(() => `achievement-dense-dots-${props.motif}`)
-const fadeId = computed(() => `achievement-fade-${props.motif}`)
+const instanceId = useId().replaceAll(':', '')
+const motif = computed(() => (
+  isAchievementMotif(props.motif) ? props.motif : achievementMotifs.at(-1)
+))
+const dotsId = computed(() => `achievement-dots-${motif.value}-${instanceId}`)
+const denseDotsId = computed(() => `achievement-dense-dots-${motif.value}-${instanceId}`)
+const fadeId = computed(() => `achievement-fade-${motif.value}-${instanceId}`)
 </script>
 
 <template>

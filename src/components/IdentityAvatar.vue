@@ -1,6 +1,11 @@
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue'
 import defaultMaskSource from '../assets/avatar-yokai-mask.svg?url'
+import {
+  clampRect,
+  isBoundedRect,
+  isPositiveFiniteNumber,
+} from '../content/contracts.js'
 
 const props = defineProps({
   frameSrc: {
@@ -18,14 +23,17 @@ const props = defineProps({
   width: {
     type: Number,
     default: 698,
+    validator: isPositiveFiniteNumber,
   },
   height: {
     type: Number,
     default: 932,
+    validator: isPositiveFiniteNumber,
   },
   winkRect: {
     type: Object,
     default: () => ({ x: 291, y: 248, width: 40, height: 20 }),
+    validator: (value, props) => isBoundedRect(value, props.width, props.height),
   },
   maskSrc: {
     type: String,
@@ -34,6 +42,7 @@ const props = defineProps({
   maskRect: {
     type: Object,
     default: () => ({ x: 195, y: 118, width: 308, height: 308 }),
+    validator: (value, props) => isBoundedRect(value, props.width, props.height),
   },
   maskLabel: {
     type: String,
@@ -49,16 +58,21 @@ const props = defineProps({
   },
 })
 
+const avatarWidth = computed(() => (isPositiveFiniteNumber(props.width) ? props.width : 698))
+const avatarHeight = computed(() => (isPositiveFiniteNumber(props.height) ? props.height : 932))
+const winkRect = computed(() => clampRect(props.winkRect, avatarWidth.value, avatarHeight.value))
+const maskRect = computed(() => clampRect(props.maskRect, avatarWidth.value, avatarHeight.value))
+
 const avatarStyle = computed(() => ({
-  '--avatar-ratio': `${props.width} / ${props.height}`,
-  '--wink-left': `${(props.winkRect.x / props.width) * 100}%`,
-  '--wink-top': `${(props.winkRect.y / props.height) * 100}%`,
-  '--wink-width': `${(props.winkRect.width / props.width) * 100}%`,
-  '--wink-height': `${(props.winkRect.height / props.height) * 100}%`,
-  '--mask-left': `${(props.maskRect.x / props.width) * 100}%`,
-  '--mask-top': `${(props.maskRect.y / props.height) * 100}%`,
-  '--mask-width': `${(props.maskRect.width / props.width) * 100}%`,
-  '--mask-height': `${(props.maskRect.height / props.height) * 100}%`,
+  '--avatar-ratio': `${avatarWidth.value} / ${avatarHeight.value}`,
+  '--wink-left': `${(winkRect.value.x / avatarWidth.value) * 100}%`,
+  '--wink-top': `${(winkRect.value.y / avatarHeight.value) * 100}%`,
+  '--wink-width': `${(winkRect.value.width / avatarWidth.value) * 100}%`,
+  '--wink-height': `${(winkRect.value.height / avatarHeight.value) * 100}%`,
+  '--mask-left': `${(maskRect.value.x / avatarWidth.value) * 100}%`,
+  '--mask-top': `${(maskRect.value.y / avatarHeight.value) * 100}%`,
+  '--mask-width': `${(maskRect.value.width / avatarWidth.value) * 100}%`,
+  '--mask-height': `${(maskRect.value.height / avatarHeight.value) * 100}%`,
   '--mask-image': `url("${props.maskSrc}")`,
 }))
 
@@ -97,9 +111,9 @@ onBeforeUnmount(() => window.clearTimeout(maskAnimationTimer))
 
 <template>
   <div class="identity-avatar" :style="avatarStyle">
-    <img class="identity-avatar__frame" :src="frameSrc" alt="" :width="width" :height="height" fetchpriority="high" />
+    <img class="identity-avatar__frame" :src="frameSrc" alt="" :width="avatarWidth" :height="avatarHeight" fetchpriority="high" />
     <span class="identity-avatar__character">
-      <img class="identity-avatar__person" :src="personSrc" alt="" :width="width" :height="height" fetchpriority="high" />
+      <img class="identity-avatar__person" :src="personSrc" alt="" :width="avatarWidth" :height="avatarHeight" fetchpriority="high" />
       <img
         class="identity-avatar__wink"
         :src="winkSrc"

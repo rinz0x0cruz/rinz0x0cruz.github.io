@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, ref } from 'vue'
+import { nextTick, onBeforeUnmount, ref } from 'vue'
 import { glide } from '../motion.js'
 
 const props = defineProps({
@@ -10,6 +10,8 @@ const props = defineProps({
 const flipped = ref(false)
 const dragging = ref(false)
 const offset = ref({ x: 0, y: 0 })
+const frontFace = ref(null)
+const backReply = ref(null)
 // below this the gesture is still a click, above it the note is being carried
 const DRAG_SLOP = 4
 // Keep the last real step across duplicate pointer samples, but not a deliberate hold.
@@ -106,17 +108,23 @@ function onPointerUp(event) {
 }
 
 // a drag that ends where it started is a click, so flipping never fires mid-drag
+async function flipNote() {
+  flipped.value = !flipped.value
+  await nextTick()
+  ;(flipped.value ? backReply.value : frontFace.value)?.focus({ preventScroll: true })
+}
+
 function onClick() {
   if (moved > DRAG_SLOP) return
 
-  flipped.value = !flipped.value
+  void flipNote()
 }
 
 function onKeydown(event) {
   if (event.key !== 'Enter' && event.key !== ' ') return
 
   event.preventDefault()
-  flipped.value = !flipped.value
+  void flipNote()
 }
 
 onBeforeUnmount(() => {
@@ -135,9 +143,12 @@ onBeforeUnmount(() => {
     @pointercancel="onPointerUp"
   >
     <button
+      ref="frontFace"
       class="sticky-note__face sticky-note__face--front"
       type="button"
       :aria-pressed="flipped"
+      :aria-hidden="flipped"
+      :inert="flipped"
       :tabindex="flipped ? -1 : 0"
       @click="onClick"
       @keydown="onKeydown"
@@ -146,8 +157,13 @@ onBeforeUnmount(() => {
       <span class="sticky-note__hint" aria-hidden="true">turn over</span>
     </button>
 
-    <div class="sticky-note__face sticky-note__face--back" :aria-hidden="!flipped">
+    <div
+      class="sticky-note__face sticky-note__face--back"
+      :aria-hidden="!flipped"
+      :inert="!flipped"
+    >
       <button
+        ref="backReply"
         class="sticky-note__reply"
         type="button"
         :tabindex="flipped ? 0 : -1"
