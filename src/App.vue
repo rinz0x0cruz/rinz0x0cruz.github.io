@@ -34,7 +34,7 @@ const profileDrawerSpace = `${profileLinkRows * 4.75 + 2.75}rem`
 const profileDrawerMobileSpace = `${profileLinkMobileRows * 4.75 + 2}rem`
 const profileLinksScrollable = profile.links.length > 5
 const languageSwitchScrollable = profile.languages.length > 4
-const achievementInstruments = profile.achievements.map(({ instrument }) => instrument ?? null)
+const achievementInstruments = profile.achievements.map(({ instrument }) => instrument)
 const achievementColumns = Math.min(profile.achievements.length, 5)
 const activeQuoteIndex = ref(0)
 

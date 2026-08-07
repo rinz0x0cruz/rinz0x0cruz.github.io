@@ -5,8 +5,10 @@ import profile from '../src/profile.js'
 import { defineCollection } from '../src/content/define.js'
 import {
   clampRect,
-  isAchievementMotif,
   isBoundedRect,
+} from '../src/components/avatar-geometry.js'
+import {
+  isAchievementMotif,
   isCompanyMark,
   isHexAccent,
   isInstrumentDescriptor,
@@ -56,15 +58,35 @@ test('feature collections reject empty, incomplete, and duplicate records', () =
 })
 
 test('visual content contracts reject unsupported future values', () => {
+  const sparseRotation = [0, 0, 0]
+  delete sparseRotation[1]
+  const inheritedSparseRotation = [0, 0, 0]
+  delete inheritedSparseRotation[1]
+  Object.setPrototypeOf(inheritedSparseRotation, { 1: 0 })
+
   assert.equal(isAchievementMotif('signal'), true)
   assert.equal(isAchievementMotif('unknown'), false)
   assert.equal(isCompanyMark('microsoft'), true)
   assert.equal(isCompanyMark('typo'), false)
   assert.equal(isHexAccent('#d1a35f'), true)
   assert.equal(isHexAccent('gold'), false)
+  assert.equal(isInstrumentDescriptor(undefined), true)
+  assert.equal(isInstrumentDescriptor(null), false)
   assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: [0, 0, 0] }), true)
+  assert.equal(isInstrumentDescriptor({ src: '/\\example.com/model.glb', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/\t/example.com/model.glb', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '//example.com/model.glb', rotation: [0, 0, 0] }), false)
   assert.equal(isInstrumentDescriptor({ src: 'https://example.com/model.glb', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb?', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb#', rotation: [0, 0, 0] }), false)
   assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: [0, Number.NaN, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: Array(3) }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: sparseRotation }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: inheritedSparseRotation }), false)
+  assert.equal([
+    { src: '/models/example.glb', rotation: [0, 0, 0] },
+    undefined,
+  ].every(isInstrumentDescriptor), true)
   assert.throws(
     () => defineCollection(
       'achievements',

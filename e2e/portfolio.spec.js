@@ -26,6 +26,20 @@ async function revealAchievementStage(page) {
   return page.locator('.achievement-stage')
 }
 
+async function expectEssentialProfileFallback(page) {
+  const fallback = page.locator('#app .no-script')
+  await expect(page.locator('#app')).toHaveAttribute('data-app-state', 'failed', { timeout: 5_000 })
+  await expect(fallback.getByRole('heading', { name: 'Mohit Sharma' })).toBeVisible()
+  await expect(fallback).toContainText('Security Researcher at Microsoft')
+  await expect(fallback).toContainText('interactive portfolio is unavailable')
+  await expect(fallback.getByRole('link', { name: 'Résumé' })).toHaveAttribute('href', '/Mohit-Sharma-Resume.pdf')
+  await expect(fallback.getByRole('link', { name: 'Blog' })).toHaveAttribute('href', '/blog/')
+  await expect(fallback.getByRole('link', { name: 'Email' })).toHaveAttribute(
+    'href',
+    'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com',
+  )
+}
+
 test('the static page identifies itself to search and social crawlers', async ({ page }) => {
   await page.goto('/')
 
@@ -149,6 +163,7 @@ test('opening and refreshing never exposes a partially loaded identity', async (
     resourceGate = new Promise((resolve) => { releaseResources = resolve })
     await navigate()
 
+    await expect(page.locator('#app')).toHaveAttribute('data-app-state', 'ready')
     const portfolio = page.locator('.portfolio')
     const identity = page.locator('.scene__content')
     await expect(portfolio).toHaveAttribute('aria-busy', 'true')
@@ -199,16 +214,23 @@ test('essential profile links survive an enabled-JavaScript boot failure', async
 
   const fallback = page.locator('#app .no-script')
   await expect(fallback).toBeHidden()
-  await expect(page.locator('#app')).toHaveAttribute('data-app-state', 'failed', { timeout: 5_000 })
-  await expect(fallback.getByRole('heading', { name: 'Mohit Sharma' })).toBeVisible()
-  await expect(fallback).toContainText('Security Researcher at Microsoft')
-  await expect(fallback).toContainText('interactive portfolio is unavailable')
-  await expect(fallback.getByRole('link', { name: 'Résumé' })).toHaveAttribute('href', '/Mohit-Sharma-Resume.pdf')
-  await expect(fallback.getByRole('link', { name: 'Blog' })).toHaveAttribute('href', '/blog/')
-  await expect(fallback.getByRole('link', { name: 'Email' })).toHaveAttribute(
-    'href',
-    'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com',
-  )
+  await expectEssentialProfileFallback(page)
+})
+
+test('essential profile links survive a Vue mount failure', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Intl, 'Segmenter', {
+      configurable: true,
+      value: class FailingSegmenter {
+        constructor() {
+          throw new Error('Forced mount failure')
+        }
+      },
+    })
+  })
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+
+  await expectEssentialProfileFallback(page)
 })
 
 test('the essential profile remains usable without JavaScript', async ({ browser }) => {

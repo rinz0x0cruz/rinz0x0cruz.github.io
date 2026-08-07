@@ -1,15 +1,25 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import test from 'node:test'
 import {
   BlogPublisher,
   CommandError,
+  CommandLaunchError,
+  CommandTimeoutError,
   runCommand,
 } from '../scripts/blog/publisher.mjs'
 import { parsePostSource, serializePost } from '../scripts/blog/lib.mjs'
 import { createStudioServer } from '../scripts/blog/studio.mjs'
+
+const fixtureRoots = new Set()
+
+test.afterEach(async () => {
+  const roots = [...fixtureRoots]
+  fixtureRoots.clear()
+  await Promise.all(roots.map((root) => rm(root, { recursive: true, force: true })))
+})
 
 async function git(cwd, args) {
   return runCommand('git', args, { cwd })
@@ -17,6 +27,7 @@ async function git(cwd, args) {
 
 async function repositoryFixture() {
   const root = await mkdtemp(join(tmpdir(), 'portfolio-publisher-test-'))
+  fixtureRoots.add(root)
   const remote = join(root, 'remote.git')
   const checkout = join(root, 'checkout')
   await mkdir(checkout)
@@ -48,11 +59,82 @@ function draftPost(published) {
   }
 }
 
+async function pullRequestRecord(options, overrides = {}) {
+  const headRefOid = (await runCommand('git', ['rev-parse', 'HEAD'], options)).stdout.trim()
+  return {
+    baseRefName: 'main',
+    headRefName: 'draft/blog/safe-draft',
+    headRefOid,
+    headRepositoryOwner: { login: 'owner' },
+    isCrossRepository: false,
+    mergeStateStatus: 'CLEAN',
+    number: 12,
+    state: 'OPEN',
+    statusCheckRollup: [],
+    url: 'https://example.invalid/pr/12',
+    ...overrides,
+  }
+}
+
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64',
 )
 const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64')
+
+async function waitForProcessExit(processId, timeout = 2_000) {
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    try {
+      process.kill(processId, 0)
+    } catch {
+      return true
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  return false
+}
+
+test('bounds command output and terminates descendants on timeout', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'portfolio-command-test-'))
+  const pidPath = join(directory, 'descendant.pid')
+  const parent = [
+    "const { spawn } = require('node:child_process')",
+    "const { writeFileSync } = require('node:fs')",
+    "const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' })",
+    `writeFileSync(${JSON.stringify(pidPath)}, String(child.pid))`,
+    'setInterval(() => {}, 1000)',
+  ].join(';')
+  let descendantPid
+  try {
+    await assert.rejects(
+      runCommand(process.execPath, ['-e', parent], { timeout: 100 }),
+      (error) => error.code === 'BLOG_COMMAND_TIMEOUT',
+    )
+    descendantPid = Number(await readFile(pidPath, 'utf8'))
+    assert.equal(await waitForProcessExit(descendantPid), true)
+
+    await assert.rejects(
+      runCommand(process.execPath, ['-e', "process.stdout.write('x'.repeat(2048))"], {
+        maxOutputBytes: 1_024,
+      }),
+      (error) => error.code === 'BLOG_COMMAND_OUTPUT_LIMIT',
+    )
+    await assert.rejects(
+      runCommand('portfolio-command-that-does-not-exist', []),
+      (error) => error instanceof CommandLaunchError && error.code === 'BLOG_COMMAND_LAUNCH',
+    )
+    await assert.rejects(
+      runCommand(process.execPath, ['\0']),
+      (error) => error instanceof CommandLaunchError && error.code === 'BLOG_COMMAND_LAUNCH',
+    )
+  } finally {
+    if (descendantPid && !(await waitForProcessExit(descendantPid, 50))) {
+      process.kill(descendantPid)
+    }
+    await rm(directory, { recursive: true, force: true })
+  }
+})
 
 test('saves and reloads a durable draft branch with verified media', async () => {
   const fixture = await repositoryFixture()
@@ -92,6 +174,189 @@ test('saves and reloads a durable draft branch with verified media', async () =>
 
   const repeated = await publisher.saveDraft(draftPost(), media, result.sha)
   assert.equal(repeated.sha, result.sha)
+})
+
+test('deduplicates overlapping Git fetches for concurrent media reads', async () => {
+  const fixture = await repositoryFixture()
+  const post = draftPost('2026-08-02')
+  await writeFile(
+    join(fixture.checkout, 'content', 'blog', 'safe-draft.md'),
+    serializePost(post),
+    'utf8',
+  )
+  await mkdir(join(fixture.checkout, 'public', 'blog', 'media', 'safe-draft'), {
+    recursive: true,
+  })
+  await writeFile(
+    join(fixture.checkout, 'public', 'blog', 'media', 'safe-draft', 'cover.png'),
+    png,
+  )
+  await git(fixture.checkout, ['add', 'content/blog/safe-draft.md', 'public/blog/media/safe-draft/cover.png'])
+  await git(fixture.checkout, ['commit', '-m', 'Publish media fixture'])
+  await git(fixture.checkout, ['push', 'origin', 'main'])
+
+  let fetches = 0
+  let releaseFetch
+  let signalFetch
+  const fetchStarted = new Promise((resolve) => { signalFetch = resolve })
+  const fetchGate = new Promise((resolve) => { releaseFetch = resolve })
+  const runner = async (command, args, options) => {
+    if (command === 'git' && args[0] === 'fetch') {
+      fetches += 1
+      signalFetch()
+      await fetchGate
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+  })
+
+  const first = publisher.readMedia('safe-draft', 'cover.png')
+  await fetchStarted
+  const second = publisher.readMedia('safe-draft', 'cover.png')
+  await Promise.resolve()
+  releaseFetch()
+  const results = await Promise.all([first, second])
+
+  assert.equal(fetches, 1)
+  assert.deepEqual(results.map(({ buffer }) => buffer), [png, png])
+  await publisher.readMedia('safe-draft', 'cover.png')
+  assert.equal(fetches, 2)
+})
+
+test('reconciles a successful push whose command reports an unknown outcome', async () => {
+  const fixture = await repositoryFixture()
+  let losePushResponse = true
+  const runner = async (command, args, options) => {
+    if (command === 'git' && args[0] === 'push' && losePushResponse) {
+      losePushResponse = false
+      await runCommand(command, args, options)
+      throw new CommandTimeoutError(command, 100)
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+  })
+
+  const saved = await publisher.saveDraft(draftPost(), [], null)
+
+  assert.equal(
+    saved.sha,
+    (await git(fixture.checkout, [
+      '--git-dir', fixture.remote, 'rev-parse', 'refs/heads/draft/blog/safe-draft',
+    ])).stdout.trim(),
+  )
+})
+
+test('forces a fresh fetch after an ambiguous push outcome', async () => {
+  const fixture = await repositoryFixture()
+  await writeFile(join(fixture.checkout, 'README.md'), '# Candidate\n')
+  await git(fixture.checkout, ['add', 'README.md'])
+  await git(fixture.checkout, ['commit', '-m', 'Candidate'])
+  let fetches = 0
+  let releaseFirstFetch
+  let signalFirstFetch
+  let signalPush
+  const firstFetchStarted = new Promise((resolve) => { signalFirstFetch = resolve })
+  const firstFetchGate = new Promise((resolve) => { releaseFirstFetch = resolve })
+  const pushFinished = new Promise((resolve) => { signalPush = resolve })
+  const runner = async (command, args, options) => {
+    if (command === 'git' && args[0] === 'fetch') {
+      fetches += 1
+      const result = await runCommand(command, args, options)
+      if (fetches === 1) {
+        signalFirstFetch()
+        await firstFetchGate
+      }
+      return result
+    }
+    if (command === 'git' && args[0] === 'push') {
+      await runCommand(command, args, options)
+      signalPush()
+      throw new CommandTimeoutError(command, 100)
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+  })
+
+  const staleFetch = publisher.fetch()
+  await firstFetchStarted
+  const pushing = publisher.pushBranch('draft/blog/safe-draft', null, fixture.checkout)
+  await pushFinished
+  releaseFirstFetch()
+  const revision = await pushing
+  await staleFetch
+
+  assert.equal(fetches, 2)
+  assert.equal(
+    revision,
+    (await git(fixture.checkout, [
+      '--git-dir', fixture.remote, 'rev-parse', 'refs/heads/draft/blog/safe-draft',
+    ])).stdout.trim(),
+  )
+})
+
+test('marks a push unknown when fresh verification cannot run', async () => {
+  const fixture = await repositoryFixture()
+  await writeFile(join(fixture.checkout, 'README.md'), '# Candidate\n')
+  await git(fixture.checkout, ['add', 'README.md'])
+  await git(fixture.checkout, ['commit', '-m', 'Candidate'])
+  let pushAttempted = false
+  const runner = async (command, args, options) => {
+    if (command === 'git' && args[0] === 'push') {
+      pushAttempted = true
+      await runCommand(command, args, options)
+      throw new CommandTimeoutError(command, 100)
+    }
+    if (command === 'git' && args[0] === 'fetch' && pushAttempted) {
+      throw new CommandError(command, args, 128, '', 'Network unavailable')
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+  })
+
+  await assert.rejects(
+    publisher.pushBranch('draft/blog/safe-draft', null, fixture.checkout),
+    (error) => error.code === 'BLOG_COMMAND_TIMEOUT' && error.outcomeUnknown === true,
+  )
+})
+
+test('treats branch deletion during an ambiguous update as a revision conflict', async () => {
+  const fixture = await repositoryFixture()
+  const initialPublisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  const initial = await initialPublisher.saveDraft(draftPost(), [], null)
+  let deleteBranch = true
+  const runner = async (command, args, options) => {
+    if (command === 'git' && args[0] === 'push' && deleteBranch) {
+      deleteBranch = false
+      await git(fixture.checkout, [
+        'push', 'origin', '--delete', 'draft/blog/safe-draft',
+      ])
+      throw new CommandTimeoutError(command, 100)
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+  })
+  const updated = draftPost()
+  updated.metadata.summary = 'Update racing a remote branch deletion.'
+
+  await assert.rejects(
+    publisher.saveDraft(updated, [], initial.sha),
+    (error) => error.code === 'BLOG_REVISION_CONFLICT' && error.recovery === undefined,
+  )
 })
 
 test('serializes concurrent first writes and rejects the stale contender', async () => {
@@ -218,9 +483,66 @@ test('rejects a remote update that lands while a draft is saving', async () => {
   assert.equal(saved.post.summary, remote.metadata.summary)
 })
 
+test('classifies a divergent ambiguous push as a revision conflict', async () => {
+  const fixture = await repositoryFixture()
+  const initialPublisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  const initial = await initialPublisher.saveDraft(draftPost(), [], null)
+  const remoteRoot = await mkdtemp(join(tmpdir(), 'portfolio-remote-editor-'))
+  fixtureRoots.add(remoteRoot)
+  const remoteCheckout = join(remoteRoot, 'checkout')
+  await git(remoteRoot, ['clone', fixture.remote, remoteCheckout])
+  await git(remoteCheckout, ['config', 'user.name', 'Remote Blog Test'])
+  await git(remoteCheckout, ['config', 'user.email', 'remote-blog-test@example.invalid'])
+  const remotePublisher = new BlogPublisher({ repoRoot: remoteCheckout })
+  let injectConflict = true
+  let failRemove = true
+  let failPrune = true
+  const runner = async (command, args, options) => {
+    if (command === 'git' && args[0] === 'push' && injectConflict) {
+      injectConflict = false
+      const current = await remotePublisher.readPost('safe-draft', 'draft')
+      const changed = draftPost()
+      changed.metadata.summary = 'Concurrent remote version.'
+      await remotePublisher.saveDraft(changed, [], current.revision)
+      throw new CommandTimeoutError(command, 100)
+    }
+    if (command === 'git' && args[0] === 'worktree' && args[1] === 'remove' && failRemove) {
+      failRemove = false
+      throw new CommandError(command, args, 1, '', 'Injected removal failure')
+    }
+    if (command === 'git' && args[0] === 'worktree' && args[1] === 'prune' && failPrune) {
+      failPrune = false
+      throw new CommandError(command, args, 1, '', 'Injected prune failure')
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+  })
+  const local = draftPost()
+  local.metadata.summary = 'Ambiguous local version.'
+
+  await assert.rejects(
+    publisher.saveDraft(local, [], initial.sha),
+    (error) => (
+      error.code === 'BLOG_REVISION_CONFLICT'
+      && error.recovery === undefined
+      && error.cleanupDiagnostic instanceof CommandError
+    ),
+  )
+  await git(fixture.checkout, ['worktree', 'prune'])
+})
+
 test('rejects unsafe media before opening a worktree', async () => {
   const fixture = await repositoryFixture()
   const publisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  const invalidPost = draftPost()
+  invalidPost.metadata.title = 'Unsafe\0title'
+  await assert.rejects(
+    publisher.saveDraft(invalidPost, [], null),
+    /title contains unsupported characters/u,
+  )
   await assert.rejects(
     publisher.saveDraft(draftPost(), [{ name: '../cover.png', data: png.toString('base64') }]),
     /Media filenames/u,
@@ -301,8 +623,14 @@ test('publishes through a protected PR and reports unavailable auto-merge', asyn
     if (command === 'fake-npm') return { stdout: '', stderr: '' }
     if (command === 'gh') {
       if (args[1] === 'list') {
+        const expected = await pullRequestRecord(options)
+        const conflicting = [
+          { ...expected, number: 98, headRepositoryOwner: { login: 'attacker' }, isCrossRepository: true },
+          { ...expected, number: 99, baseRefName: 'other' },
+          { ...expected, number: 100, headRefOid: 'f'.repeat(40) },
+        ]
         return {
-          stdout: pullRequestCreated ? '[{"number":12,"url":"https://example.invalid/pr/12"}]' : '[]',
+          stdout: JSON.stringify(pullRequestCreated ? [...conflicting, expected] : conflicting),
           stderr: '',
         }
       }
@@ -327,7 +655,9 @@ test('publishes through a protected PR and reports unavailable auto-merge', asyn
 
   assert.equal(result.pullRequest.number, 12)
   assert.equal(result.autoMergeQueued, false)
-  assert.match(result.autoMergeError, /Auto-merge is disabled/u)
+  assert.equal(result.autoMergeError, 'Auto-merge could not be queued. Review the studio terminal.')
+  assert.match(result.diagnostic.message, /Auto-merge is disabled/u)
+  assert.equal(JSON.stringify(result).includes('Auto-merge is disabled'), false)
   assert.equal(commands.filter(([command, action]) => command === 'fake-npm' && action === 'test').length, 1)
   assert.equal(commands.some(([command, group, action]) => command === 'gh' && group === 'pr' && action === 'create'), true)
   assert.equal(commands.some(([command, group, action]) => command === 'gh' && group === 'pr' && action === 'merge'), true)
@@ -364,7 +694,9 @@ test('keeps save and publish atomic against a concurrent draft update', async ()
     if (command === 'gh') {
       if (args[1] === 'list') {
         return {
-          stdout: pullRequestCreated ? '[{"number":12,"url":"https://example.invalid/pr/12"}]' : '[]',
+          stdout: pullRequestCreated
+            ? JSON.stringify([await pullRequestRecord(options)])
+            : '[]',
           stderr: '',
         }
       }
@@ -409,7 +741,7 @@ test('rejects a remote update that lands between saving and publishing', async (
   let fetches = 0
   let pullRequestCreated = false
   const runner = async (command, args, options) => {
-    if (command === 'git' && args[0] === 'fetch' && ++fetches === 3) {
+    if (command === 'git' && args[0] === 'fetch' && ++fetches === 4) {
       const current = await remotePublisher.readPost('safe-draft', 'draft')
       await remotePublisher.saveDraft(remote, [], current.revision)
     }
@@ -417,7 +749,9 @@ test('rejects a remote update that lands between saving and publishing', async (
     if (command === 'gh') {
       if (args[1] === 'list') {
         return {
-          stdout: pullRequestCreated ? '[{"number":12,"url":"https://example.invalid/pr/12"}]' : '[]',
+          stdout: pullRequestCreated
+            ? JSON.stringify([await pullRequestRecord(options)])
+            : '[]',
           stderr: '',
         }
       }
@@ -442,12 +776,288 @@ test('rejects a remote update that lands between saving and publishing', async (
     publisher.saveAndPublish(requested, [], null),
     (error) => {
       assert.equal(error.code, 'BLOG_REVISION_CONFLICT')
+      assert.equal(error.recovery, undefined)
       return true
     },
   )
   assert.equal(pullRequestCreated, false)
   const saved = await remotePublisher.readPost('safe-draft', 'draft')
   assert.equal(saved.post.summary, remote.metadata.summary)
+})
+
+test('returns the durable draft revision when publication fails after saving', async () => {
+  const fixture = await repositoryFixture()
+  let failTests = true
+  let pullRequestCreated = false
+  const runner = async (command, args, options) => {
+    if (command === 'fake-npm') {
+      if (args[0] === 'test' && failTests) {
+        throw new CommandError(command, args, 1, '', 'Tests failed')
+      }
+      return { stdout: '', stderr: '' }
+    }
+    if (command === 'gh') {
+      if (args[1] === 'list') {
+        return {
+          stdout: pullRequestCreated
+            ? JSON.stringify([await pullRequestRecord(options)])
+            : '[]',
+          stderr: '',
+        }
+      }
+      if (args[1] === 'create') {
+        pullRequestCreated = true
+        return { stdout: 'https://example.invalid/pr/12\n', stderr: '' }
+      }
+      if (args[1] === 'merge') return { stdout: '', stderr: '' }
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+    npmCommand: 'fake-npm',
+    repository: 'owner/repo',
+  })
+  const requested = draftPost('2026-08-02')
+  let failure
+  try {
+    await publisher.saveAndPublish(requested, [], null)
+  } catch (error) {
+    failure = error
+  }
+
+  assert.match(failure.message, /Tests failed/u)
+  assert.match(failure.recovery.draft.sha, /^[0-9a-f]{40}$/u)
+  assert.equal(
+    (await publisher.readPost('safe-draft', 'draft')).revision,
+    failure.recovery.draft.sha,
+  )
+
+  failTests = false
+  const retried = await publisher.saveAndPublish(
+    requested,
+    [],
+    failure.recovery.draft.sha,
+  )
+  assert.equal(retried.published.pullRequest.number, 12)
+})
+
+test('returns the rebased remote revision when GitHub fails after the publish push', async () => {
+  const fixture = await repositoryFixture()
+  const initialPublisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  const saved = await initialPublisher.saveDraft(draftPost('2026-08-02'), [], null)
+  await writeFile(join(fixture.checkout, 'README.md'), '# Main advanced\n')
+  await git(fixture.checkout, ['add', 'README.md'])
+  await git(fixture.checkout, ['commit', '-m', 'Advance main'])
+  await git(fixture.checkout, ['push', 'origin', 'main'])
+
+  const runner = async (command, args, options) => {
+    if (command === 'fake-npm') return { stdout: '', stderr: '' }
+    if (command === 'gh') {
+      throw new CommandError(command, args, 1, '', 'GitHub unavailable')
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+    npmCommand: 'fake-npm',
+    repository: 'owner/repo',
+  })
+  let failure
+  try {
+    await publisher.saveAndPublish(draftPost('2026-08-02'), [], saved.sha)
+  } catch (error) {
+    failure = error
+  }
+
+  const remoteRevision = (await git(fixture.checkout, [
+    '--git-dir', fixture.remote, 'rev-parse', 'refs/heads/draft/blog/safe-draft',
+  ])).stdout.trim()
+  assert.notEqual(remoteRevision, saved.sha)
+  assert.equal(failure.recovery.draft.sha, remoteRevision)
+})
+
+test('marks publication pending when a no-op push reaches GitHub', async () => {
+  const fixture = await repositoryFixture()
+  const initialPublisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  const post = draftPost('2026-08-02')
+  const media = [{ name: 'cover.png', data: png.toString('base64') }]
+  const saved = await initialPublisher.saveDraft(post, media, null)
+  const runner = async (command, args, options) => {
+    if (command === 'fake-npm') return { stdout: '', stderr: '' }
+    if (command === 'gh') {
+      throw new CommandError(command, args, 1, '', 'GitHub unavailable')
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+    npmCommand: 'fake-npm',
+    repository: 'owner/repo',
+  })
+
+  await assert.rejects(
+    publisher.saveAndPublish(post, [], saved.sha),
+    (error) => {
+      assert.equal(error.recovery.draft.sha, saved.sha)
+      assert.equal(error.recovery.publicationPending, true)
+      return true
+    },
+  )
+})
+
+test('reconciles exact draft media and a merged post after branch deletion', async () => {
+  const fixture = await repositoryFixture()
+  const publisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  const post = draftPost('2026-08-02')
+  const media = [{ name: 'cover.png', data: png.toString('base64') }]
+  const saved = await publisher.saveDraft(post, media, null)
+
+  const draftMatch = await publisher.reconcile(post, media, null)
+  assert.equal(draftMatch.published, false)
+  assert.equal(draftMatch.revision, saved.sha)
+  assert.equal(await publisher.reconcile(post, [
+    { name: 'motion.gif', data: gif.toString('base64') },
+  ], null), null)
+
+  await git(fixture.checkout, ['fetch', 'origin'])
+  await git(fixture.checkout, ['merge', '--squash', 'origin/draft/blog/safe-draft'])
+  await git(fixture.checkout, ['commit', '-m', 'Publish reconciled post'])
+  await git(fixture.checkout, ['push', 'origin', 'main'])
+
+  const lingering = await publisher.saveAndPublish(post, media, saved.sha)
+  assert.equal(lingering.published.alreadyPublished, true)
+  assert.equal(lingering.published.sha, (await git(
+    fixture.checkout,
+    ['rev-parse', 'HEAD'],
+  )).stdout.trim())
+  assert.equal(lingering.draft.sha, saved.sha)
+
+  const lingeringRetry = await publisher.saveAndPublish(post, media, lingering.draft.sha)
+  assert.equal(lingeringRetry.published.alreadyPublished, true)
+  assert.equal(lingeringRetry.draft.sha, saved.sha)
+
+  await git(fixture.checkout, ['push', 'origin', '--delete', 'draft/blog/safe-draft'])
+
+  const publishedMatch = await publisher.reconcile(post, media, saved.sha)
+  assert.equal(publishedMatch.published, true)
+  assert.equal(
+    publishedMatch.revision,
+    (await git(fixture.checkout, ['rev-parse', 'HEAD'])).stdout.trim(),
+  )
+
+  const repeated = await publisher.saveAndPublish(post, media, saved.sha)
+  assert.equal(repeated.published.alreadyPublished, true)
+  assert.equal(repeated.published.sha, publishedMatch.revision)
+  const recreated = await git(fixture.checkout, [
+    'ls-remote', '--heads', fixture.remote, 'refs/heads/draft/blog/safe-draft',
+  ])
+  assert.equal(recreated.stdout.trim(), '')
+})
+
+test('rejects reconciliation when retained media is altered or orphaned', async () => {
+  const fixture = await repositoryFixture()
+  const publisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  const post = draftPost('2026-08-02')
+  const media = [{ name: 'cover.png', data: png.toString('base64') }]
+  const saved = await publisher.saveDraft(post, media, null)
+  await git(fixture.checkout, [
+    'switch', '-C', 'draft/blog/safe-draft', 'origin/draft/blog/safe-draft',
+  ])
+  await writeFile(
+    join(fixture.checkout, 'public', 'blog', 'media', 'safe-draft', 'orphan.png'),
+    png,
+  )
+  await git(fixture.checkout, ['add', 'public/blog/media/safe-draft/orphan.png'])
+  await git(fixture.checkout, ['commit', '-m', 'Add orphan media'])
+  await git(fixture.checkout, ['push', 'origin', 'draft/blog/safe-draft'])
+  await git(fixture.checkout, ['switch', 'main'])
+  assert.equal(await publisher.reconcile(post, media, saved.sha), null)
+
+  await git(fixture.checkout, ['switch', '-C', 'draft/blog/safe-draft', saved.sha])
+  const alteredPng = Buffer.concat([png.subarray(0, -12), Buffer.from([0]), png.subarray(-12)])
+  await writeFile(
+    join(fixture.checkout, 'public', 'blog', 'media', 'safe-draft', 'cover.png'),
+    alteredPng,
+  )
+  await git(fixture.checkout, ['add', 'public/blog/media/safe-draft/cover.png'])
+  await git(fixture.checkout, ['commit', '-m', 'Alter retained media'])
+  await git(fixture.checkout, ['push', '--force', 'origin', 'draft/blog/safe-draft'])
+  await git(fixture.checkout, ['switch', 'main'])
+  assert.equal(await publisher.reconcile(post, media, saved.sha), null)
+})
+
+test('rejects reconciliation when referenced media is absent from both trees', async () => {
+  const fixture = await repositoryFixture()
+  const publisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  const post = draftPost('2026-08-02')
+  delete post.metadata.cover
+  delete post.metadata.coverAlt
+  post.body = '# Draft\n\n![Missing](/blog/media/safe-draft/missing.png)'
+  const saved = await publisher.saveDraft(post, [], null)
+
+  assert.equal(await publisher.reconcile(post, [], saved.sha), null)
+})
+
+test('reconciliation waits for publication and returns its rebased revision', async () => {
+  const fixture = await repositoryFixture()
+  const initialPublisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  const post = draftPost('2026-08-02')
+  const media = [{ name: 'cover.png', data: png.toString('base64') }]
+  const saved = await initialPublisher.saveDraft(post, media, null)
+  await writeFile(join(fixture.checkout, 'README.md'), '# Main advanced\n')
+  await git(fixture.checkout, ['add', 'README.md'])
+  await git(fixture.checkout, ['commit', '-m', 'Advance main'])
+  await git(fixture.checkout, ['push', 'origin', 'main'])
+
+  let releaseTests
+  let signalTests
+  const testsStarted = new Promise((resolve) => { signalTests = resolve })
+  const testGate = new Promise((resolve) => { releaseTests = resolve })
+  let pullRequestCreated = false
+  const runner = async (command, args, options) => {
+    if (command === 'fake-npm') {
+      if (args[0] === 'test') {
+        signalTests()
+        await testGate
+      }
+      return { stdout: '', stderr: '' }
+    }
+    if (command === 'gh') {
+      if (args[1] === 'list') {
+        return {
+          stdout: pullRequestCreated
+            ? JSON.stringify([await pullRequestRecord(options)])
+            : '[]',
+          stderr: '',
+        }
+      }
+      if (args[1] === 'create') {
+        pullRequestCreated = true
+        return { stdout: 'https://example.invalid/pr/12\n', stderr: '' }
+      }
+      if (args[1] === 'merge') return { stdout: '', stderr: '' }
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+    npmCommand: 'fake-npm',
+    repository: 'owner/repo',
+  })
+
+  const publishing = publisher.publish('safe-draft')
+  await testsStarted
+  const reconciling = publisher.reconcile(post, media, saved.sha)
+  releaseTests()
+  const [published, reconciled] = await Promise.all([publishing, reconciling])
+
+  assert.notEqual(published.sha, saved.sha)
+  assert.equal(reconciled.revision, published.sha)
 })
 
 test('stops before GitHub and cleans its worktree when tests fail', async () => {
@@ -478,6 +1088,171 @@ test('stops before GitHub and cleans its worktree when tests fail', async () => 
   assert.equal(commands.some(([command]) => command === 'gh'), false)
   const worktrees = await git(fixture.checkout, ['worktree', 'list', '--porcelain'])
   assert.equal(worktrees.stdout.split(/\r?\n/u).filter((line) => line.startsWith('worktree ')).length, 1)
+})
+
+test('prunes worktree metadata when Git removal fails', async () => {
+  const fixture = await repositoryFixture()
+  let removeFailed = false
+  const runner = async (command, args, options) => {
+    if (
+      command === 'git'
+      && args[0] === 'worktree'
+      && args[1] === 'remove'
+      && !removeFailed
+    ) {
+      removeFailed = true
+      throw new CommandError(command, args, 1, '', 'Injected removal failure')
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+  })
+
+  await publisher.saveDraft(draftPost(), [], null)
+
+  assert.equal(removeFailed, true)
+  const worktrees = await git(fixture.checkout, ['worktree', 'list', '--porcelain'])
+  assert.equal(worktrees.stdout.split(/\r?\n/u).filter((line) => line.startsWith('worktree ')).length, 1)
+})
+
+test('returns the durable revision when fallback worktree cleanup fails', async () => {
+  const fixture = await repositoryFixture()
+  let failRemove = true
+  let failPrune = true
+  const runner = async (command, args, options) => {
+    if (command === 'git' && args[0] === 'worktree' && args[1] === 'remove' && failRemove) {
+      failRemove = false
+      throw new CommandError(command, args, 1, '', 'Injected removal failure')
+    }
+    if (command === 'git' && args[0] === 'worktree' && args[1] === 'prune' && failPrune) {
+      failPrune = false
+      throw new CommandError(command, args, 1, '', 'Injected prune failure')
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+  })
+  let failure
+  try {
+    await publisher.saveDraft(draftPost(), [], null)
+  } catch (error) {
+    failure = error
+  }
+
+  const remoteRevision = (await git(fixture.checkout, [
+    '--git-dir', fixture.remote, 'rev-parse', 'refs/heads/draft/blog/safe-draft',
+  ])).stdout.trim()
+  assert.equal(failure.recovery.draft.sha, remoteRevision)
+  await git(fixture.checkout, ['worktree', 'prune'])
+  const worktrees = await git(fixture.checkout, ['worktree', 'list', '--porcelain'])
+  assert.equal(worktrees.stdout.split(/\r?\n/u).filter((line) => line.startsWith('worktree ')).length, 1)
+})
+
+test('rejects draft branch code changes before running npm or GitHub', async () => {
+  const fixture = await repositoryFixture()
+  const initialPublisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  await initialPublisher.saveDraft(draftPost('2026-08-02'), [], null)
+  await git(fixture.checkout, [
+    'switch', '-C', 'draft/blog/safe-draft', 'origin/draft/blog/safe-draft',
+  ])
+  await writeFile(join(fixture.checkout, 'package.json'), '{"scripts":{"test":"node malicious.js"}}\n')
+  await git(fixture.checkout, ['add', 'package.json'])
+  await git(fixture.checkout, ['commit', '-m', 'Unexpected code change'])
+  await git(fixture.checkout, ['push', 'origin', 'draft/blog/safe-draft'])
+  await git(fixture.checkout, ['switch', 'main'])
+
+  const commands = []
+  const runner = async (command, args, options) => {
+    commands.push([command, ...args])
+    if (command === 'fake-npm' || command === 'gh') {
+      throw new Error(`${command} must not run for an unsafe draft branch.`)
+    }
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+    npmCommand: 'fake-npm',
+    repository: 'owner/repo',
+  })
+
+  await assert.rejects(
+    publisher.publish('safe-draft'),
+    (error) => {
+      assert.equal(error.code, 'BLOG_PUBLISH_SCOPE')
+      return true
+    },
+  )
+  assert.equal(commands.some(([command]) => ['fake-npm', 'gh'].includes(command)), false)
+  assert.equal(commands.some(([command, action]) => (
+    command === 'git' && action === 'worktree'
+  )), false)
+})
+
+test('rejects symlink media before worktree checkout or npm', async () => {
+  const fixture = await repositoryFixture()
+  const initialPublisher = new BlogPublisher({ repoRoot: fixture.checkout })
+  await initialPublisher.saveDraft(draftPost('2026-08-02'), [], null)
+  await git(fixture.checkout, [
+    'switch', '-C', 'draft/blog/safe-draft', 'origin/draft/blog/safe-draft',
+  ])
+  const target = join(fixture.checkout, 'symlink-target.txt')
+  await writeFile(target, '../../../../outside')
+  const object = (await git(fixture.checkout, ['hash-object', '-w', target])).stdout.trim()
+  await git(fixture.checkout, [
+    'update-index', '--add', '--cacheinfo', `120000,${object},public/blog/media/safe-draft`,
+  ])
+  await git(fixture.checkout, ['commit', '-m', 'Add unsafe media symlink'])
+  await git(fixture.checkout, ['push', 'origin', 'draft/blog/safe-draft'])
+  const tamperedRevision = (await git(fixture.checkout, ['rev-parse', 'HEAD'])).stdout.trim()
+  await git(fixture.checkout, ['switch', 'main'])
+
+  const commands = []
+  const runner = async (command, args, options) => {
+    commands.push([command, ...args])
+    if (command === 'fake-npm') throw new Error('npm must not run for symlink media.')
+    return runCommand(command, args, options)
+  }
+  const publisher = new BlogPublisher({
+    repoRoot: fixture.checkout,
+    commandRunner: runner,
+    npmCommand: 'fake-npm',
+  })
+
+  await assert.rejects(
+    publisher.saveAndPublish(draftPost('2026-08-02'), [], tamperedRevision),
+    (error) => error.code === 'BLOG_PUBLISH_SCOPE',
+  )
+  assert.equal(commands.some(([command]) => command === 'fake-npm'), false)
+  assert.equal(commands.some(([command, action]) => command === 'git' && action === 'worktree'), false)
+
+  await git(fixture.checkout, ['switch', '-C', 'draft/blog/safe-draft', 'origin/main'])
+  await mkdir(join(fixture.checkout, 'content', 'blog'), { recursive: true })
+  await writeFile(
+    join(fixture.checkout, 'content', 'blog', 'safe-draft.md'),
+    serializePost(draftPost('2026-08-02')),
+    'utf8',
+  )
+  await mkdir(join(fixture.checkout, 'public', 'blog', 'media', 'safe-draft'), {
+    recursive: true,
+  })
+  await writeFile(
+    join(fixture.checkout, 'public', 'blog', 'media', 'safe-draft', 'payload.html'),
+    '<script>alert(1)</script>',
+  )
+  await git(fixture.checkout, ['add', 'content/blog/safe-draft.md', 'public/blog/media/safe-draft/payload.html'])
+  await git(fixture.checkout, ['commit', '-m', 'Add active media blob'])
+  await git(fixture.checkout, ['push', '--force', 'origin', 'draft/blog/safe-draft'])
+  const activeRevision = (await git(fixture.checkout, ['rev-parse', 'HEAD'])).stdout.trim()
+  await git(fixture.checkout, ['switch', 'main'])
+  await assert.rejects(
+    publisher.saveAndPublish(draftPost('2026-08-02'), [], activeRevision),
+    (error) => error.code === 'BLOG_PUBLISH_SCOPE',
+  )
 })
 
 test('studio rejects cross-origin and missing-CSRF mutations', async () => {
@@ -583,7 +1358,26 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
       body: '{',
     })
     assert.equal(malformed.status, 400)
-    assert.match((await malformed.json()).error, /JSON|Unexpected end/u)
+    assert.deepEqual(await malformed.json(), {
+      error: 'Request body must be valid JSON.',
+      code: 'BLOG_INVALID_REQUEST',
+    })
+
+    const scalar = await fetch(`${base}/api/preview`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: 'null',
+    })
+    assert.equal(scalar.status, 400)
+    assert.deepEqual(await scalar.json(), {
+      error: 'Request body must be a JSON object.',
+      code: 'BLOG_INVALID_REQUEST',
+    })
 
     const empty = await fetch(`${base}/api/preview`, {
       method: 'POST',
@@ -595,7 +1389,10 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
       },
     })
     assert.equal(empty.status, 400)
-    assert.deepEqual(await empty.json(), { error: 'Request body is required.' })
+    assert.deepEqual(await empty.json(), {
+      error: 'Request body is required.',
+      code: 'BLOG_INVALID_REQUEST',
+    })
 
     const missingRevision = await fetch(`${base}/api/draft`, {
       method: 'POST',
@@ -611,6 +1408,32 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
     assert.deepEqual(await missingRevision.json(), {
       error: 'A draft revision is required. Reload the post before saving.',
       code: 'BLOG_REVISION_REQUIRED',
+    })
+
+    const malformedRevision = await fetch(`${base}/api/draft`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: JSON.stringify({ post, expectedRevision: 'not-a-revision' }),
+    })
+    assert.equal(malformedRevision.status, 400)
+    assert.deepEqual(await malformedRevision.json(), {
+      error: 'expectedRevision must be null or a Git revision.',
+      code: 'BLOG_INVALID_REQUEST',
+    })
+
+    const malformedStatusRevision = await fetch(
+      `${base}/api/status?slug=safe-post&revision=not-a-revision`,
+      { headers: { 'x-blog-studio-token': 'test-access-token' } },
+    )
+    assert.equal(malformedStatusRevision.status, 400)
+    assert.deepEqual(await malformedStatusRevision.json(), {
+      error: 'revision must be a Git revision.',
+      code: 'BLOG_INVALID_REQUEST',
     })
 
     const mediaChunk = Buffer.alloc(2 * 1024 * 1024).toString('base64')
@@ -662,7 +1485,10 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
       body: 'x'.repeat(12 * 1024 * 1024 + 1),
     })
     assert.equal(oversizedRequest.status, 400)
-    assert.deepEqual(await oversizedRequest.json(), { error: 'Request body exceeds 12 MiB.' })
+    assert.deepEqual(await oversizedRequest.json(), {
+      error: 'Request body exceeds 12 MiB.',
+      code: 'BLOG_INVALID_REQUEST',
+    })
   } finally {
     server.closeAllConnections()
     server.close()
@@ -691,17 +1517,147 @@ test('studio media fallback does not hide draft integrity failures', async () =>
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const base = `http://127.0.0.1:${server.address().port}`
   try {
-    const published = await fetch(`${base}/blog/media/published-post/cover.png`)
+    const crossOrigin = await fetch(`${base}/blog/media/published-post/cover.png`, {
+      headers: { origin: 'https://attacker.invalid', 'sec-fetch-site': 'cross-site' },
+    })
+    assert.equal(crossOrigin.status, 403)
+    assert.deepEqual(calls, [])
+
+    const resourceHeaders = { 'sec-fetch-site': 'same-origin' }
+    const published = await fetch(`${base}/blog/media/published-post/cover.png`, {
+      headers: resourceHeaders,
+    })
     assert.equal(published.status, 200)
+    assert.equal(published.headers.get('cross-origin-resource-policy'), 'same-origin')
     assert.deepEqual(Buffer.from(await published.arrayBuffer()), png)
 
-    const corrupt = await fetch(`${base}/blog/media/corrupt-post/cover.png`)
-    assert.equal(corrupt.status, 400)
+    const corrupt = await fetch(`${base}/blog/media/corrupt-post/cover.png`, {
+      headers: resourceHeaders,
+    })
+    assert.equal(corrupt.status, 500)
+    assert.deepEqual(await corrupt.json(), {
+      error: 'The blog studio encountered an internal error. Review the studio terminal.',
+      code: 'BLOG_INTERNAL_ERROR',
+    })
     assert.deepEqual(calls, [
       'published-post:draft',
       'published-post:published',
       'corrupt-post:draft',
     ])
+  } finally {
+    server.closeAllConnections()
+    server.close()
+  }
+})
+
+test('studio redacts dependency and internal failures with stable statuses', async () => {
+  let failure = new CommandError('git', ['fetch', 'origin'], 128, '', 'private path detail')
+  const logged = []
+  const server = createStudioServer({
+    publisher: {
+      async listPosts() {
+        throw failure
+      },
+    },
+    accessToken: 'test-access-token',
+    logger: { error: (error) => logged.push(error) },
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}`
+  const request = () => fetch(`${base}/api/posts`, {
+    headers: { 'x-blog-studio-token': 'test-access-token' },
+  })
+  try {
+    const dependency = await request()
+    assert.equal(dependency.status, 502)
+    assert.deepEqual(await dependency.json(), {
+      error: 'A required Git, GitHub, or npm command failed. Review the studio terminal before retrying.',
+      code: 'BLOG_COMMAND_FAILED',
+    })
+
+    failure = new CommandTimeoutError('npm', 100)
+    const timeout = await request()
+    assert.equal(timeout.status, 504)
+    assert.deepEqual(await timeout.json(), {
+      error: 'A required command timed out. Review the studio terminal before retrying.',
+      code: 'BLOG_COMMAND_TIMEOUT',
+    })
+
+    failure = new CommandLaunchError('gh')
+    const launch = await request()
+    assert.equal(launch.status, 502)
+    assert.deepEqual(await launch.json(), {
+      error: 'A required Git, GitHub, or npm command failed. Review the studio terminal before retrying.',
+      code: 'BLOG_COMMAND_LAUNCH',
+    })
+
+    failure = new Error('C:\\private\\workspace\\detail')
+    const internal = await request()
+    assert.equal(internal.status, 500)
+    assert.deepEqual(await internal.json(), {
+      error: 'The blog studio encountered an internal error. Review the studio terminal.',
+      code: 'BLOG_INTERNAL_ERROR',
+    })
+    assert.equal(logged.length, 4)
+  } finally {
+    server.closeAllConnections()
+    server.close()
+  }
+})
+
+test('studio logs auto-merge diagnostics without serializing them', async () => {
+  const diagnostic = new CommandError('gh', ['pr', 'merge'], 1, '', 'private auto-merge detail')
+  const published = {
+    autoMergeError: 'Auto-merge could not be queued. Review the studio terminal.',
+    autoMergeQueued: false,
+    branch: 'draft/blog/safe-post',
+    pullRequest: { number: 12, url: 'https://example.invalid/pr/12' },
+    sha: 'a'.repeat(40),
+  }
+  Object.defineProperty(published, 'diagnostic', { value: diagnostic })
+  const logged = []
+  const server = createStudioServer({
+    publisher: {
+      async saveAndPublish() {
+        return {
+          draft: { branch: published.branch, sha: published.sha },
+          published,
+        }
+      },
+    },
+    accessToken: 'test-access-token',
+    csrf: 'test-csrf',
+    logger: { error: (error) => logged.push(error) },
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}`
+  try {
+    const response = await fetch(`${base}/api/publish`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: JSON.stringify({
+        expectedRevision: null,
+        post: {
+          slug: 'safe-post',
+          metadata: {
+            published: '2026-08-05',
+            summary: 'Safe publication.',
+            title: 'Safe post',
+          },
+          body: '# Safe',
+        },
+      }),
+    })
+    const body = await response.text()
+    assert.equal(response.status, 200)
+    assert.equal(body.includes('private auto-merge detail'), false)
+    assert.match(body, /Auto-merge could not be queued/u)
+    assert.deepEqual(logged, [diagnostic])
   } finally {
     server.closeAllConnections()
     server.close()

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
+import { CommandTimeoutError } from '../scripts/blog/publisher.mjs'
 import { createStudioServer } from '../scripts/blog/studio.mjs'
 import { renderIndex, validatePost } from '../scripts/blog/lib.mjs'
 
@@ -14,13 +15,20 @@ let state
 
 test.beforeEach(async () => {
   state = {
+    deleteDraftOnPublish: false,
     drafts: new Map(),
     media: [],
     published: [],
+    publishedPosts: new Map(),
+    publishCalls: 0,
+    publishOutcomeUnknown: false,
     pullRequestState: 'MERGED',
     rebaseOnPublish: false,
     revisions: new Map(),
     revisionCounter: 0,
+    saveCalls: 0,
+    saveOutcomeUnknown: false,
+    statusVisibilityDelay: 0,
   }
   const nextRevision = () => {
     state.revisionCounter += 1
@@ -36,9 +44,15 @@ test.beforeEach(async () => {
     async listPosts() {
       return { drafts: [...state.drafts.keys()], published: state.published }
     },
-    async readPost(slug) {
+    async readPost(slug, source = 'published') {
+      const records = source === 'draft' ? state.drafts : state.publishedPosts
+      if (!records.has(slug)) {
+        const error = new Error(`${source} post not found.`)
+        if (source === 'draft') error.code = 'BLOG_DRAFT_NOT_FOUND'
+        throw error
+      }
       return {
-        post: state.drafts.get(slug),
+        post: records.get(slug),
         revision: state.revisions.get(slug),
       }
     },
@@ -48,24 +62,60 @@ test.beforeEach(async () => {
       return { buffer: Buffer.from(entry.data, 'base64'), contentType: 'image/png' }
     },
     async saveDraft(post, media, expectedRevision) {
+      state.saveCalls += 1
       const validated = validatePost(post, { draft: true })
       assertRevision(validated.slug, expectedRevision)
       const revision = nextRevision()
       state.drafts.set(validated.slug, validated)
       state.revisions.set(validated.slug, revision)
       state.media = media
-      return { branch: `draft/blog/${validated.slug}`, sha: revision, media: [] }
+      const result = { branch: `draft/blog/${validated.slug}`, sha: revision, media: [] }
+      if (state.saveOutcomeUnknown) {
+        state.saveOutcomeUnknown = false
+        const error = new CommandTimeoutError('git', 100)
+        error.outcomeUnknown = true
+        error.recovery = {
+          draft: { branch: result.branch, sha: 'f'.repeat(40) },
+        }
+        throw error
+      }
+      return result
     },
     async saveAndPublish(post, media, expectedRevision) {
+      state.publishCalls += 1
       const validated = validatePost(post)
       assertRevision(validated.slug, expectedRevision)
+      const published = state.publishedPosts.get(validated.slug)
+      if (
+        !state.drafts.has(validated.slug)
+        && JSON.stringify(published) === JSON.stringify(validated)
+        && JSON.stringify(state.media) === JSON.stringify(media)
+      ) {
+        return {
+          draft: {
+            branch: `draft/blog/${validated.slug}`,
+            media: [],
+            sha: expectedRevision,
+          },
+          published: {
+            alreadyPublished: true,
+            autoMergeQueued: false,
+            branch: `draft/blog/${validated.slug}`,
+            liveUrl: `https://rinz0x0cruz.github.io/blog/${validated.slug}/`,
+            pullRequest: null,
+            sha: expectedRevision,
+          },
+        }
+      }
       const draftRevision = nextRevision()
       const publishedRevision = state.rebaseOnPublish ? nextRevision() : draftRevision
       state.drafts.set(validated.slug, validated)
+      state.publishedPosts.set(validated.slug, validated)
       state.revisions.set(validated.slug, publishedRevision)
       state.media = media
       state.published.push(validated.slug)
-      return {
+      if (state.deleteDraftOnPublish) state.drafts.delete(validated.slug)
+      const result = {
         draft: { branch: `draft/blog/${validated.slug}`, sha: draftRevision, media: [] },
         published: {
           branch: `draft/blog/${validated.slug}`,
@@ -74,6 +124,20 @@ test.beforeEach(async () => {
           autoMergeQueued: true,
         },
       }
+      if (state.publishOutcomeUnknown) {
+        state.publishOutcomeUnknown = false
+        const error = new CommandTimeoutError('git', 100)
+        error.outcomeUnknown = true
+        error.recovery = {
+          draft: {
+            branch: result.draft.branch,
+            sha: 'f'.repeat(40),
+          },
+          publicationPending: true,
+        }
+        throw error
+      }
+      return result
     },
     async publish(slug) {
       state.published.push(slug)
@@ -84,16 +148,47 @@ test.beforeEach(async () => {
         autoMergeQueued: true,
       }
     },
-    async status(slug) {
+    async reconcile(post, media) {
+      const validated = validatePost(post)
+      const mediaMatches = JSON.stringify(media) === JSON.stringify(state.media)
+      if (!mediaMatches) return null
+      const draft = state.drafts.get(validated.slug)
+      const published = state.publishedPosts.get(validated.slug)
+      const matches = (candidate) => JSON.stringify(candidate) === JSON.stringify(validated)
+      if (!matches(draft) && !matches(published)) return null
+      const isPublished = !matches(draft) && matches(published)
       return {
-        branch: `draft/blog/${slug}`,
-        liveUrl: `https://rinz0x0cruz.github.io/blog/${slug}/`,
-        pullRequest: {
+        branch: `draft/blog/${validated.slug}`,
+        liveUrl: `https://rinz0x0cruz.github.io/blog/${validated.slug}/`,
+        published: isPublished,
+        pullRequest: isPublished ? null : {
           number: 12,
           url: 'https://github.com/rinz0x0cruz/rinz0x0cruz.github.io/pull/12',
           state: state.pullRequestState,
           statusCheckRollup: [],
         },
+        revision: state.revisions.get(validated.slug),
+      }
+    },
+    async status(slug, expectedRevision) {
+      const revisionMatches = state.revisions.get(slug) === expectedRevision
+      if (state.statusVisibilityDelay > 0) {
+        state.statusVisibilityDelay -= 1
+        return {
+          branch: `draft/blog/${slug}`,
+          liveUrl: `https://rinz0x0cruz.github.io/blog/${slug}/`,
+          pullRequest: null,
+        }
+      }
+      return {
+        branch: `draft/blog/${slug}`,
+        liveUrl: `https://rinz0x0cruz.github.io/blog/${slug}/`,
+        pullRequest: revisionMatches ? {
+          number: 12,
+          url: 'https://github.com/rinz0x0cruz/rinz0x0cruz.github.io/pull/12',
+          state: state.pullRequestState,
+          statusCheckRollup: [],
+        } : null,
       }
     },
   }
@@ -174,6 +269,13 @@ test('owner previews selected media and saves a durable draft', async ({ page })
   await expect(page.locator('[data-list="drafts"]')).toContainText('studio-draft')
   expect(state.media).toHaveLength(1)
   expect(state.media[0].name).toBe('cover-image.png')
+  expect(await page.evaluate(async () => {
+    const response = await fetch('/blog/media/studio-draft/cover-image.png')
+    return {
+      contentType: response.headers.get('content-type'),
+      status: response.status,
+    }
+  })).toEqual({ contentType: 'image/png', status: 200 })
 
   await page.getByRole('button', { name: 'New' }).click()
   await page.locator('[data-list="drafts"] button').click()
@@ -289,6 +391,143 @@ test('publish reports the merged article without opening a popup', async ({ page
   )
   expect(state.published).toEqual(['published-through-checks'])
   expect(page.context().pages()).toHaveLength(1)
+})
+
+test('already-published response preserves a lingering draft branch lease', async ({ page }) => {
+  const branchRevision = 'a'.repeat(40)
+  const mainRevision = 'b'.repeat(40)
+  const expectedRevisions = []
+  await page.goto(baseUrl)
+  await fillPost(page, 'Lingering publication')
+  await page.route('**/api/publish', async (route) => {
+    expectedRevisions.push(JSON.parse(route.request().postData()).expectedRevision)
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        draft: {
+          branch: 'draft/blog/lingering-publication',
+          media: [],
+          sha: branchRevision,
+        },
+        published: {
+          alreadyPublished: true,
+          autoMergeQueued: false,
+          branch: 'draft/blog/lingering-publication',
+          liveUrl: 'https://rinz0x0cruz.github.io/blog/lingering-publication/',
+          pullRequest: null,
+          sha: mainRevision,
+        },
+      }),
+    })
+  })
+  const publishButton = page.getByRole('button', { name: 'Publish' })
+
+  for (const expectedCount of [1, 2]) {
+    await Promise.all([
+      page.waitForEvent('dialog').then((dialog) => dialog.accept()),
+      publishButton.click(),
+    ])
+    await expect.poll(() => expectedRevisions.length).toBe(expectedCount)
+    await expect(page.getByRole('status')).toContainText('Published.')
+  }
+
+  expect(expectedRevisions).toEqual([null, branchRevision])
+})
+
+test('publish reconciles a lost response and retries with the durable revision', async ({ page }) => {
+  state.deleteDraftOnPublish = true
+  state.publishOutcomeUnknown = true
+  await page.goto(baseUrl)
+  await fillPost(page, 'Recovered publication')
+  await page.locator('[name="media"]').setInputFiles({
+    name: 'Recovery.png',
+    mimeType: 'image/png',
+    buffer: png,
+  })
+  await page.locator('[name="coverAlt"]').fill('A recovery test image.')
+  const publishButton = page.getByRole('button', { name: 'Publish' })
+  const reconciliation = page.waitForResponse((response) => (
+    response.url().endsWith('/api/reconcile')
+    && response.request().method() === 'POST'
+  ))
+  await Promise.all([
+    page.waitForEvent('dialog').then((dialog) => dialog.accept()),
+    publishButton.click(),
+  ])
+
+  await expect.poll(() => state.published.length, { timeout: 10_000 }).toBe(1)
+  expect((await reconciliation).ok()).toBe(true)
+  await expect(page.getByRole('status')).toContainText('Published.')
+  expect(state.published).toEqual(['recovered-publication'])
+  expect(state.media).toHaveLength(1)
+  expect(state.drafts.has('recovered-publication')).toBe(false)
+
+  await Promise.all([
+    page.waitForEvent('dialog').then((dialog) => dialog.accept()),
+    publishButton.click(),
+  ])
+  await expect.poll(() => state.publishCalls).toBe(2)
+  await expect(page.getByRole('status')).toContainText('Published.')
+  expect(state.published).toEqual(['recovered-publication'])
+  expect(state.drafts.has('recovered-publication')).toBe(false)
+})
+
+test('save reconciles a lost response and retries with the durable revision', async ({ page }) => {
+  state.saveOutcomeUnknown = true
+  await page.goto(baseUrl)
+  await fillPost(page, 'Recovered draft')
+  await page.locator('[name="media"]').setInputFiles({
+    name: 'Draft.png',
+    mimeType: 'image/png',
+    buffer: png,
+  })
+  await page.locator('[name="coverAlt"]').fill('A recovered draft image.')
+  const reconciliation = page.waitForResponse((response) => (
+    response.url().endsWith('/api/reconcile')
+    && response.request().method() === 'POST'
+  ))
+  await page.getByRole('button', { name: 'Save draft' }).click()
+  expect((await reconciliation).ok()).toBe(true)
+  await expect(page.getByRole('status')).toContainText('Draft saved at 01234567.')
+  expect(state.drafts.has('recovered-draft')).toBe(true)
+  expect(state.media).toHaveLength(1)
+
+  await page.getByRole('button', { name: 'Save draft' }).click()
+  await expect.poll(() => state.saveCalls).toBe(2)
+  expect(state.drafts.has('recovered-draft')).toBe(true)
+})
+
+test('publish polls when its PR is not immediately visible', async ({ page }) => {
+  await page.clock.install()
+  await page.goto(baseUrl)
+  await fillPost(page, 'Lagged publication')
+  const recoveredRevision = 'b'.repeat(40)
+  state.revisions.set('lagged-publication', recoveredRevision)
+  state.statusVisibilityDelay = 2
+  state.pullRequestState = 'OPEN'
+  await page.route('**/api/publish', (route) => route.fulfill({
+    status: 502,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      error: 'GitHub has not returned the pull request yet.',
+      code: 'BLOG_COMMAND_FAILED',
+      recovery: {
+        draft: {
+          branch: 'draft/blog/lagged-publication',
+          sha: recoveredRevision,
+        },
+        publicationPending: true,
+      },
+    }),
+  }), { times: 1 })
+  page.once('dialog', (dialog) => dialog.accept())
+
+  await page.getByRole('button', { name: 'Publish' }).click()
+  await expect(page.getByRole('status')).toContainText('Publish PR is not visible yet.')
+
+  await page.clock.runFor(5_000)
+  await expect(page.getByRole('status')).toContainText('Publish PR is awaiting merge.')
 })
 
 test('owner can keep editing after publish rebases the draft', async ({ page }) => {

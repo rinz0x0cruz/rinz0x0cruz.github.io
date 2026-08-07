@@ -225,8 +225,13 @@ BLOG_STUDIO_PORT=4423 npm run studio
    forcing over the remote revision.
 3. Publishing uses a temporary Git worktree, installs from the lockfile, runs
    the complete release gate, rebases on `origin/main`, and pushes only if the
-   draft revision is still current.
-4. The studio opens a pull request. It queues squash auto-merge when repository
+   draft revision is still current. Before running npm, it rejects any branch
+   change outside that post and its media directory.
+4. If publishing fails after the draft was saved, the editor adopts the durable
+   revision. If the HTTP response is lost, it verifies the canonical post and
+   selected media against the remote draft or published `main`, then resumes
+   revision-bound PR tracking instead of retrying with stale state.
+5. The studio opens a pull request. It queues squash auto-merge when repository
    settings allow it; otherwise it links the pull request for manual merge after
    checks pass.
 

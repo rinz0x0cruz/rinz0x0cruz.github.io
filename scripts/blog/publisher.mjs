@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, open, readFile, readdir, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -14,7 +14,20 @@ import {
 const maximumMediaBytes = 2 * 1024 * 1024
 const maximumMediaTotalBytes = 8 * 1024 * 1024
 const maximumMediaFiles = 8
+const maximumCommandOutputBytes = 4 * 1024 * 1024
 const repositoryName = 'rinz0x0cruz/rinz0x0cruz.github.io'
+const pullRequestFields = [
+  'baseRefName',
+  'headRefName',
+  'headRefOid',
+  'headRepositoryOwner',
+  'isCrossRepository',
+  'mergeStateStatus',
+  'number',
+  'state',
+  'statusCheckRollup',
+  'url',
+].join(',')
 
 export class CommandError extends Error {
   constructor(command, args, code, stdout, stderr) {
@@ -28,35 +41,123 @@ export class CommandError extends Error {
   }
 }
 
+export class CommandTimeoutError extends Error {
+  constructor(command, timeout) {
+    super(`${command} timed out after ${timeout} ms.`)
+    this.name = 'CommandTimeoutError'
+    this.code = 'BLOG_COMMAND_TIMEOUT'
+  }
+}
+
+export class CommandOutputError extends Error {
+  constructor(command, maximumBytes) {
+    super(`${command} output exceeded ${maximumBytes} bytes.`)
+    this.name = 'CommandOutputError'
+    this.code = 'BLOG_COMMAND_OUTPUT_LIMIT'
+  }
+}
+
+export class CommandLaunchError extends Error {
+  constructor(command, options) {
+    super(`${command} could not be started.`, options)
+    this.name = 'CommandLaunchError'
+    this.code = 'BLOG_COMMAND_LAUNCH'
+  }
+}
+
+export class BlogInputError extends Error {
+  constructor(message, options) {
+    super(message, options)
+    this.name = 'BlogInputError'
+    this.code = 'BLOG_INVALID_INPUT'
+  }
+}
+
+function terminateProcessTree(child) {
+  if (!child.pid) return
+  if (process.platform === 'win32') {
+    const result = spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+      stdio: 'ignore',
+      timeout: 5_000,
+      windowsHide: true,
+    })
+    if (result.status !== 0) child.kill('SIGKILL')
+    return
+  }
+  try {
+    process.kill(-child.pid, 'SIGKILL')
+  } catch {
+    child.kill('SIGKILL')
+  }
+}
+
 export function runCommand(command, args, {
   cwd,
   encoding = 'utf8',
   env = process.env,
+  maxOutputBytes = maximumCommandOutputBytes,
   timeout = 10 * 60_000,
 } = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(command, args, {
-      cwd,
-      env,
-      shell: false,
-      windowsHide: true,
-    })
+    let child
+    try {
+      child = spawn(command, args, {
+        cwd,
+        detached: process.platform !== 'win32',
+        env,
+        shell: false,
+        windowsHide: true,
+      })
+    } catch (error) {
+      rejectPromise(new CommandLaunchError(command, { cause: error }))
+      return
+    }
     let stdout = encoding ? '' : []
     let stderr = ''
-    const timer = setTimeout(() => child.kill(), timeout)
+    let outputBytes = 0
+    let settled = false
+    let terminationError
+    const terminate = (error) => {
+      if (terminationError) return
+      terminationError = error
+      terminateProcessTree(child)
+    }
+    const timer = setTimeout(() => {
+      terminate(new CommandTimeoutError(command, timeout))
+    }, timeout)
     if (encoding) child.stdout.setEncoding(encoding)
     child.stderr.setEncoding('utf8')
     child.stdout.on('data', (chunk) => {
+      outputBytes += Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(chunk)
+      if (outputBytes > maxOutputBytes) {
+        terminate(new CommandOutputError(command, maxOutputBytes))
+        return
+      }
       if (encoding) stdout += chunk
       else stdout.push(chunk)
     })
-    child.stderr.on('data', (chunk) => { stderr += chunk })
+    child.stderr.on('data', (chunk) => {
+      outputBytes += Buffer.byteLength(chunk)
+      if (outputBytes > maxOutputBytes) {
+        terminate(new CommandOutputError(command, maxOutputBytes))
+        return
+      }
+      stderr += chunk
+    })
     child.on('error', (error) => {
       clearTimeout(timer)
-      rejectPromise(error)
+      if (settled) return
+      settled = true
+      rejectPromise(new CommandLaunchError(command, { cause: error }))
     })
     child.on('close', (code) => {
       clearTimeout(timer)
+      if (settled) return
+      settled = true
+      if (terminationError) {
+        rejectPromise(terminationError)
+        return
+      }
       const output = encoding ? stdout : Buffer.concat(stdout)
       if (code === 0) resolvePromise({ stdout: output, stderr })
       else rejectPromise(new CommandError(command, args, code, output, stderr))
@@ -194,6 +295,7 @@ export class BlogPublisher {
     this.repository = repository
     this.npmCommand = npmCommand
     this.branchLocks = new Map()
+    this.fetchPromise = null
   }
 
   command(command, args, options = {}) {
@@ -208,8 +310,82 @@ export class BlogPublisher {
     return this.command('gh', args, { cwd })
   }
 
-  async fetch() {
-    await this.git(['fetch', 'origin', '--prune'])
+  async pullRequests(branch, state, { cwd = this.repoRoot, expectedSha } = {}) {
+    const owner = this.repository.split('/')[0].toLowerCase()
+    const result = await this.gh([
+      'pr', 'list', '--repo', this.repository, '--head', branch, '--state', state,
+      '--limit', '20', '--json', pullRequestFields,
+    ], cwd)
+    return parseJson(result.stdout, []).filter((pullRequest) => (
+      pullRequest.baseRefName === 'main'
+      && pullRequest.headRefName === branch
+      && pullRequest.headRepositoryOwner?.login?.toLowerCase() === owner
+      && pullRequest.isCrossRepository === false
+      && (!expectedSha || pullRequest.headRefOid === expectedSha)
+    ))
+  }
+
+  async fetch({ fresh = false } = {}) {
+    if (fresh && this.fetchPromise) {
+      try {
+        await this.fetchPromise
+      } catch {}
+    }
+    if (!this.fetchPromise) {
+      const operation = this.git(['fetch', 'origin', '--prune'])
+      const tracked = operation.finally(() => {
+        if (this.fetchPromise === tracked) this.fetchPromise = null
+      })
+      this.fetchPromise = tracked
+    }
+    await this.fetchPromise
+  }
+
+  async pushBranch(branch, expectedRevision, directory) {
+    const sha = (await this.git(['rev-parse', 'HEAD'], directory)).stdout.trim()
+    try {
+      await this.git([
+        'push', `--force-with-lease=refs/heads/${branch}:${expectedRevision ?? ''}`,
+        'origin', `HEAD:refs/heads/${branch}`,
+      ], directory)
+    } catch (error) {
+      if (error instanceof CommandError && /\(stale info\)/u.test(error.stderr)) {
+        throw revisionConflict()
+      }
+      try {
+        await this.fetch({ fresh: true })
+      } catch (verificationError) {
+        error.outcomeUnknown = true
+        error.verificationDiagnostic = verificationError
+        throw error
+      }
+      let exists
+      try {
+        exists = await this.branchExists(branch)
+      } catch (verificationError) {
+        error.outcomeUnknown = true
+        error.verificationDiagnostic = verificationError
+        throw error
+      }
+      if (!exists) {
+        if (expectedRevision) throw revisionConflict()
+        throw error
+      }
+      let remote
+      try {
+        remote = (await this.git([
+          'rev-parse', `origin/${branch}`,
+        ])).stdout.trim()
+      } catch (verificationError) {
+        error.outcomeUnknown = true
+        error.verificationDiagnostic = verificationError
+        throw error
+      }
+      if (remote === sha) return sha
+      if (remote !== expectedRevision) throw revisionConflict(remote)
+      throw error
+    }
+    return sha
   }
 
   async branchExists(branch) {
@@ -258,7 +434,9 @@ export class BlogPublisher {
     await this.fetch()
     const ref = source === 'draft' ? `origin/${draftBranch(slug)}` : 'origin/main'
     if (source === 'draft' && !(await this.branchExists(draftBranch(slug)))) {
-      throw new Error(`Draft ${slug} does not exist.`)
+      const error = new Error(`Draft ${slug} does not exist.`)
+      error.code = 'BLOG_DRAFT_NOT_FOUND'
+      throw error
     }
     const revision = (await this.git(['rev-parse', ref])).stdout.trim()
     const result = await this.git(['show', `${revision}:content/blog/${slug}.md`])
@@ -293,33 +471,61 @@ export class BlogPublisher {
     await rm(directory, { recursive: true, force: true })
     const exists = await this.branchExists(branch)
     const source = startPoint ?? (exists ? `origin/${branch}` : 'origin/main')
+    let operationError
+    let result
     try {
       await this.git(['worktree', 'add', '-B', branch, directory, source])
       if (rebase) await this.git(['rebase', 'origin/main'], directory)
-      return await callback(directory, exists)
-    } finally {
+      result = await callback(directory, exists)
+    } catch (error) {
+      operationError = error
+    }
+
+    let cleanupError
+    try {
+      await this.git(['worktree', 'remove', '--force', directory])
+    } catch {
       try {
-        await this.git(['worktree', 'remove', '--force', directory])
-      } catch {
         await rm(directory, { recursive: true, force: true })
+      } catch (error) {
+        cleanupError = error
+      }
+      try {
+        await this.git(['worktree', 'prune'])
+      } catch (error) {
+        cleanupError ??= error
       }
     }
+
+    if (operationError) {
+      if (cleanupError) {
+        operationError.cleanupDiagnostic = cleanupError
+      }
+      throw operationError
+    }
+    if (cleanupError) throw cleanupError
+    return result
   }
 
   prepareDraft(post, media = []) {
-    const source = serializePost(post, { draft: true })
-    const slug = validateSlug(post.slug)
-    const files = decodeMedia(media, slug)
-    const branch = draftBranch(slug)
-    const retained = referencedMediaNames(post)
-    for (const file of files) retained.add(basename(file.relativePath))
-    return {
-      branch,
-      files,
-      retained,
-      slug,
-      source,
-      title: post.metadata?.title ?? post.title,
+    try {
+      const source = serializePost(post, { draft: true })
+      const slug = validateSlug(post.slug)
+      const files = decodeMedia(media, slug)
+      const branch = draftBranch(slug)
+      const retained = referencedMediaNames(post)
+      for (const file of files) retained.add(basename(file.relativePath))
+      return {
+        branch,
+        files,
+        retained,
+        slug,
+        source,
+        title: post.metadata?.title ?? post.title,
+      }
+    } catch (error) {
+      if (typeof error.code === 'string' && error.code.startsWith('BLOG_')) throw error
+      throw new BlogInputError(error.message, { cause: error })
     }
   }
 
@@ -335,45 +541,205 @@ export class BlogPublisher {
     throw revisionConflict(current)
   }
 
+  async revisionEntries(revision, paths) {
+    return (await this.git([
+      'ls-tree', '-r', '-z', revision, '--', ...paths,
+    ])).stdout
+      .split('\0')
+      .filter(Boolean)
+      .map((entry) => {
+        const separator = entry.indexOf('\t')
+        const metadata = entry.slice(0, separator)
+        const path = entry.slice(separator + 1)
+        const [mode, type, object] = metadata.split(' ', 3)
+        return { mode, object, path, type }
+      })
+  }
+
+  async assertPublishScope(slug, revision) {
+    const result = await this.git([
+      'diff', '--name-only', '--no-renames', '-z', `origin/main...${revision}`, '--',
+    ])
+    const postPath = `content/blog/${slug}.md`
+    const mediaRoot = `public/blog/media/${slug}`
+    const mediaPrefix = `${mediaRoot}/`
+    const mediaNamePattern = /^[a-z0-9][a-z0-9._-]{0,79}$/u
+    const isAllowedPath = (path) => (
+      path === postPath
+      || (
+        path.startsWith(mediaPrefix)
+        && mediaNamePattern.test(path.slice(mediaPrefix.length))
+      )
+    )
+    const unexpected = result.stdout
+      .split('\0')
+      .filter(Boolean)
+      .filter((path) => !isAllowedPath(path))
+    const entries = await this.revisionEntries(revision, [postPath, mediaRoot])
+    const unsafeEntries = entries.filter(({ mode, path, type }) => (
+      !isAllowedPath(path) || mode !== '100644' || type !== 'blob'
+    ))
+    const mediaEntries = entries.filter(({ path }) => path !== postPath)
+    let totalMediaBytes = 0
+    let invalidMedia = mediaEntries.length > maximumMediaFiles
+    for (const entry of mediaEntries) {
+      const name = entry.path.slice(mediaPrefix.length)
+      const size = Number((await this.git([
+        'cat-file', '-s', `${revision}:${entry.path}`,
+      ])).stdout.trim())
+      totalMediaBytes += size
+      if (
+        !Number.isSafeInteger(size)
+        || size < 1
+        || size > maximumMediaBytes
+        || totalMediaBytes > maximumMediaTotalBytes
+      ) {
+        invalidMedia = true
+        continue
+      }
+      let validName = true
+      try {
+        validateMediaName(name)
+      } catch {
+        validName = false
+      }
+      const buffer = (await this.command('git', [
+        'show', `${revision}:${entry.path}`,
+      ], { encoding: null })).stdout
+      const kind = mediaKind(buffer)
+      const extension = name.split('.').at(-1).toLowerCase().replace('jpeg', 'jpg')
+      if (!validName || !kind || kind !== extension) invalidMedia = true
+    }
+    if (
+      unexpected.length
+      || unsafeEntries.length
+      || invalidMedia
+      || !entries.some(({ path }) => path === postPath)
+    ) {
+      const error = new Error('Draft branch contains changes outside its post and media directory.')
+      error.code = 'BLOG_PUBLISH_SCOPE'
+      throw error
+    }
+  }
+
+  async expectedDraftTree(draft, expectedRevision) {
+    const postPath = `content/blog/${draft.slug}.md`
+    const mediaPrefix = `public/blog/media/${draft.slug}/`
+    const expected = new Map([[postPath, Buffer.from(draft.source, 'utf8')]])
+    for (const file of draft.files) expected.set(file.relativePath, file.buffer)
+    for (const name of draft.retained) {
+      const path = `${mediaPrefix}${name}`
+      if (expected.has(path)) continue
+      if (!expectedRevision) return null
+      try {
+        const media = await this.command('git', [
+          'show', `${expectedRevision}:${path}`,
+        ], { encoding: null })
+        expected.set(path, media.stdout)
+      } catch (error) {
+        if (!(error instanceof CommandError && error.code === 128)) throw error
+        return null
+      }
+    }
+    return expected
+  }
+
+  async revisionMatchesDraft(revision, draft, expectedRevision) {
+    try {
+      const expected = await this.expectedDraftTree(draft, expectedRevision)
+      if (!expected) return false
+      const postPath = `content/blog/${draft.slug}.md`
+      const mediaRoot = `public/blog/media/${draft.slug}`
+      const entries = await this.revisionEntries(revision, [postPath, mediaRoot])
+      if (
+        entries.length !== expected.size
+        || entries.some(({ mode, path, type }) => (
+          mode !== '100644' || type !== 'blob' || !expected.has(path)
+        ))
+      ) return false
+      for (const { path } of entries) {
+        const actual = await this.command('git', [
+          'show', `${revision}:${path}`,
+        ], { encoding: null })
+        if (!actual.stdout.equals(expected.get(path))) return false
+      }
+      return true
+    } catch (error) {
+      if (error instanceof CommandError && error.code === 128) return false
+      throw error
+    }
+  }
+
+  async reconcile(post, media = [], expectedRevision) {
+    const draft = this.prepareDraft(post, media)
+    const previousRevision = validateExpectedRevision(expectedRevision)
+    return this.withBranchLock(draft.branch, async () => {
+      await this.fetch()
+      if (await this.branchExists(draft.branch)) {
+        const revision = (await this.git([
+          'rev-parse', `origin/${draft.branch}`,
+        ])).stdout.trim()
+        if (await this.revisionMatchesDraft(revision, draft, previousRevision)) {
+          return {
+            branch: draft.branch,
+            liveUrl: `${SITE_URL}/blog/${draft.slug}/`,
+            pullRequest: null,
+            published: false,
+            revision,
+          }
+        }
+      }
+
+      const revision = (await this.git(['rev-parse', 'origin/main'])).stdout.trim()
+      if (!(await this.revisionMatchesDraft(revision, draft, previousRevision))) return null
+      return {
+        branch: draft.branch,
+        liveUrl: `${SITE_URL}/blog/${draft.slug}/`,
+        pullRequest: null,
+        published: true,
+        revision,
+      }
+    })
+  }
+
   async savePreparedDraft(
     { branch, files, retained, slug, source, title },
     { baseRevision, expectedRevision },
   ) {
-    return this.withWorktree(branch, async (directory) => {
-      const relativePostPath = `content/blog/${slug}.md`
-      const relativeMediaDirectory = `public/blog/media/${slug}`
-      await writeAtomic(join(directory, relativePostPath), Buffer.from(source, 'utf8'))
-      for (const file of files) await writeAtomic(join(directory, file.relativePath), file.buffer)
-      const removed = []
-      try {
-        for (const entry of await readdir(join(directory, relativeMediaDirectory))) {
-          if (retained.has(entry)) continue
-          await rm(join(directory, relativeMediaDirectory, entry), { recursive: true, force: true })
-          removed.push(`${relativeMediaDirectory}/${entry}`)
+    let durableRevision
+    try {
+      if (expectedRevision) await this.assertPublishScope(slug, baseRevision)
+      return await this.withWorktree(branch, async (directory) => {
+        const relativePostPath = `content/blog/${slug}.md`
+        const relativeMediaDirectory = `public/blog/media/${slug}`
+        await writeAtomic(join(directory, relativePostPath), Buffer.from(source, 'utf8'))
+        for (const file of files) await writeAtomic(join(directory, file.relativePath), file.buffer)
+        const removed = []
+        try {
+          for (const entry of await readdir(join(directory, relativeMediaDirectory))) {
+            if (retained.has(entry)) continue
+            await rm(join(directory, relativeMediaDirectory, entry), { recursive: true, force: true })
+            removed.push(`${relativeMediaDirectory}/${entry}`)
+          }
+        } catch (error) {
+          if (error.code !== 'ENOENT') throw error
         }
-      } catch (error) {
-        if (error.code !== 'ENOENT') throw error
-      }
-      const paths = [relativePostPath, ...files.map((file) => file.relativePath), ...removed]
-      await this.git(['add', '-A', '--', ...paths], directory)
-      const staged = await this.git(['diff', '--cached', '--name-only'], directory)
-      if (staged.stdout.trim()) {
-        await this.git(['commit', '-m', `Draft blog: ${title}`], directory)
-      }
-      try {
-        await this.git([
-          'push', `--force-with-lease=refs/heads/${branch}:${expectedRevision ?? ''}`,
-          'origin', `HEAD:refs/heads/${branch}`,
-        ], directory)
-      } catch (error) {
-        if (error instanceof CommandError && /\(stale info\)/u.test(error.stderr)) {
-          throw revisionConflict()
+        const paths = [relativePostPath, ...files.map((file) => file.relativePath), ...removed]
+        await this.git(['add', '-A', '--', ...paths], directory)
+        const staged = await this.git(['diff', '--cached', '--name-only'], directory)
+        if (staged.stdout.trim()) {
+          await this.git(['commit', '-m', `Draft blog: ${title}`], directory)
         }
-        throw error
+        const sha = await this.pushBranch(branch, expectedRevision, directory)
+        durableRevision = sha
+        return { branch, sha, media: files.map((file) => file.publicPath) }
+      }, { startPoint: baseRevision })
+    } catch (error) {
+      if (durableRevision && !error.recovery?.draft) {
+        error.recovery = { draft: { branch, sha: durableRevision } }
       }
-      const sha = (await this.git(['rev-parse', 'HEAD'], directory)).stdout.trim()
-      return { branch, sha, media: files.map((file) => file.publicPath) }
-    }, { startPoint: baseRevision })
+      throw error
+    }
   }
 
   async saveDraft(post, media = [], expectedRevision) {
@@ -395,63 +761,120 @@ export class BlogPublisher {
     } else {
       baseRevision = (await this.assertExpectedRevision(branch, expectedRevision)).baseRevision
     }
-    return this.withWorktree(branch, async (directory) => {
-      const postPath = join(directory, 'content', 'blog', `${slug}.md`)
-      const post = parsePostSource(await readFile(postPath, 'utf8'), slug)
-      await this.command(this.npmCommand, ['ci'], { cwd: directory, timeout: 5 * 60_000 })
-      await this.command(this.npmCommand, ['test'], { cwd: directory, timeout: 15 * 60_000 })
-      try {
-        await this.git([
-          'push', `--force-with-lease=refs/heads/${branch}:${baseRevision}`,
-          'origin', `HEAD:refs/heads/${branch}`,
-        ], directory)
-      } catch (error) {
-        if (error instanceof CommandError && /\(stale info\)/u.test(error.stderr)) {
-          throw revisionConflict()
+    await this.assertPublishScope(slug, baseRevision)
+    let durableRevision = baseRevision
+    let publicationPending = false
+    try {
+      return await this.withWorktree(branch, async (directory) => {
+        const postPath = join(directory, 'content', 'blog', `${slug}.md`)
+        const post = parsePostSource(await readFile(postPath, 'utf8'), slug)
+        await this.command(this.npmCommand, ['ci'], { cwd: directory, timeout: 5 * 60_000 })
+        await this.command(this.npmCommand, ['test'], { cwd: directory, timeout: 15 * 60_000 })
+        const sha = await this.pushBranch(branch, baseRevision, directory)
+        durableRevision = sha
+        publicationPending = true
+        let pullRequests = await this.pullRequests(branch, 'open', {
+          cwd: directory,
+          expectedSha: sha,
+        })
+        if (!pullRequests.length) {
+          const body = `Publishes \`${post.title}\` from the local blog studio.\n\n- Static content validation passed\n- Full portfolio test suite passed\n`
+          await this.gh([
+            'pr', 'create', '--repo', this.repository, '--base', 'main', '--head', branch,
+            '--title', `Publish blog: ${post.title}`, '--body', body,
+          ], directory)
+          pullRequests = await this.pullRequests(branch, 'open', {
+            cwd: directory,
+            expectedSha: sha,
+          })
         }
-        throw error
+        const pullRequest = pullRequests[0]
+        if (!pullRequest) throw new Error('GitHub did not return the created pull request.')
+        let autoMergeQueued = true
+        let autoMergeError
+        let autoMergeDiagnostic
+        try {
+          await this.gh([
+            'pr', 'merge', String(pullRequest.number), '--repo', this.repository,
+            '--auto', '--squash', '--delete-branch', '--match-head-commit', sha,
+          ], directory)
+        } catch (error) {
+          autoMergeQueued = false
+          autoMergeError = 'Auto-merge could not be queued. Review the studio terminal.'
+          autoMergeDiagnostic = error
+        }
+        const result = { branch, sha, pullRequest, autoMergeQueued, autoMergeError }
+        if (autoMergeDiagnostic) {
+          Object.defineProperty(result, 'diagnostic', { value: autoMergeDiagnostic })
+        }
+        return result
+      }, { rebase: true, startPoint: baseRevision })
+    } catch (error) {
+      if (error.code !== 'BLOG_REVISION_CONFLICT' && !error.recovery?.draft) {
+        error.recovery = {
+          draft: { branch, sha: durableRevision },
+          publicationPending,
+        }
       }
-      const sha = (await this.git(['rev-parse', 'HEAD'], directory)).stdout.trim()
-      let pullRequests = parseJson((await this.gh([
-        'pr', 'list', '--repo', this.repository, '--head', branch, '--state', 'open', '--json', 'number,url',
-      ], directory)).stdout, [])
-      if (!pullRequests.length) {
-        const body = `Publishes \`${post.title}\` from the local blog studio.\n\n- Static content validation passed\n- Full portfolio test suite passed\n`
-        await this.gh([
-          'pr', 'create', '--repo', this.repository, '--base', 'main', '--head', branch,
-          '--title', `Publish blog: ${post.title}`, '--body', body,
-        ], directory)
-        pullRequests = parseJson((await this.gh([
-          'pr', 'list', '--repo', this.repository, '--head', branch, '--state', 'open', '--json', 'number,url',
-        ], directory)).stdout, [])
-      }
-      const pullRequest = pullRequests[0]
-      if (!pullRequest) throw new Error('GitHub did not return the created pull request.')
-      let autoMergeQueued = true
-      let autoMergeError
-      try {
-        await this.gh([
-          'pr', 'merge', String(pullRequest.number), '--repo', this.repository,
-          '--auto', '--squash', '--delete-branch', '--match-head-commit', sha,
-        ], directory)
-      } catch (error) {
-        autoMergeQueued = false
-        autoMergeError = error.message
-      }
-      return { branch, sha, pullRequest, autoMergeQueued, autoMergeError }
-    }, { rebase: true, startPoint: baseRevision })
+      throw error
+    }
   }
 
   async saveAndPublish(post, media = [], expectedRevision) {
     const draft = this.prepareDraft(post, media)
+    const previousRevision = validateExpectedRevision(expectedRevision)
     return this.withBranchLock(draft.branch, async () => {
-      const revisions = await this.assertExpectedRevision(draft.branch, expectedRevision)
+      await this.fetch()
+      const branchExists = await this.branchExists(draft.branch)
+      let branchRevision = null
+      let branchMatches = false
+      if (branchExists) {
+        branchRevision = (await this.git([
+          'rev-parse', `origin/${draft.branch}`,
+        ])).stdout.trim()
+        if (branchRevision !== previousRevision) throw revisionConflict(branchRevision)
+        branchMatches = await this.revisionMatchesDraft(
+          branchRevision,
+          draft,
+          previousRevision,
+        )
+      }
+      const mainRevision = (await this.git(['rev-parse', 'origin/main'])).stdout.trim()
+      if (
+        (!branchExists || branchMatches)
+        && await this.revisionMatchesDraft(mainRevision, draft, previousRevision)
+      ) {
+        const durable = {
+          branch: draft.branch,
+          media: draft.files.map((file) => file.publicPath),
+          sha: branchRevision ?? mainRevision,
+        }
+        return {
+          draft: durable,
+          published: {
+            alreadyPublished: true,
+            autoMergeQueued: false,
+            branch: draft.branch,
+            liveUrl: `${SITE_URL}/blog/${draft.slug}/`,
+            pullRequest: null,
+            sha: mainRevision,
+          }
+        }
+      }
+      const revisions = await this.assertExpectedRevision(draft.branch, previousRevision)
       const saved = await this.savePreparedDraft(draft, {
         baseRevision: revisions.baseRevision,
         expectedRevision: revisions.branchRevision,
       })
-      const published = await this.publishBranch(draft.slug, draft.branch, saved.sha)
-      return { draft: saved, published }
+      try {
+        const published = await this.publishBranch(draft.slug, draft.branch, saved.sha)
+        return { draft: saved, published }
+      } catch (error) {
+        if (error.code !== 'BLOG_REVISION_CONFLICT' && !error.recovery?.draft) {
+          error.recovery = { draft: saved }
+        }
+        throw error
+      }
     })
   }
 
@@ -466,13 +889,13 @@ export class BlogPublisher {
     return this.branchExists(branch)
   }
 
-  async status(slug) {
+  async status(slug, expectedRevision) {
     const branch = draftBranch(slug)
-    const result = await this.gh([
-      'pr', 'list', '--repo', this.repository, '--head', branch, '--state', 'all', '--limit', '1',
-      '--json', 'number,url,state,mergeStateStatus,statusCheckRollup',
-    ])
-    const pullRequest = parseJson(result.stdout, [])[0] ?? null
+    const revision = validateExpectedRevision(expectedRevision)
+    if (!revision) throw new BlogInputError('A status revision is required.')
+    const pullRequest = (await this.pullRequests(branch, 'all', {
+      expectedSha: revision,
+    }))[0] ?? null
     return { branch, pullRequest, liveUrl: `${SITE_URL}/blog/${slug}/` }
   }
 }

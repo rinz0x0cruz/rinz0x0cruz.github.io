@@ -5,7 +5,7 @@ import {
   clampRect,
   isBoundedRect,
   isPositiveFiniteNumber,
-} from '../content/contracts.js'
+} from './avatar-geometry.js'
 
 const props = defineProps({
   frameSrc: {

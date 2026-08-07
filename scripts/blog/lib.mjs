@@ -116,6 +116,7 @@ export function escapeXml(value) {
 function requireString(value, field, maximum) {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`${field} is required.`)
   const normalized = value.trim()
+  if (normalized.includes('\0')) throw new Error(`${field} contains unsupported characters.`)
   if (normalized.length > maximum) throw new Error(`${field} must be at most ${maximum} characters.`)
   return normalized
 }
