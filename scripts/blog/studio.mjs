@@ -92,38 +92,69 @@ function requestInput(callback) {
   }
 }
 
+const clientErrors = Object.freeze({
+  BLOG_DRAFT_NOT_FOUND: {
+    status: 404,
+    error: 'The requested blog draft was not found.',
+    code: 'BLOG_DRAFT_NOT_FOUND',
+  },
+  BLOG_INVALID_INPUT: {
+    status: 400,
+    error: 'The blog request is invalid. Review the studio terminal for details.',
+    code: 'BLOG_INVALID_INPUT',
+  },
+  BLOG_INVALID_REQUEST: {
+    status: 400,
+    error: 'The blog request is invalid. Review the studio terminal for details.',
+    code: 'BLOG_INVALID_REQUEST',
+  },
+  BLOG_PUBLISH_SCOPE: {
+    status: 409,
+    error: 'The draft contains changes outside the allowed post and media scope.',
+    code: 'BLOG_PUBLISH_SCOPE',
+  },
+  BLOG_REVISION_CONFLICT: {
+    status: 412,
+    error: 'The draft changed remotely. Reload it before retrying.',
+    code: 'BLOG_REVISION_CONFLICT',
+  },
+  BLOG_REVISION_REQUIRED: {
+    status: 428,
+    error: 'A draft revision is required. Reload the post before saving.',
+    code: 'BLOG_REVISION_REQUIRED',
+  },
+})
+
 function errorResponse(error) {
-  if (error.code === 'BLOG_REVISION_REQUIRED') {
-    return { status: 428, error: error.message, code: error.code }
-  }
-  if (error.code === 'BLOG_REVISION_CONFLICT') {
-    return { status: 412, error: error.message, code: error.code }
-  }
-  if (error.code === 'BLOG_PUBLISH_SCOPE') {
-    return { status: 409, error: error.message, code: error.code }
-  }
-  if (['BLOG_INVALID_INPUT', 'BLOG_INVALID_REQUEST'].includes(error.code)) {
-    return { status: 400, error: error.message, code: error.code }
-  }
-  if (error.code === 'BLOG_DRAFT_NOT_FOUND') {
-    return { status: 404, error: error.message, code: error.code }
+  if (typeof error.code === 'string' && Object.hasOwn(clientErrors, error.code)) {
+    return clientErrors[error.code]
   }
   if (error instanceof CommandTimeoutError) {
     return {
       status: 504,
       error: 'A required command timed out. Review the studio terminal before retrying.',
-      code: error.code,
+      code: 'BLOG_COMMAND_TIMEOUT',
     }
   }
-  if (
-    error instanceof CommandError
-    || error instanceof CommandLaunchError
-    || error instanceof CommandOutputError
-  ) {
+  if (error instanceof CommandError) {
     return {
       status: 502,
       error: 'A required Git, GitHub, or npm command failed. Review the studio terminal before retrying.',
-      code: error instanceof CommandError ? 'BLOG_COMMAND_FAILED' : error.code,
+      code: 'BLOG_COMMAND_FAILED',
+    }
+  }
+  if (error instanceof CommandLaunchError) {
+    return {
+      status: 502,
+      error: 'A required Git, GitHub, or npm command failed. Review the studio terminal before retrying.',
+      code: 'BLOG_COMMAND_LAUNCH',
+    }
+  }
+  if (error instanceof CommandOutputError) {
+    return {
+      status: 502,
+      error: 'A required Git, GitHub, or npm command failed. Review the studio terminal before retrying.',
+      code: 'BLOG_COMMAND_OUTPUT_LIMIT',
     }
   }
   return {
