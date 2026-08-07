@@ -9,7 +9,7 @@ content-management system.
 | --- | --- | --- |
 | Identity, quotes, links | `identity.js` | Links: `id`, `label`, `detail`, `href` |
 | Skills / disciplines | `skills.js` | `id`, `abbr`, `name`, `detail` |
-| Job experience | `experience.js` | `id`, `company`, `role`, `kind`, `start`, `period`, `place`, `outcome`; non-empty `notable` |
+| Job experience | `experience.js` | `id`, `company`, `mark`, `role`, `kind`, `start`, `period`, `place`, `outcome`; non-empty `notable` |
 | Languages | `languages.js` | `id`, `name`, `native`, `lang`, `level`, `detail`, `accent` |
 | Certifications | `certifications.js` | `id`, `issuer`, `code`, `name`, `status`, `detail`, `accent`; non-empty `links` |
 | Projects | `projects.js` | `id`, `name`, `field`, `language`, `issued`, `blurb`, `glyph`, `accent`; non-empty `points`, `flow` |
@@ -40,6 +40,10 @@ horizontal timeline; projects and certifications use their existing local
 scroll/auto-placement surfaces. None of these collections creates page-level
 horizontal overflow at a 320 CSS-pixel viewport.
 
+Accents use six-digit hex colors. Experience `mark` must be one of
+`microsoft`, `justice`, `bhis`, or `probe`. Achievement `motif` must be one of
+`orbit`, `stack`, `prism`, or `signal`.
+
 Achievement `instrument` is optional. Without one, the existing static motif
 is used; with one, keep the model path and rotation beside the achievement:
 
@@ -58,6 +62,9 @@ is used; with one, keep the model path and rotation beside the achievement:
   },
 }
 ```
+
+Instrument paths are root-relative `.glb` URLs and `rotation` must contain
+exactly three finite numbers.
 
 Run `npm run test:profile` after editing content, then `npm test` before
 publishing. The profile test rejects empty collections, missing required fields,

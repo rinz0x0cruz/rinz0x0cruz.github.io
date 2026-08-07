@@ -3,11 +3,21 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import profile from '../src/profile.js'
 import { defineCollection } from '../src/content/define.js'
+import {
+  clampRect,
+  isBoundedRect,
+} from '../src/components/avatar-geometry.js'
+import {
+  isAchievementMotif,
+  isCompanyMark,
+  isHexAccent,
+  isInstrumentDescriptor,
+} from '../src/content/contracts.js'
 
 const collections = [
   ['links', profile.links, ['id', 'label', 'detail', 'href'], []],
   ['skills', profile.disciplines, ['id', 'abbr', 'name', 'detail'], []],
-  ['experience', profile.experience, ['id', 'company', 'role', 'kind', 'start', 'period', 'place', 'outcome'], ['notable']],
+  ['experience', profile.experience, ['id', 'company', 'mark', 'role', 'kind', 'start', 'period', 'place', 'outcome'], ['notable']],
   ['languages', profile.languages, ['id', 'name', 'native', 'lang', 'level', 'detail', 'accent'], []],
   ['certifications', profile.certifications, ['id', 'issuer', 'code', 'name', 'status', 'detail', 'accent'], ['links']],
   ['projects', profile.projects, ['id', 'name', 'field', 'language', 'issued', 'blurb', 'glyph', 'accent'], ['points', 'flow']],
@@ -44,6 +54,58 @@ test('feature collections reject empty, incomplete, and duplicate records', () =
   assert.throws(
     () => defineCollection('projects', [{ id: 'project', name: 'Project', flow: [] }], ['id', 'name'], ['flow']),
     /flow must contain at least one/u,
+  )
+})
+
+test('visual content contracts reject unsupported future values', () => {
+  const sparseRotation = [0, 0, 0]
+  delete sparseRotation[1]
+  const inheritedSparseRotation = [0, 0, 0]
+  delete inheritedSparseRotation[1]
+  Object.setPrototypeOf(inheritedSparseRotation, { 1: 0 })
+
+  assert.equal(isAchievementMotif('signal'), true)
+  assert.equal(isAchievementMotif('unknown'), false)
+  assert.equal(isCompanyMark('microsoft'), true)
+  assert.equal(isCompanyMark('typo'), false)
+  assert.equal(isHexAccent('#d1a35f'), true)
+  assert.equal(isHexAccent('gold'), false)
+  assert.equal(isInstrumentDescriptor(undefined), true)
+  assert.equal(isInstrumentDescriptor(null), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: [0, 0, 0] }), true)
+  assert.equal(isInstrumentDescriptor({ src: '/\\example.com/model.glb', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/\t/example.com/model.glb', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '//example.com/model.glb', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: 'https://example.com/model.glb', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb?', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb#', rotation: [0, 0, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: [0, Number.NaN, 0] }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: Array(3) }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: sparseRotation }), false)
+  assert.equal(isInstrumentDescriptor({ src: '/models/example.glb', rotation: inheritedSparseRotation }), false)
+  assert.equal([
+    { src: '/models/example.glb', rotation: [0, 0, 0] },
+    undefined,
+  ].every(isInstrumentDescriptor), true)
+  assert.throws(
+    () => defineCollection(
+      'achievements',
+      [{ id: 'bad-motif', motif: 'unknown' }],
+      ['id', 'motif'],
+      [],
+      { motif: (value) => isAchievementMotif(value) || 'is unsupported.' },
+    ),
+    /motif is unsupported/u,
+  )
+})
+
+test('avatar geometry contracts reject and safely clamp invalid rectangles', () => {
+  assert.equal(isBoundedRect({ x: 10, y: 20, width: 30, height: 40 }, 100, 100), true)
+  assert.equal(isBoundedRect({ x: 90, y: 20, width: 30, height: 40 }, 100, 100), false)
+  assert.equal(isBoundedRect({ x: 10, y: 20, width: -1, height: 40 }, 100, 100), false)
+  assert.deepEqual(
+    clampRect({ x: -20, y: 95, width: 200, height: 30 }, 100, 100),
+    { x: 0, y: 95, width: 100, height: 5 },
   )
 })
 

@@ -26,6 +26,20 @@ async function revealAchievementStage(page) {
   return page.locator('.achievement-stage')
 }
 
+async function expectEssentialProfileFallback(page) {
+  const fallback = page.locator('#app .no-script')
+  await expect(page.locator('#app')).toHaveAttribute('data-app-state', 'failed', { timeout: 5_000 })
+  await expect(fallback.getByRole('heading', { name: 'Mohit Sharma' })).toBeVisible()
+  await expect(fallback).toContainText('Security Researcher at Microsoft')
+  await expect(fallback).toContainText('interactive portfolio is unavailable')
+  await expect(fallback.getByRole('link', { name: 'Résumé' })).toHaveAttribute('href', '/Mohit-Sharma-Resume.pdf')
+  await expect(fallback.getByRole('link', { name: 'Blog' })).toHaveAttribute('href', '/blog/')
+  await expect(fallback.getByRole('link', { name: 'Email' })).toHaveAttribute(
+    'href',
+    'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com',
+  )
+}
+
 test('the static page identifies itself to search and social crawlers', async ({ page }) => {
   await page.goto('/')
 
@@ -149,6 +163,7 @@ test('opening and refreshing never exposes a partially loaded identity', async (
     resourceGate = new Promise((resolve) => { releaseResources = resolve })
     await navigate()
 
+    await expect(page.locator('#app')).toHaveAttribute('data-app-state', 'ready')
     const portfolio = page.locator('.portfolio')
     const identity = page.locator('.scene__content')
     await expect(portfolio).toHaveAttribute('aria-busy', 'true')
@@ -174,6 +189,50 @@ test('opening and refreshing never exposes a partially loaded identity', async (
   await verifyNavigation(() => page.reload({ waitUntil: 'domcontentloaded' }))
 })
 
+test('a stalled critical asset cannot hide the identity indefinitely', async ({ page }) => {
+  await page.addInitScript(() => {
+    const decode = HTMLImageElement.prototype.decode
+    HTMLImageElement.prototype.decode = function decodeWithStalledMask() {
+      if (this.src.includes('avatar-yokai-mask')) return new Promise(() => {})
+      return decode.call(this)
+    }
+  })
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+
+  const portfolio = page.locator('.portfolio')
+  await expect(portfolio).toHaveAttribute('aria-busy', 'true')
+  await expect(portfolio).toHaveAttribute('data-critical-state', 'loading')
+  await expect(portfolio).toHaveClass(/portfolio--critical-ready/, { timeout: 5_000 })
+  await expect(portfolio).toHaveAttribute('aria-busy', 'false')
+  await expect(portfolio).toHaveAttribute('data-critical-state', 'timed-out')
+  await expect(page.locator('.scene__content')).toHaveCSS('visibility', 'visible')
+})
+
+test('essential profile links survive an enabled-JavaScript boot failure', async ({ page }) => {
+  await page.route(/\/assets\/index-.*\.js(?:\?|$)/u, (route) => route.abort('failed'))
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+
+  const fallback = page.locator('#app .no-script')
+  await expect(fallback).toBeHidden()
+  await expectEssentialProfileFallback(page)
+})
+
+test('essential profile links survive a Vue mount failure', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Intl, 'Segmenter', {
+      configurable: true,
+      value: class FailingSegmenter {
+        constructor() {
+          throw new Error('Forced mount failure')
+        }
+      },
+    })
+  })
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+
+  await expectEssentialProfileFallback(page)
+})
+
 test('the essential profile remains usable without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({
     baseURL: test.info().project.use.baseURL,
@@ -185,7 +244,7 @@ test('the essential profile remains usable without JavaScript', async ({ browser
   const fallback = page.locator('.no-script')
   await expect(fallback.getByRole('heading', { name: 'Mohit Sharma' })).toBeVisible()
   await expect(fallback).toContainText('Security Researcher at Microsoft')
-  await expect(fallback).toContainText('Interactive projects and work history require JavaScript')
+  await expect(fallback).toContainText('interactive portfolio is unavailable')
   await expect(fallback.getByRole('link', { name: 'Résumé' })).toHaveAttribute(
     'href',
     '/Mohit-Sharma-Resume.pdf',
@@ -3733,12 +3792,22 @@ test('sticky note flips on click and returns on the second', async ({ page }) =>
 
   await front.click()
   await expect(note).toHaveClass(/sticky-note--flipped/)
+  await expect(front).toHaveAttribute('aria-hidden', 'true')
+  await expect(front).toHaveAttribute('inert', '')
   await expect(back).toHaveAttribute('aria-hidden', 'false')
+  await expect(back).not.toHaveAttribute('inert', '')
   await expect(back).toContainText('Could not have done it without both of you')
+  expect(await note.ariaSnapshot()).toBe('- button "Could not have done it without both of you"')
 
   await note.locator('.sticky-note__reply').click()
   await expect(note).not.toHaveClass(/sticky-note--flipped/)
+  await expect(front).toHaveAttribute('aria-hidden', 'false')
+  await expect(front).not.toHaveAttribute('inert', '')
   await expect(back).toHaveAttribute('aria-hidden', 'true')
+  await expect(back).toHaveAttribute('inert', '')
+  expect(await note.ariaSnapshot()).toBe(
+    '- button "You are the most Energetic Person here and your Enthusiasm Makes the whole place feels lighter. +1"',
+  )
 })
 
 test('sticky note flips from the keyboard and keeps focus reachable', async ({ page }) => {
@@ -3753,12 +3822,13 @@ test('sticky note flips from the keyboard and keeps focus reachable', async ({ p
   await note.locator('.sticky-note__face--front').focus()
   await page.keyboard.press('Enter')
   await expect(note).toHaveClass(/sticky-note--flipped/)
+  await expect(note.locator('.sticky-note__reply')).toBeFocused()
   expect(await note.locator('.sticky-note__face--front').getAttribute('tabindex')).toBe('-1')
   expect(await note.locator('.sticky-note__reply').getAttribute('tabindex')).toBe('0')
 
-  await note.locator('.sticky-note__reply').focus()
   await page.keyboard.press('Enter')
   await expect(note).not.toHaveClass(/sticky-note--flipped/)
+  await expect(note.locator('.sticky-note__face--front')).toBeFocused()
 })
 
 test('sticky note drags only when grabbed, and dragging never flips it', async ({ page }) => {
@@ -4248,6 +4318,21 @@ test('failed instrument loads preserve the artwork fallback', async ({ page }) =
   expect(await stage.locator('.achievement-art').evaluateAll((elements) => (
     elements.every((element) => Number(getComputedStyle(element).opacity) > 0)
   ))).toBe(true)
+  expect(pageErrors).toEqual([])
+})
+
+test('instrument slot mismatches fail safely without removing achievement cards', async ({ page }) => {
+  const pageErrors = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  await page.goto('/')
+
+  const deck = page.locator('.achievement-deck')
+  await deck.locator('[data-instrument-index]').last().evaluate((slot) => slot.remove())
+  await deck.scrollIntoViewIfNeeded()
+
+  await expect(deck.locator('.achievement-stage__canvas')).toHaveAttribute('data-render-state', 'failed')
+  await expect(deck.locator('.achievement-card')).toHaveCount(achievementCount)
+  await expect(deck.locator('.achievement-art')).toHaveCount(achievementCount - 1)
   expect(pageErrors).toEqual([])
 })
 

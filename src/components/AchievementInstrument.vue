@@ -1,5 +1,6 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { isInstrumentDescriptor } from '../content/contracts.js'
 
 const props = defineProps({
   active: {
@@ -9,6 +10,7 @@ const props = defineProps({
   instruments: {
     type: Array,
     required: true,
+    validator: (value) => Array.isArray(value) && value.every(isInstrumentDescriptor),
   },
 })
 
@@ -32,6 +34,12 @@ let MeshoptDecoder
 let visible = false
 let disposed = false
 const models = []
+
+function failAll() {
+  canvas.value.dataset.renderState = 'failed'
+  instrumentSlots().forEach((slot) => { slot.dataset.modelState = 'failed' })
+  emit('resolve', props.instruments.map(() => 'failed'))
+}
 
 function instrumentSlots() {
   return [...container.value.querySelectorAll('[data-instrument-index]')]
@@ -151,6 +159,16 @@ function resetPointer() {
 async function initialize() {
   if (renderer || !canvas.value) return
 
+  const slots = instrumentSlots()
+  if (
+    !props.instruments.every(isInstrumentDescriptor)
+    || slots.length !== props.instruments.length
+    || slots.some((slot) => !slot.closest('.achievement-card'))
+  ) {
+    failAll()
+    return
+  }
+
   try {
     canvas.value.dataset.renderState = 'loading'
     const modules = await Promise.all([
@@ -171,11 +189,7 @@ async function initialize() {
       preserveDrawingBuffer: true,
     })
   } catch {
-    canvas.value.setAttribute('data-render-state', 'failed')
-    instrumentSlots().forEach((slot) => {
-      slot.dataset.modelState = 'failed'
-    })
-    emit('resolve', props.instruments.map(() => 'failed'))
+    failAll()
     return
   }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
@@ -212,7 +226,6 @@ async function initialize() {
 
   const loader = new GLTFLoader()
   loader.setMeshoptDecoder(MeshoptDecoder)
-  const slots = instrumentSlots()
   props.instruments.forEach((instrument, index) => {
     models.push({
       card: slots[index].closest('.achievement-card'),

@@ -1,4 +1,4 @@
-export function defineCollection(name, records, requiredFields, requiredLists = []) {
+export function defineCollection(name, records, requiredFields, requiredLists = [], validators = {}) {
   if (!Array.isArray(records) || !records.length) throw new Error(`${name} must contain at least one record.`)
 
   const ids = new Set()
@@ -14,6 +14,12 @@ export function defineCollection(name, records, requiredFields, requiredLists = 
     for (const field of requiredLists) {
       if (!Array.isArray(record[field]) || !record[field].length) {
         throw new Error(`${name}[${index}].${field} must contain at least one item.`)
+      }
+    }
+    for (const [field, validate] of Object.entries(validators)) {
+      const result = validate(record[field], record)
+      if (result !== true) {
+        throw new Error(`${name}[${index}].${field} ${result || 'is invalid.'}`)
       }
     }
     if (ids.has(record.id)) throw new Error(`${name} contains duplicate id: ${record.id}.`)

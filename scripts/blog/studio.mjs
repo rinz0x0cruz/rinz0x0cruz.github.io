@@ -4,8 +4,14 @@ import { readFile, stat } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { dirname, extname, join, normalize, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { BlogPublisher } from './publisher.mjs'
-import { renderArticle, validatePost } from './lib.mjs'
+import {
+  BlogPublisher,
+  CommandError,
+  CommandLaunchError,
+  CommandOutputError,
+  CommandTimeoutError,
+} from './publisher.mjs'
+import { renderArticle, validatePost, validateSlug } from './lib.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const studioDirectory = join(root, 'studio')
@@ -29,6 +35,7 @@ function headers(contentType = 'text/plain; charset=utf-8') {
     'cache-control': 'no-store',
     'content-type': contentType,
     'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; frame-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    'cross-origin-resource-policy': 'same-origin',
     'referrer-policy': 'no-referrer',
     'x-content-type-options': 'nosniff',
     'x-frame-options': 'DENY',
@@ -52,15 +59,74 @@ function expectedRevision(payload) {
   }
   const value = payload.expectedRevision
   if (value !== null && (typeof value !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(value))) {
-    throw new Error('expectedRevision must be null or a Git revision.')
+    throw new StudioRequestError('expectedRevision must be null or a Git revision.')
   }
   return value
 }
 
-function errorStatus(error) {
-  if (error.code === 'BLOG_REVISION_REQUIRED') return 428
-  if (error.code === 'BLOG_REVISION_CONFLICT') return 412
-  return 400
+function requiredRevision(value) {
+  if (typeof value !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(value)) {
+    throw new StudioRequestError('revision must be a Git revision.')
+  }
+  return value
+}
+
+class StudioRequestError extends Error {
+  constructor(message, options) {
+    super(message, options)
+    this.name = 'StudioRequestError'
+    this.code = 'BLOG_INVALID_REQUEST'
+  }
+}
+
+function requestInput(callback) {
+  try {
+    return callback()
+  } catch (error) {
+    if (typeof error.code === 'string' && error.code.startsWith('BLOG_')) throw error
+    throw new StudioRequestError(error.message, { cause: error })
+  }
+}
+
+function errorResponse(error) {
+  if (error.code === 'BLOG_REVISION_REQUIRED') {
+    return { status: 428, error: error.message, code: error.code }
+  }
+  if (error.code === 'BLOG_REVISION_CONFLICT') {
+    return { status: 412, error: error.message, code: error.code }
+  }
+  if (error.code === 'BLOG_PUBLISH_SCOPE') {
+    return { status: 409, error: error.message, code: error.code }
+  }
+  if (['BLOG_INVALID_INPUT', 'BLOG_INVALID_REQUEST'].includes(error.code)) {
+    return { status: 400, error: error.message, code: error.code }
+  }
+  if (error.code === 'BLOG_DRAFT_NOT_FOUND') {
+    return { status: 404, error: error.message, code: error.code }
+  }
+  if (error instanceof CommandTimeoutError) {
+    return {
+      status: 504,
+      error: 'A required command timed out. Review the studio terminal before retrying.',
+      code: error.code,
+    }
+  }
+  if (
+    error instanceof CommandError
+    || error instanceof CommandLaunchError
+    || error instanceof CommandOutputError
+  ) {
+    return {
+      status: 502,
+      error: 'A required Git, GitHub, or npm command failed. Review the studio terminal before retrying.',
+      code: error instanceof CommandError ? 'BLOG_COMMAND_FAILED' : error.code,
+    }
+  }
+  return {
+    status: 500,
+    error: 'The blog studio encountered an internal error. Review the studio terminal.',
+    code: 'BLOG_INTERNAL_ERROR',
+  }
 }
 
 function matchesToken(value, expected) {
@@ -70,18 +136,33 @@ function matchesToken(value, expected) {
   return actual.length === target.length && timingSafeEqual(actual, target)
 }
 
+function allowsPrivateResource(request, origin, accessToken) {
+  if (matchesToken(request.headers['x-blog-studio-token'], accessToken)) return true
+  if (request.headers.origin && request.headers.origin !== origin) return false
+  return ['none', 'same-origin'].includes(request.headers['sec-fetch-site'])
+}
+
 async function readJson(request) {
   const declared = Number(request.headers['content-length'] ?? 0)
-  if (declared > maximumRequestBytes) throw new Error('Request body exceeds 12 MiB.')
+  if (declared > maximumRequestBytes) throw new StudioRequestError('Request body exceeds 12 MiB.')
   const chunks = []
   let size = 0
   for await (const chunk of request) {
     size += chunk.length
-    if (size > maximumRequestBytes) throw new Error('Request body exceeds 12 MiB.')
+    if (size > maximumRequestBytes) throw new StudioRequestError('Request body exceeds 12 MiB.')
     chunks.push(chunk)
   }
-  if (!size) throw new Error('Request body is required.')
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+  if (!size) throw new StudioRequestError('Request body is required.')
+  try {
+    const value = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      throw new StudioRequestError('Request body must be a JSON object.')
+    }
+    return value
+  } catch (error) {
+    if (error instanceof StudioRequestError) throw error
+    throw new StudioRequestError('Request body must be valid JSON.', { cause: error })
+  }
 }
 
 function safePath(base, requestPath) {
@@ -138,9 +219,13 @@ export function createStudioServer({
         return
       }
       if (request.method === 'GET' && url.pathname.startsWith('/blog/media/')) {
+        if (!allowsPrivateResource(request, origin, accessToken)) {
+          send(response, 403, 'Invalid studio resource request.')
+          return
+        }
         const [, section, mediaSection, slug, name, ...extra] = url.pathname.split('/')
         if (section !== 'blog' || mediaSection !== 'media' || !slug || !name || extra.length) {
-          throw new Error('Invalid media path.')
+          throw new StudioRequestError('Invalid media path.')
         }
         let media
         try {
@@ -165,11 +250,18 @@ export function createStudioServer({
         return
       }
       if (request.method === 'GET' && url.pathname === '/api/post') {
-        json(response, 200, await publisher.readPost(url.searchParams.get('slug'), url.searchParams.get('source') ?? 'published'))
+        const slug = requestInput(() => validateSlug(url.searchParams.get('slug')))
+        const source = url.searchParams.get('source') ?? 'published'
+        if (!['draft', 'published'].includes(source)) {
+          throw new StudioRequestError('source must be draft or published.')
+        }
+        json(response, 200, await publisher.readPost(slug, source))
         return
       }
       if (request.method === 'GET' && url.pathname === '/api/status') {
-        json(response, 200, await publisher.status(url.searchParams.get('slug')))
+        const slug = requestInput(() => validateSlug(url.searchParams.get('slug')))
+        const revision = requiredRevision(url.searchParams.get('revision'))
+        json(response, 200, await publisher.status(slug, revision))
         return
       }
 
@@ -188,8 +280,11 @@ export function createStudioServer({
 
       const payload = await readJson(request)
       if (url.pathname === '/api/preview') {
-        const post = validatePost(payload.post, { draft: true })
-        json(response, 200, { html: renderArticle(post, { preview: true }) })
+        const html = requestInput(() => {
+          const post = validatePost(payload.post, { draft: true })
+          return renderArticle(post, { preview: true })
+        })
+        json(response, 200, { html })
         return
       }
       if (url.pathname === '/api/draft') {
@@ -200,21 +295,39 @@ export function createStudioServer({
         ))
         return
       }
-      if (url.pathname === '/api/publish') {
-        validatePost(payload.post)
-        json(response, 200, await publisher.saveAndPublish(
+      if (url.pathname === '/api/reconcile') {
+        json(response, 200, await publisher.reconcile(
           payload.post,
           payload.media ?? [],
           expectedRevision(payload),
         ))
         return
       }
+      if (url.pathname === '/api/publish') {
+        requestInput(() => validatePost(payload.post))
+        const result = await publisher.saveAndPublish(
+          payload.post,
+          payload.media ?? [],
+          expectedRevision(payload),
+        )
+        if (result.published.diagnostic) logger.error(result.published.diagnostic)
+        json(response, 200, result)
+        return
+      }
       send(response, 404, 'Not found.')
     } catch (error) {
       logger.error(error)
-      json(response, errorStatus(error), {
-        error: error.message,
-        ...(error.code ? { code: error.code } : {}),
+      const failure = errorResponse(error)
+      json(response, failure.status, {
+        error: failure.error,
+        code: failure.code,
+        ...(error.outcomeUnknown ? { outcomeUnknown: true } : {}),
+        ...(error.recovery?.draft ? {
+          recovery: {
+            draft: error.recovery.draft,
+            publicationPending: error.recovery.publicationPending === true,
+          },
+        } : {}),
       })
     }
   })

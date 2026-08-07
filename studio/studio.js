@@ -178,6 +178,8 @@ async function api(path, options = {}) {
   if (!response.ok) {
     const error = new Error(value.error ?? `Request failed (${response.status}).`)
     error.code = value.code
+    error.outcomeUnknown = value.outcomeUnknown === true
+    error.recovery = value.recovery
     error.status = response.status
     throw error
   }
@@ -267,10 +269,17 @@ async function showPreview() {
   ), value.html)
 }
 
-async function trackPublish(postSlug, remaining = 60, trackingId = ++publishTrackingId) {
+async function trackPublish(
+  postSlug,
+  expectedRevision = revision,
+  remaining = 60,
+  trackingId = ++publishTrackingId,
+) {
   clearTimeout(statusTimer)
   try {
-    const value = await api(`/api/status?slug=${encodeURIComponent(postSlug)}`)
+    const value = await api(
+      `/api/status?slug=${encodeURIComponent(postSlug)}&revision=${encodeURIComponent(expectedRevision)}`,
+    )
     if (trackingId !== publishTrackingId) return
     const pullRequest = value.pullRequest
     if (!pullRequest) {
@@ -297,19 +306,43 @@ async function trackPublish(postSlug, remaining = 60, trackingId = ++publishTrac
     setStatus(error.message, true)
   }
   if (remaining > 1) {
-    statusTimer = setTimeout(() => trackPublish(postSlug, remaining - 1, trackingId), 5_000)
+    statusTimer = setTimeout(() => (
+      trackPublish(postSlug, expectedRevision, remaining - 1, trackingId)
+    ), 5_000)
   }
 }
 
 async function saveDraft() {
-  const value = await api('/api/draft', {
-    method: 'POST',
-    body: JSON.stringify({
-      post: post(),
-      media: (await media()).map(({ name, data }) => ({ name, data })),
-      expectedRevision: revision,
-    }),
-  })
+  const attemptedPost = post()
+  const attemptedMedia = (await media()).map(({ name, data }) => ({ name, data }))
+  const attemptedRevision = revision
+  let value
+  try {
+    value = await api('/api/draft', {
+      method: 'POST',
+      body: JSON.stringify({
+        post: attemptedPost,
+        media: attemptedMedia,
+        expectedRevision: attemptedRevision,
+      }),
+    })
+  } catch (error) {
+    value = error.recovery?.draft
+    if (!error.status || error.outcomeUnknown) {
+      try {
+        const recovered = await api('/api/reconcile', {
+          method: 'POST',
+          body: JSON.stringify({
+            post: attemptedPost,
+            media: attemptedMedia,
+            expectedRevision: attemptedRevision,
+          }),
+        })
+        if (recovered && !recovered.published) value = { sha: recovered.revision }
+      } catch {}
+    }
+    if (!value?.sha) throw error
+  }
   revision = value.sha
   setStatus(`Draft saved at ${value.sha.slice(0, 8)}.`)
   slug.readOnly = true
@@ -318,25 +351,118 @@ async function saveDraft() {
   await loadLists()
 }
 
+async function reconcilePublishFailure(
+  attemptedPost,
+  attemptedMedia,
+  attemptedRevision,
+  error,
+) {
+  const uncertainOutcome = !error.status || error.outcomeUnknown
+  let recovered
+  if (uncertainOutcome) {
+    try {
+      recovered = await api('/api/reconcile', {
+        method: 'POST',
+        body: JSON.stringify({
+          post: attemptedPost,
+          media: attemptedMedia,
+          expectedRevision: attemptedRevision,
+        }),
+      })
+    } catch {
+      recovered = undefined
+    }
+  }
+  if (!recovered && error.recovery?.draft) {
+    recovered = {
+      branch: error.recovery.draft.branch,
+      publicationPending: error.recovery.publicationPending === true,
+      published: false,
+      pullRequest: null,
+      revision: error.recovery.draft.sha,
+    }
+  }
+  if (!recovered?.revision) return undefined
+
+  revision = recovered.revision
+  dirty = false
+  slug.readOnly = true
+  slugEdited = true
+  if (recovered.published || recovered.pullRequest) {
+    return { ...recovered, uncertainOutcome }
+  }
+  try {
+    const status = await api(
+      `/api/status?slug=${encodeURIComponent(attemptedPost.slug)}&revision=${encodeURIComponent(revision)}`,
+    )
+    return {
+      ...status,
+      publicationPending: recovered.publicationPending,
+      revision,
+      uncertainOutcome,
+    }
+  } catch {
+    return { ...recovered, uncertainOutcome }
+  }
+}
+
 async function publish() {
   if (!form.elements.published.value) throw new Error('Published date is required.')
   if (!window.confirm(`Publish ${title.value}?`)) return
-  const value = await api('/api/publish', {
-    method: 'POST',
-    body: JSON.stringify({
-      post: post(),
-      media: (await media()).map(({ name, data }) => ({ name, data })),
-      expectedRevision: revision,
-    }),
-  })
+  const attemptedPost = post()
+  const attemptedMedia = (await media()).map(({ name, data }) => ({ name, data }))
+  const attemptedRevision = revision
+  let value
+  try {
+    value = await api('/api/publish', {
+      method: 'POST',
+      body: JSON.stringify({
+        post: attemptedPost,
+        media: attemptedMedia,
+        expectedRevision: attemptedRevision,
+      }),
+    })
+  } catch (error) {
+    const recovered = await reconcilePublishFailure(
+      attemptedPost,
+      attemptedMedia,
+      attemptedRevision,
+      error,
+    )
+    if (recovered?.published) {
+      setStatus('Published.', false, { url: recovered.liveUrl, label: 'Open article' })
+      return
+    }
+    if (recovered?.pullRequest) {
+      setStatus('Publish result recovered.', false, {
+        url: recovered.pullRequest.url,
+        label: `PR #${recovered.pullRequest.number}`,
+      })
+      await trackPublish(attemptedPost.slug, revision)
+      return
+    }
+    if (recovered?.uncertainOutcome || recovered?.publicationPending) {
+      setStatus('Draft recovered; checking publication status.')
+      await trackPublish(attemptedPost.slug, revision)
+      return
+    }
+    if (recovered) {
+      error.message = `Draft saved, but publication did not complete. ${error.message}`
+    }
+    throw error
+  }
   const result = value.published
-  revision = result.sha
+  revision = result.alreadyPublished ? value.draft.sha : result.sha
   dirty = false
+  if (result.alreadyPublished) {
+    setStatus('Published.', false, { url: result.liveUrl, label: 'Open article' })
+    return
+  }
   const message = result.autoMergeQueued
     ? 'Publish PR created; merge is queued.'
     : 'Publish PR created; merge it after checks pass.'
   setStatus(message, false, { url: result.pullRequest.url, label: `PR #${result.pullRequest.number}` })
-  await trackPublish(post().slug)
+  await trackPublish(post().slug, revision)
 }
 
 async function act(action) {
