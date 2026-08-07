@@ -67,12 +67,12 @@ test('rejects unknown fields, unsafe slugs, and missing public dates', () => {
 })
 
 test('escapes raw HTML and rejects dangerous link protocols', () => {
-  const html = renderMarkdown(`<script>alert(1)</script>
+  const html = renderMarkdown(`<script>alert(1)</script><SCRIPT>alert(2)</SCRIPT>
 
 [javascript](javascript:alert(1)) [data](data:text/html,unsafe) [file](file:///tmp/unsafe)
 
 [web](https://example.com) [mail](mailto:test@example.com) [local](/blog/)`)
-  assert.doesNotMatch(html, /<script>/u)
+  assert.doesNotMatch(html, /<script\b/iu)
   for (const protocol of ['javascript:', 'data:', 'file:']) {
     assert.doesNotMatch(html, new RegExp(`href="${protocol}`, 'u'))
   }

@@ -48,7 +48,11 @@ function send(response, status, body, contentType) {
 }
 
 function json(response, status, value) {
-  send(response, status, `${JSON.stringify(value)}\n`, 'application/json; charset=utf-8')
+  const body = JSON.stringify(value)
+    .replaceAll('&', '\\u0026')
+    .replaceAll('<', '\\u003c')
+    .replaceAll('>', '\\u003e')
+  send(response, status, `${body}\n`, 'application/json; charset=utf-8')
 }
 
 function expectedRevision(payload) {
