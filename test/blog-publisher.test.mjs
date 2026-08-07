@@ -1379,6 +1379,32 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
       code: 'BLOG_INVALID_REQUEST',
     })
 
+    const metacharacterError = await fetch(`${base}/api/preview`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: JSON.stringify({
+        post: {
+          ...post,
+          metadata: { ...post.metadata, '<script>&': 'unsafe' },
+        },
+      }),
+    })
+    const metacharacterBody = await metacharacterError.text()
+    assert.equal(metacharacterError.status, 400)
+    assert.equal(/[<>&]/u.test(metacharacterBody), false)
+    assert.equal(metacharacterBody.includes('\\u0026'), true)
+    assert.equal(metacharacterBody.includes('\\u003c'), true)
+    assert.equal(metacharacterBody.includes('\\u003e'), true)
+    assert.deepEqual(JSON.parse(metacharacterBody), {
+      error: 'Unknown frontmatter field: <script>&.',
+      code: 'BLOG_INVALID_REQUEST',
+    })
+
     const empty = await fetch(`${base}/api/preview`, {
       method: 'POST',
       headers: {
