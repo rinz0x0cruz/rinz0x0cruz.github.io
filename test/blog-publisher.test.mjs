@@ -1259,12 +1259,14 @@ test('rejects symlink media before worktree checkout or npm', async () => {
 test('studio rejects cross-origin and missing-CSRF mutations', async () => {
   let savedMediaCount = 0
   let savedRevision
+  let saveFailure
   let atomicPublications = 0
   const fakePublisher = {
     listPosts: async () => ({ drafts: [], published: [] }),
     readPost: async () => ({}),
     status: async () => ({}),
     saveDraft: async (_post, media, expectedRevision) => {
+      if (saveFailure) throw saveFailure
       savedMediaCount = media.length
       savedRevision = expectedRevision
       return {}
@@ -1342,6 +1344,27 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
     assert.equal(validBody.includes('\\u003c'), true)
     assert.equal(validBody.includes('\\u003e'), true)
     assert.match(JSON.parse(validBody).html, /Safe &amp; sound\./u)
+
+    const unsupportedVideo = await fetch(`${base}/api/preview`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: JSON.stringify({
+        post: {
+          ...post,
+          body: '# Safe\n\n![video: Untrusted](https://example.com/video/1)',
+        },
+      }),
+    })
+    assert.equal(unsupportedVideo.status, 400)
+    assert.deepEqual(await unsupportedVideo.json(), {
+      error: 'Video embeds support HTTPS YouTube or Vimeo URLs only.',
+      code: 'BLOG_INVALID_REQUEST',
+    })
 
     const wrongType = await fetch(`${base}/api/preview`, {
       method: 'POST',
@@ -1466,6 +1489,45 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
       error: invalidRequestMessage,
       code: 'BLOG_INVALID_REQUEST',
     })
+
+    saveFailure = new Error('Attacker-controlled revision detail.')
+    saveFailure.code = 'BLOG_REVISION_CONFLICT'
+    const revisionConflict = await fetch(`${base}/api/draft`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: JSON.stringify({ post, expectedRevision: null }),
+    })
+    assert.equal(revisionConflict.status, 412)
+    assert.deepEqual(await revisionConflict.json(), {
+      error: 'This draft changed after it was loaded. Reload it before saving again.',
+      code: 'BLOG_REVISION_CONFLICT',
+    })
+
+    saveFailure = new Error('Video embeds support HTTPS YouTube or Vimeo URLs only.<script>')
+    saveFailure.code = 'BLOG_INVALID_REQUEST'
+    const nearMatch = await fetch(`${base}/api/draft`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: JSON.stringify({ post, expectedRevision: null }),
+    })
+    const nearMatchBody = await nearMatch.text()
+    assert.equal(nearMatch.status, 400)
+    assert.equal(/[<>&]/u.test(nearMatchBody), false)
+    assert.deepEqual(JSON.parse(nearMatchBody), {
+      error: invalidRequestMessage,
+      code: 'BLOG_INVALID_REQUEST',
+    })
+    saveFailure = undefined
 
     const mediaChunk = Buffer.alloc(2 * 1024 * 1024).toString('base64')
     const maximumMedia = await fetch(`${base}/api/draft`, {
