@@ -115,7 +115,7 @@ const clientErrors = Object.freeze({
   },
   BLOG_REVISION_CONFLICT: {
     status: 412,
-    error: 'The draft changed remotely. Reload it before retrying.',
+    error: 'This draft changed after it was loaded. Reload it before saving again.',
     code: 'BLOG_REVISION_CONFLICT',
   },
   BLOG_REVISION_REQUIRED: {
@@ -125,7 +125,21 @@ const clientErrors = Object.freeze({
   },
 })
 
+function invalidInputResponse(error) {
+  const failure = clientErrors[error.code]
+  if (error.message === 'Video embeds support HTTPS YouTube or Vimeo URLs only.') {
+    return {
+      ...failure,
+      error: 'Video embeds support HTTPS YouTube or Vimeo URLs only.',
+    }
+  }
+  return failure
+}
+
 function errorResponse(error) {
+  if (['BLOG_INVALID_INPUT', 'BLOG_INVALID_REQUEST'].includes(error.code)) {
+    return invalidInputResponse(error)
+  }
   if (typeof error.code === 'string' && Object.hasOwn(clientErrors, error.code)) {
     return clientErrors[error.code]
   }
