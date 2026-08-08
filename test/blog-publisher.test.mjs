@@ -1712,6 +1712,51 @@ test('studio redacts dependency and internal failures with stable statuses', asy
   }
 })
 
+test('studio exposes only approved draft recovery fields', async () => {
+  const failure = new Error('Private failure detail.')
+  failure.recovery = {
+    draft: {
+      branch: 'draft/blog/safe-post',
+      media: ['/blog/media/safe-post/private.png'],
+      privateDiagnostic: 'do not serialize',
+      sha: 'a'.repeat(40),
+    },
+    privateDiagnostic: 'do not serialize',
+    publicationPending: true,
+  }
+  const server = createStudioServer({
+    publisher: {
+      async listPosts() {
+        throw failure
+      },
+    },
+    accessToken: 'test-access-token',
+    logger: { error() {} },
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}`
+  try {
+    const response = await fetch(`${base}/api/posts`, {
+      headers: { 'x-blog-studio-token': 'test-access-token' },
+    })
+    assert.equal(response.status, 500)
+    assert.deepEqual(await response.json(), {
+      error: 'The blog studio encountered an internal error. Review the studio terminal.',
+      code: 'BLOG_INTERNAL_ERROR',
+      recovery: {
+        draft: {
+          branch: 'draft/blog/safe-post',
+          sha: 'a'.repeat(40),
+        },
+        publicationPending: true,
+      },
+    })
+  } finally {
+    server.closeAllConnections()
+    server.close()
+  }
+})
+
 test('studio logs auto-merge diagnostics without serializing them', async () => {
   const diagnostic = new CommandError('gh', ['pr', 'merge'], 1, '', 'private auto-merge detail')
   const published = {

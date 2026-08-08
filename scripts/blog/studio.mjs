@@ -373,7 +373,10 @@ export function createStudioServer({
         ...(error.outcomeUnknown ? { outcomeUnknown: true } : {}),
         ...(error.recovery?.draft ? {
           recovery: {
-            draft: error.recovery.draft,
+            draft: {
+              branch: error.recovery.draft.branch,
+              sha: error.recovery.draft.sha,
+            },
             publicationPending: error.recovery.publicationPending === true,
           },
         } : {}),
