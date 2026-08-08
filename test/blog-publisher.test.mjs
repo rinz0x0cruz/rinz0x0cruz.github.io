@@ -7,6 +7,7 @@ import {
   BlogPublisher,
   CommandError,
   CommandLaunchError,
+  CommandOutputError,
   CommandTimeoutError,
   runCommand,
 } from '../scripts/blog/publisher.mjs'
@@ -1258,12 +1259,14 @@ test('rejects symlink media before worktree checkout or npm', async () => {
 test('studio rejects cross-origin and missing-CSRF mutations', async () => {
   let savedMediaCount = 0
   let savedRevision
+  let saveFailure
   let atomicPublications = 0
   const fakePublisher = {
     listPosts: async () => ({ drafts: [], published: [] }),
     readPost: async () => ({}),
     status: async () => ({}),
     saveDraft: async (_post, media, expectedRevision) => {
+      if (saveFailure) throw saveFailure
       savedMediaCount = media.length
       savedRevision = expectedRevision
       return {}
@@ -1285,8 +1288,9 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
   const post = {
     slug: 'safe-post',
     metadata: { title: 'Safe', summary: 'Safe preview.' },
-    body: '# Safe',
+    body: '# Safe\n\nSafe & sound.',
   }
+  const invalidRequestMessage = 'The blog request is invalid. Review the studio terminal for details.'
   try {
     const page = await fetch(base).then((response) => response.text())
     assert.doesNotMatch(page, /test-access-token/u)
@@ -1333,7 +1337,34 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
       },
       body: JSON.stringify({ post }),
     })
+    const validBody = await valid.text()
     assert.equal(valid.status, 200)
+    assert.equal(/[<>&]/u.test(validBody), false)
+    assert.equal(validBody.includes('\\u0026'), true)
+    assert.equal(validBody.includes('\\u003c'), true)
+    assert.equal(validBody.includes('\\u003e'), true)
+    assert.match(JSON.parse(validBody).html, /Safe &amp; sound\./u)
+
+    const unsupportedVideo = await fetch(`${base}/api/preview`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: JSON.stringify({
+        post: {
+          ...post,
+          body: '# Safe\n\n![video: Untrusted](https://example.com/video/1)',
+        },
+      }),
+    })
+    assert.equal(unsupportedVideo.status, 400)
+    assert.deepEqual(await unsupportedVideo.json(), {
+      error: 'Video embeds support HTTPS YouTube or Vimeo URLs only.',
+      code: 'BLOG_INVALID_REQUEST',
+    })
 
     const wrongType = await fetch(`${base}/api/preview`, {
       method: 'POST',
@@ -1359,7 +1390,7 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
     })
     assert.equal(malformed.status, 400)
     assert.deepEqual(await malformed.json(), {
-      error: 'Request body must be valid JSON.',
+      error: invalidRequestMessage,
       code: 'BLOG_INVALID_REQUEST',
     })
 
@@ -1375,7 +1406,7 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
     })
     assert.equal(scalar.status, 400)
     assert.deepEqual(await scalar.json(), {
-      error: 'Request body must be a JSON object.',
+      error: invalidRequestMessage,
       code: 'BLOG_INVALID_REQUEST',
     })
 
@@ -1397,11 +1428,8 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
     const metacharacterBody = await metacharacterError.text()
     assert.equal(metacharacterError.status, 400)
     assert.equal(/[<>&]/u.test(metacharacterBody), false)
-    assert.equal(metacharacterBody.includes('\\u0026'), true)
-    assert.equal(metacharacterBody.includes('\\u003c'), true)
-    assert.equal(metacharacterBody.includes('\\u003e'), true)
     assert.deepEqual(JSON.parse(metacharacterBody), {
-      error: 'Unknown frontmatter field: <script>&.',
+      error: invalidRequestMessage,
       code: 'BLOG_INVALID_REQUEST',
     })
 
@@ -1416,7 +1444,7 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
     })
     assert.equal(empty.status, 400)
     assert.deepEqual(await empty.json(), {
-      error: 'Request body is required.',
+      error: invalidRequestMessage,
       code: 'BLOG_INVALID_REQUEST',
     })
 
@@ -1448,7 +1476,7 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
     })
     assert.equal(malformedRevision.status, 400)
     assert.deepEqual(await malformedRevision.json(), {
-      error: 'expectedRevision must be null or a Git revision.',
+      error: invalidRequestMessage,
       code: 'BLOG_INVALID_REQUEST',
     })
 
@@ -1458,9 +1486,48 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
     )
     assert.equal(malformedStatusRevision.status, 400)
     assert.deepEqual(await malformedStatusRevision.json(), {
-      error: 'revision must be a Git revision.',
+      error: invalidRequestMessage,
       code: 'BLOG_INVALID_REQUEST',
     })
+
+    saveFailure = new Error('Attacker-controlled revision detail.')
+    saveFailure.code = 'BLOG_REVISION_CONFLICT'
+    const revisionConflict = await fetch(`${base}/api/draft`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: JSON.stringify({ post, expectedRevision: null }),
+    })
+    assert.equal(revisionConflict.status, 412)
+    assert.deepEqual(await revisionConflict.json(), {
+      error: 'This draft changed after it was loaded. Reload it before saving again.',
+      code: 'BLOG_REVISION_CONFLICT',
+    })
+
+    saveFailure = new Error('Video embeds support HTTPS YouTube or Vimeo URLs only.<script>')
+    saveFailure.code = 'BLOG_INVALID_REQUEST'
+    const nearMatch = await fetch(`${base}/api/draft`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        'x-blog-studio-csrf': 'test-csrf',
+        'x-blog-studio-token': 'test-access-token',
+      },
+      body: JSON.stringify({ post, expectedRevision: null }),
+    })
+    const nearMatchBody = await nearMatch.text()
+    assert.equal(nearMatch.status, 400)
+    assert.equal(/[<>&]/u.test(nearMatchBody), false)
+    assert.deepEqual(JSON.parse(nearMatchBody), {
+      error: invalidRequestMessage,
+      code: 'BLOG_INVALID_REQUEST',
+    })
+    saveFailure = undefined
 
     const mediaChunk = Buffer.alloc(2 * 1024 * 1024).toString('base64')
     const maximumMedia = await fetch(`${base}/api/draft`, {
@@ -1512,7 +1579,7 @@ test('studio rejects cross-origin and missing-CSRF mutations', async () => {
     })
     assert.equal(oversizedRequest.status, 400)
     assert.deepEqual(await oversizedRequest.json(), {
-      error: 'Request body exceeds 12 MiB.',
+      error: invalidRequestMessage,
       code: 'BLOG_INVALID_REQUEST',
     })
   } finally {
@@ -1579,6 +1646,7 @@ test('studio media fallback does not hide draft integrity failures', async () =>
 test('studio redacts dependency and internal failures with stable statuses', async () => {
   let failure = new CommandError('git', ['fetch', 'origin'], 128, '', 'private path detail')
   const logged = []
+  const expectedLogged = [failure]
   const server = createStudioServer({
     publisher: {
       async listPosts() {
@@ -1602,6 +1670,7 @@ test('studio redacts dependency and internal failures with stable statuses', asy
     })
 
     failure = new CommandTimeoutError('npm', 100)
+  expectedLogged.push(failure)
     const timeout = await request()
     assert.equal(timeout.status, 504)
     assert.deepEqual(await timeout.json(), {
@@ -1610,6 +1679,7 @@ test('studio redacts dependency and internal failures with stable statuses', asy
     })
 
     failure = new CommandLaunchError('gh')
+  expectedLogged.push(failure)
     const launch = await request()
     assert.equal(launch.status, 502)
     assert.deepEqual(await launch.json(), {
@@ -1617,14 +1687,25 @@ test('studio redacts dependency and internal failures with stable statuses', asy
       code: 'BLOG_COMMAND_LAUNCH',
     })
 
+    failure = new CommandOutputError('git', 100)
+  expectedLogged.push(failure)
+    const output = await request()
+    assert.equal(output.status, 502)
+    assert.deepEqual(await output.json(), {
+      error: 'A required Git, GitHub, or npm command failed. Review the studio terminal before retrying.',
+      code: 'BLOG_COMMAND_OUTPUT_LIMIT',
+    })
+
     failure = new Error('C:\\private\\workspace\\detail')
+  expectedLogged.push(failure)
     const internal = await request()
     assert.equal(internal.status, 500)
     assert.deepEqual(await internal.json(), {
       error: 'The blog studio encountered an internal error. Review the studio terminal.',
       code: 'BLOG_INTERNAL_ERROR',
     })
-    assert.equal(logged.length, 4)
+    assert.equal(logged.length, expectedLogged.length)
+    for (const [index, error] of expectedLogged.entries()) assert.equal(logged[index], error)
   } finally {
     server.closeAllConnections()
     server.close()
