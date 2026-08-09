@@ -19,6 +19,7 @@ const achievementEntrancePlaybackRate = 2.4
 
 document.title = `${profile.name} — ${profile.position}`
 
+const featuredAchievement = profile.achievements[0]
 const quoteOptions = profile.quotes
 const disciplineColumns = Math.min(profile.disciplines.length, 4)
 const disciplineRows = Math.ceil(profile.disciplines.length / disciplineColumns)
@@ -863,6 +864,15 @@ onBeforeUnmount(() => {
                 {{ profile.company.name }}
               </span>
             </p>
+            <a
+              class="identity-card__proof"
+              :href="featuredAchievement.evidenceHref"
+              target="_blank"
+              :aria-label="`${featuredAchievement.evidenceLabel}: ${featuredAchievement.title}`"
+            >
+              <small>Résumé proof</small>
+              <span><strong>{{ featuredAchievement.metric }}</strong>{{ featuredAchievement.title }}</span>
+            </a>
             <DisciplineBand :disciplines="profile.disciplines" />
           </div>
 

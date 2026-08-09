@@ -168,7 +168,7 @@ Atmosphere stays behind proof. Full-bleed media, quiet texture, pixel details, f
 
 **Key Characteristics:**
 
-- Experience mode with artifact-led first viewport composition.
+- Experience mode with artifact-led first viewport composition and one verified proof line.
 - Tactile, precise, personal surfaces built as handled evidence objects.
 - Burnished Brass calibration on a Soot Black field.
 - Complete keyboard, reduced-motion, reduced-data, and forced-colors states.
@@ -234,7 +234,7 @@ Script-specific language controls keep their observed Nirmala UI and Yu Mincho f
 
 ## Layout
 
-The page uses a 72rem primary measure with responsive side gutters. The first viewport lets full-bleed ambient media dissolve into Soot Black while the identity object remains centered and bounded; later sections align headings and instruments to the same measure. Horizontal career chapters use an intentionally wider framed rail, while project, language, and credential instruments reflow within the measure.
+The page uses a 72rem primary measure with responsive side gutters. The first viewport caps full-bleed ambient media at 42svh so it can dissolve into Soot Black without delaying the centered identity object and its first résumé-backed proof. The complete Outcomes instrument follows on a tighter handoff; later sections align headings and instruments to the same measure. Horizontal career chapters use an intentionally wider framed rail, while project, language, and credential instruments reflow within the measure.
 
 The primary responsive breakpoint is 700px. At and below it, navigation compacts, the identity object becomes a smaller two-column arrangement, achievement spacing tightens, and multi-image chapters preserve their evidence in a shorter shared band. Additional width and height queries handle two-column achievements, paired project stamps, stacked instrument benches, short viewports, and large-screen ambient ornament without changing content order.
 
@@ -287,7 +287,7 @@ The compact pixel-labeled control sits above the identity object and opens a 6px
 
 ### Identity Evidence Card
 
-The 6px-radius identity object combines a framed interactive portrait, name, role, availability readout, discipline data, and pixel statement on a solid near-black surface. Its broad ambient shadow and inset highlight establish the reference depth for other evidence objects.
+The 6px-radius identity object combines a framed interactive portrait, name, role, availability readout, one compact résumé-proof link, discipline data, and pixel statement on a solid near-black surface. On narrow screens the proof rule spans the inner card width so the current role and one verified outcome remain readable together. Its broad ambient shadow and inset highlight establish the reference depth for other evidence objects.
 
 ### Career Chapter
 

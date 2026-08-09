@@ -49,6 +49,35 @@ test('outcome claims expose their résumé evidence', async ({ page }) => {
   await expect(page.locator('.achievement-deck__header > div > p')).toHaveText('Outcome records / 04')
 })
 
+test('the opening pairs the current role with verified résumé proof', async ({ page }) => {
+  for (const viewport of [
+    { width: 1440, height: 900, maximumLines: 1, firstViewport: true },
+    { width: 390, height: 844, maximumLines: 2, firstViewport: true },
+    { width: 375, height: 844, maximumLines: 2, firstViewport: true },
+    { width: 320, height: 568, maximumLines: 2, firstViewport: false },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+
+    const proof = page.locator('.identity-card__proof')
+    await expect(proof).toHaveAttribute('href', profile.achievements[0].evidenceHref)
+    await expect(proof).toContainText(profile.achievements[0].metric)
+    await expect(proof).toContainText(profile.achievements[0].title)
+    expect(await proof.evaluate((element, expected) => {
+      const proofBounds = element.getBoundingClientRect()
+      const cardBounds = element.closest('.identity-card').getBoundingClientRect()
+      const title = element.querySelector('span')
+      const titleRange = document.createRange()
+      titleRange.selectNodeContents(title)
+      const titleLines = new Set([...titleRange.getClientRects()].map(({ top }) => Math.round(top))).size
+      return proofBounds.top >= cardBounds.top
+        && proofBounds.bottom <= cardBounds.bottom
+        && (!expected.firstViewport || proofBounds.bottom <= innerHeight)
+        && titleLines <= expected.maximumLines
+    }, viewport)).toBe(true)
+  }
+})
+
 async function expectEssentialProfileFallback(page) {
   const fallback = page.locator('#app .no-script')
   await expect(page.locator('#app')).toHaveAttribute('data-app-state', 'failed', { timeout: 5_000 })
@@ -726,7 +755,7 @@ for (const viewport of [
       }
     })
 
-    const expectedVideoHeight = Math.min(544, Math.max(256, viewport.height * 0.55))
+    const expectedVideoHeight = Math.min(448, Math.max(240, viewport.height * 0.42))
     expect(layout.videoHeight).toBeCloseTo(expectedVideoHeight, 0)
     expect(layout.videoFit).toBe('cover')
     expect(layout.videoScale).toBe(viewport.videoScale)
@@ -992,8 +1021,8 @@ test('fullscreen keeps outcomes close while compact credits stay outside main', 
   expect(layout.footerHeight).toBeLessThanOrEqual(46)
   expect(layout.summaryHeight).toBeGreaterThanOrEqual(44)
   expect(layout.unusedScene).toBeLessThanOrEqual(8)
-  expect(layout.cardToHeading).toBeGreaterThanOrEqual(64)
-  expect(layout.cardToHeading).toBeLessThanOrEqual(80)
+  expect(layout.cardToHeading).toBeGreaterThanOrEqual(24)
+  expect(layout.cardToHeading).toBeLessThanOrEqual(40)
 })
 
 test('footer credits meet normal-text contrast', async ({ page }) => {
@@ -1174,7 +1203,7 @@ test('reduced motion settles the achievement vines fully grown', async ({ page }
   expect(settled.vinesOpacity).toBe('1')
 })
 
-test('namecard rests equidistant between the MP4 and Selected Outcomes', async ({ page }) => {
+test('namecard gives way quickly to Selected Outcomes', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
 
   for (const viewport of [
@@ -1210,8 +1239,9 @@ test('namecard rests equidistant between the MP4 and Selected Outcomes', async (
     })
 
     expect(layout.above).toBeCloseTo(76, 0)
-    expect(layout.below).toBeCloseTo(76, 0)
-    expect(Math.abs(layout.above - layout.below)).toBeLessThan(1)
+    expect(layout.below).toBeGreaterThanOrEqual(32)
+    expect(layout.below).toBeLessThanOrEqual(56)
+    expect(layout.below).toBeLessThan(layout.above)
     expect(layout.cardCreditOverlap).toBe(0)
     expect(layout.creditOutcomesOverlap).toBe(0)
   }
@@ -1221,12 +1251,12 @@ test('discipline band uses only the supported namecard space', async ({ page }) 
   await page.emulateMedia({ reducedMotion: 'reduce' })
 
   for (const viewport of [
-    { width: 1440, height: 900, card: [1024, 363.39], visible: true },
-    { width: 1024, height: 768, card: [962.56, 363.39], visible: true },
-    { width: 1000, height: 700, card: [940, 363.39], visible: true },
+    { width: 1440, height: 900, card: [1024, 363.77], visible: true },
+    { width: 1024, height: 768, card: [962.56, 363.77], visible: true },
+    { width: 1000, height: 700, card: [940, 363.77], visible: true },
     { width: 999, height: 700, card: [939.06, 363.39], visible: false },
-    { width: 390, height: 844, card: [326, 271.91], visible: false },
-    { width: 320, height: 568, card: [256, 288], visible: false },
+    { width: 390, height: 844, card: [326, 302.08], visible: false },
+    { width: 320, height: 568, card: [256, 339.02], visible: false },
     { width: 844, height: 390, card: [780, 255.5], visible: false },
   ]) {
     await page.setViewportSize(viewport)
@@ -1340,13 +1370,11 @@ test('discipline band reveals once and stops', async ({ page }) => {
   await page.goto('/')
 
   const band = page.locator('.discipline-band')
-  await expect(band).toHaveAttribute('data-band-state', 'armed')
-  expect(await page.evaluate(() => window.__bandObserver)).toEqual({
-    disconnected: 0,
-    observed: 1,
-  })
-
-  await band.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+  const initialState = await band.getAttribute('data-band-state')
+  expect(['armed', 'shown']).toContain(initialState)
+  if (initialState === 'armed') {
+    await band.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+  }
   await expect(band).toHaveAttribute('data-band-state', 'shown')
   expect(await page.evaluate(() => window.__bandObserver)).toEqual({
     disconnected: 1,
