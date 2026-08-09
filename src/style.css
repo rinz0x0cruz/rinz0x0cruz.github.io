@@ -278,8 +278,8 @@ body {
 }
 
 .scene {
-  --scene-media-height: clamp(16rem, 55vh, 34rem);
-  --scene-media-height: clamp(16rem, 55svh, 34rem);
+  --scene-media-height: clamp(15rem, 42vh, 28rem);
+  --scene-media-height: clamp(15rem, 42svh, 28rem);
   --scene-media-top: clamp(1rem, 3vw, 2rem);
   --scene-inline: clamp(1rem, 3vw, 2.5rem);
   --scene-drawer-space: 0.25rem;
@@ -564,6 +564,55 @@ h1 {
   font-size: 1rem;
   font-weight: 400;
   line-height: 1.5;
+}
+
+.identity-card__proof {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: baseline;
+  margin-top: 0.8rem;
+  padding-block: 0.3rem;
+  border-block: 1px solid #2b2a26;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 180ms ease, color 180ms ease;
+}
+
+.identity-card__proof small {
+  color: var(--accent);
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.58rem;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.identity-card__proof span {
+  min-width: 0;
+  color: #d7d3cb;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.identity-card__proof strong {
+  margin-right: 0.38rem;
+  color: var(--text);
+  font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 660;
+}
+
+.identity-card__proof:hover,
+.identity-card__proof:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.identity-card__proof:focus-visible {
+  outline: 2px solid #e7c88e;
+  outline-offset: 3px;
+}
+
+.identity-card__proof + .discipline-band {
+  margin-top: 0.9rem;
 }
 
 .identity-card__separator {
@@ -2563,7 +2612,7 @@ h1 {
 .achievement-deck__inner {
   width: min(72rem, calc(100% - 4rem));
   margin-inline: auto;
-  padding-block: 4.5rem 6rem;
+  padding-block: 2rem 6rem;
 }
 
 .achievement-deck__header {
@@ -4762,7 +4811,7 @@ h1 {
 @media (max-width: 700px) {
   .achievement-deck__inner {
     width: calc(100% - 2rem);
-    padding-block: 3.5rem 4.5rem;
+    padding-block: 2rem 4.5rem;
   }
 
   .achievement-deck__header {
@@ -5149,14 +5198,16 @@ h1 {
   }
 
   .identity-card {
+    --identity-avatar-column: 6.4rem;
+    --identity-copy-gap: 1.1rem;
     /* there is no clear top-right corner at this size, so the readout takes a
        row of its own instead of sitting over the eyebrow */
     grid-template-areas:
       'status status'
       'avatar copy'
       'quote quote';
-    grid-template-columns: 6.4rem minmax(0, 1fr);
-    column-gap: 1.1rem;
+    grid-template-columns: var(--identity-avatar-column) minmax(0, 1fr);
+    column-gap: var(--identity-copy-gap);
     row-gap: 0.75rem;
     min-height: auto;
     padding: 1.4rem;
@@ -5184,6 +5235,23 @@ h1 {
 
   .identity-card__role {
     font-size: 0.8rem;
+  }
+
+  .identity-card__proof {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.55rem;
+    width: calc(100% + var(--identity-avatar-column) + var(--identity-copy-gap));
+    margin-top: 0.55rem;
+    margin-left: calc(-1 * (var(--identity-avatar-column) + var(--identity-copy-gap)));
+    padding-block: 0.42rem;
+  }
+
+  .identity-card__proof small {
+    font-size: 0.5rem;
+  }
+
+  .identity-card__proof span {
+    font-size: 0.62rem;
   }
 
   .identity-card__statement {
@@ -5227,8 +5295,8 @@ h1 {
 
 @media (max-width: 350px) {
   .identity-card {
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-    column-gap: 0.9rem;
+    --identity-avatar-column: 5.5rem;
+    --identity-copy-gap: 0.9rem;
     row-gap: 0.65rem;
     padding: 1.2rem;
   }
