@@ -26,6 +26,29 @@ async function revealAchievementStage(page) {
   return page.locator('.achievement-stage')
 }
 
+test('outcome claims expose their résumé evidence', async ({ page }) => {
+  await page.goto('/')
+
+  const links = page.locator('a.achievement-card')
+  await expect(links).toHaveCount(profile.achievements.length)
+  expect(await links.evaluateAll((elements) => elements.map((link) => ({
+    href: link.getAttribute('href'),
+    label: link.getAttribute('aria-label'),
+    target: link.getAttribute('target'),
+  })))).toEqual(profile.achievements.map((achievement) => ({
+    href: achievement.evidenceHref,
+    label: `${achievement.evidenceLabel}: ${achievement.title}`,
+    target: '_blank',
+  })))
+  await expect(page.locator('.achievement-card__copy b').last()).toHaveText('5 days')
+  await expect(page.locator('.achievement-card__topline small').first()).toHaveText('Résumé / 01')
+  await expect(page.locator('.achievement-card__evidence')).toHaveCount(0)
+  expect(await links.evaluateAll((elements) => elements.every((link) => (
+    getComputedStyle(link).textDecorationLine === 'none'
+  )))).toBe(true)
+  await expect(page.locator('.achievement-deck__header > div > p')).toHaveText('Outcome records / 04')
+})
+
 async function expectEssentialProfileFallback(page) {
   const fallback = page.locator('#app .no-script')
   await expect(page.locator('#app')).toHaveAttribute('data-app-state', 'failed', { timeout: 5_000 })
@@ -145,6 +168,13 @@ test('recruiter navigation traverses the portfolio and frames opened profile lin
       fullyVisible: drawer.bottom <= innerHeight,
     }
   })).toEqual({ belowNavigation: true, fullyVisible: true })
+
+  await page.keyboard.press('Escape')
+  const navigationToggle = page.locator('.recruiter-nav__links')
+  await navigationToggle.click()
+  await expectDossierDrawer(page)
+  await page.keyboard.press('Escape')
+  await expect(navigationToggle).toBeFocused()
 })
 
 test('opening and refreshing never exposes a partially loaded identity', async ({ page }) => {
@@ -487,8 +517,13 @@ test('dossier drawer opens while the identity card remains visible', async ({ pa
   await expect(page.locator('.dovetail-spine')).toHaveCount(0)
   await expect(page.locator('.hire-hint__label')).toHaveText('work + contact')
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-  await expect(toggle).toHaveAttribute('aria-label', 'Open profile links')
-  await expect(toggle).toContainText('Open links')
+  await expect(toggle).toHaveAttribute('aria-label', 'Open profile links from profile card')
+  await expect(toggle).toContainText('Open profile links')
+  await expect(page.locator('.recruiter-nav__links')).toHaveAttribute(
+    'aria-label',
+    'Open profile links from navigation',
+  )
+  await expect(page.locator('.recruiter-nav__links')).toHaveText('Profile links')
   expect(await toggle.evaluate((button) => {
     const range = document.createRange()
     range.selectNodeContents(button.querySelector('span'))
@@ -532,7 +567,7 @@ test('dossier drawer opens while the identity card remains visible', async ({ pa
   await toggle.focus()
   await page.keyboard.press('Enter')
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-  await expect(toggle).toHaveAttribute('aria-label', 'Close profile links')
+  await expect(toggle).toHaveAttribute('aria-label', 'Close profile links from profile card')
   await expect(toggle).toContainText('Close links')
   await expect(card).toBeVisible()
   await expect(card).not.toHaveAttribute('aria-hidden', 'true')
@@ -716,8 +751,9 @@ test('résumé preview and Gmail compose open in new tabs', async ({ page, conte
   await page.locator('.credential-card__turn').click()
   await expectDossierDrawer(page)
 
-  const resume = page.getByRole('link', { name: 'Résumé' })
-  const email = page.getByRole('link', { name: 'Email' })
+  const profileLinks = page.getByRole('navigation', { name: 'Profile links' })
+  const resume = profileLinks.getByRole('link', { name: /Résumé/u })
+  const email = profileLinks.getByRole('link', { name: /Email/u })
   await expect(resume).toHaveAttribute('target', '_blank')
   await expect(email).toHaveAttribute('target', '_blank')
 
@@ -1582,6 +1618,28 @@ test('career rail states every role in the order they happened', async ({ page }
   )
 })
 
+test('career chapter fronts contain every record without distortion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+
+    expect(await page.locator('.chapter').evaluateAll((chapters) => chapters.map((chapter) => {
+      const face = chapter.querySelector('.chapter__face--front')
+      const faceBounds = face.getBoundingClientRect()
+      const turnBounds = chapter.querySelector('.chapter__turn').getBoundingClientRect()
+      return {
+        company: chapter.querySelector('.chapter__company').textContent.trim(),
+        contained: face.scrollHeight <= face.clientHeight && turnBounds.bottom <= faceBounds.bottom + 0.5,
+      }
+    }))).toEqual(profile.experience.map(({ company }) => ({ company, contained: true })))
+  }
+})
+
 test('career photographs are framed, not cropped a second time', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -1666,12 +1724,14 @@ test('a plate develops as it reaches the middle of the window', async ({ page })
     return page.evaluate(() => {
       const face = document.querySelector('.chapter__face--front')
       const img = document.querySelector('.chapter__photo img')
+      const scale = getComputedStyle(face).scale
       return {
         // a timeline that resolves to null leaves the animation attached but
         // never running, which is how the old card drift sat dead while its
         // animation-name still read exactly right
         live: face.getAnimations().some((a) => a.timeline && a.timeline.currentTime != null),
         saturation: Number(/saturate\(([\d.]+)\)/.exec(getComputedStyle(face).filter)?.[1] ?? NaN),
+        scale: scale === 'none' ? 1 : Number(scale),
         pan: Number(getComputedStyle(img).getPropertyValue('--frame-pan').replace('%', '')),
       }
     })
@@ -1684,6 +1744,8 @@ test('a plate develops as it reaches the middle of the window', async ({ page })
   const span = (key) => Math.max(...samples.map((s) => s[key])) - Math.min(...samples.map((s) => s[key]))
   // colour has to actually drain, not merely be declared to
   expect(span('saturation')).toBeGreaterThan(0.5)
+  // developing the negative must not fractionally scale and blur the whole card
+  expect(samples.every(({ scale }) => scale === 1)).toBe(true)
   // and the picture pans inside its mount as the plate winds past
   expect(span('pan')).toBeGreaterThan(2)
 })
@@ -2837,7 +2899,7 @@ test('languages and certifications stay in independent sections', async ({ page 
   await expect(certifications.locator('.language-console')).toHaveCount(0)
 })
 
-test('certifications leave breathing room before the footer', async ({ page }) => {
+test('the closing review path bridges certifications and the footer', async ({ page }) => {
   for (const viewport of [
     { width: 1440, height: 900 },
     { width: 390, height: 844 },
@@ -2845,16 +2907,21 @@ test('certifications leave breathing room before the footer', async ({ page }) =
     await page.setViewportSize(viewport)
     await page.goto('/')
 
-    const gap = await page.evaluate(() => {
+    const gaps = await page.evaluate(() => {
       const certifications = document.querySelector(
         '.qualifications--certifications',
       ).getBoundingClientRect()
+      const review = document.querySelector('.review-path').getBoundingClientRect()
       const footer = document.querySelector('.site-footer').getBoundingClientRect()
-      return footer.top - certifications.bottom
+      return {
+        beforeReview: review.top - certifications.bottom,
+        beforeFooter: footer.top - review.bottom,
+      }
     })
 
-    expect(gap).toBeGreaterThanOrEqual(64)
-    expect(gap).toBeLessThanOrEqual(96)
+    expect(gaps.beforeReview).toBeGreaterThanOrEqual(64)
+    expect(gaps.beforeReview).toBeLessThanOrEqual(96)
+    expect(Math.abs(gaps.beforeFooter)).toBeLessThanOrEqual(1)
   }
 })
 
@@ -4887,9 +4954,10 @@ test('forced colors removes decorative media and custom cursor', async ({ page }
   await expectDossierDrawer(page)
   await expect(page.locator('.identity-card')).toBeVisible()
   await page.keyboard.press('Tab')
-  await expect(page.getByRole('link', { name: 'Résumé' })).toBeFocused()
+  const resume = page.getByRole('navigation', { name: 'Profile links' }).getByRole('link', { name: /Résumé/u })
+  await expect(resume).toBeFocused()
   await expect(page.locator('.credential-card__drawer')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
-  expect(await page.getByRole('link', { name: 'Résumé' }).evaluate((link) => ({
+  expect(await resume.evaluate((link) => ({
     style: getComputedStyle(link).outlineStyle,
     width: getComputedStyle(link).outlineWidth,
   }))).toEqual({ style: 'solid', width: '2px' })
@@ -4922,4 +4990,69 @@ test('forced colors removes decorative media and custom cursor', async ({ page }
     && getComputedStyle(card).backgroundImage === 'none'
     && getComputedStyle(card, '::before').display === 'none'
   )))).toBe(true)
+})
+
+test('credential references and the closing review path name their purpose', async ({ page }) => {
+  await page.goto('/')
+
+  const credentials = page.locator('#credentials')
+  await credentials.scrollIntoViewIfNeeded()
+  await expect(credentials.locator('.certification-focus__references')).toHaveText('Credential references')
+  for (const certification of profile.certifications) {
+    await credentials.getByRole('button', {
+      name: `${certification.issuer}: ${certification.name}`,
+    }).click()
+    await expect(credentials.locator('.certification-focus ul')).toHaveAttribute(
+      'aria-label',
+      `Credential references for ${certification.issuer} ${certification.name}`,
+    )
+  }
+  await credentials.getByRole('button', { name: 'ISC2: Certified in Cybersecurity' }).click()
+  expect(await credentials.locator('.certification-focus a').evaluateAll((links) => links.map(
+    (link) => link.firstChild.textContent.trim(),
+  ))).toEqual([
+    'Certification page',
+    'Badge program',
+  ])
+
+  const review = page.getByRole('region', { name: 'Continue reviewing' })
+  await review.scrollIntoViewIfNeeded()
+  await expect(review.getByRole('heading', { name: 'Continue reviewing' })).toBeVisible()
+  expect(await review.getByRole('link').evaluateAll((links) => links.map((link) => ({
+    detail: link.querySelector('small').textContent.trim(),
+    href: link.getAttribute('href'),
+    label: link.querySelector('strong').textContent.trim(),
+    target: link.getAttribute('target'),
+  })))).toEqual([
+    {
+      detail: 'Career + credentials',
+      href: '/Mohit-Sharma-Resume.pdf',
+      label: 'Résumé',
+      target: '_blank',
+    },
+    {
+      detail: 'Methods + research notes',
+      href: '/blog/',
+      label: 'Field notes',
+      target: null,
+    },
+    {
+      detail: 'Experience + professional profile',
+      href: 'https://www.linkedin.com/in/rinz0x0cruz/',
+      label: 'LinkedIn',
+      target: '_blank',
+    },
+    {
+      detail: 'Open your default mail app',
+      href: 'mailto:rinz0x0cruz@gmail.com',
+      label: 'Email',
+      target: null,
+    },
+  ])
+  expect(await review.evaluate((element) => ({
+    insideMain: document.querySelector('.portfolio').contains(element),
+    followedByCredits: element.nextElementSibling === null
+      && document.querySelector('.site-footer__credits') !== null,
+    overflowX: document.documentElement.scrollWidth - innerWidth,
+  }))).toEqual({ insideMain: true, followedByCredits: true, overflowX: 0 })
 })

@@ -21,7 +21,22 @@ const collections = [
   ['languages', profile.languages, ['id', 'name', 'native', 'lang', 'level', 'detail', 'accent'], []],
   ['certifications', profile.certifications, ['id', 'issuer', 'code', 'name', 'status', 'detail', 'accent'], ['links']],
   ['projects', profile.projects, ['id', 'name', 'field', 'language', 'issued', 'blurb', 'glyph', 'accent'], ['points', 'flow']],
-  ['achievements', profile.achievements, ['id', 'metric', 'title', 'detail', 'motif', 'glyph', 'accent'], []],
+  [
+    'achievements',
+    profile.achievements,
+    [
+      'id',
+      'metric',
+      'title',
+      'detail',
+      'evidenceLabel',
+      'evidenceHref',
+      'motif',
+      'glyph',
+      'accent',
+    ],
+    [],
+  ],
 ]
 
 test('feature collections accept an additional valid record', () => {
@@ -137,6 +152,21 @@ test('false-positive reduction outcome matches work-history evidence', () => {
   assert.ok(profile.experience.some(({ outcome }) => (
     outcome.includes('Reduced false-positive volume by 47% across 10+ products')
   )))
+})
+
+test('achievement claims link to the public résumé evidence', () => {
+  const resumeHref = profile.links.find(({ id }) => id === 'resume').href
+
+  assert.equal(profile.achievements.length, 4)
+  assert.deepEqual(
+    profile.achievements.map(({ evidenceHref }) => evidenceHref),
+    Array(profile.achievements.length).fill(resumeHref),
+  )
+  assert.equal(new Set(profile.achievements.map(({ evidenceLabel }) => evidenceLabel)).size, 4)
+  assert.equal(
+    profile.achievements.find(({ id }) => id === 'storm-2230-hunt-report').metric,
+    '5 days',
+  )
 })
 
 test('security.txt publishes a current canonical disclosure contact', async () => {

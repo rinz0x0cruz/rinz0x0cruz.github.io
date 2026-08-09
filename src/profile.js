@@ -52,7 +52,17 @@ export default {
   achievements: defineCollection(
     'achievements',
     achievements,
-    ['id', 'metric', 'title', 'detail', 'motif', 'glyph', 'accent'],
+    [
+      'id',
+      'metric',
+      'title',
+      'detail',
+      'evidenceLabel',
+      'evidenceHref',
+      'motif',
+      'glyph',
+      'accent',
+    ],
     [],
     {
       accent: accentValidator,

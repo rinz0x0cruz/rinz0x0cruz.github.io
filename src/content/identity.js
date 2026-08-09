@@ -1,3 +1,5 @@
+export const resumeHref = '/Mohit-Sharma-Resume.pdf'
+
 export default {
   name: 'Mohit Sharma',
   eyebrow: 'Vulnerability intelligence',
@@ -27,7 +29,7 @@ export default {
       id: 'resume',
       label: 'Résumé',
       detail: 'Career + credentials',
-      href: '/Mohit-Sharma-Resume.pdf',
+      href: resumeHref,
       external: true,
     },
     {
@@ -56,6 +58,7 @@ export default {
       label: 'Email',
       detail: 'Start a conversation',
       href: 'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com',
+      fallbackHref: 'mailto:rinz0x0cruz@gmail.com',
       external: true,
     },
   ],

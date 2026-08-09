@@ -13,7 +13,7 @@ content-management system.
 | Languages | `languages.js` | `id`, `name`, `native`, `lang`, `level`, `detail`, `accent` |
 | Certifications | `certifications.js` | `id`, `issuer`, `code`, `name`, `status`, `detail`, `accent`; non-empty `links` |
 | Projects | `projects.js` | `id`, `name`, `field`, `language`, `issued`, `blurb`, `glyph`, `accent`; non-empty `points`, `flow` |
-| Achievements | `achievements.js` | `id`, `metric`, `title`, `detail`, `motif`, `glyph`, `accent` |
+| Achievements | `achievements.js` | `id`, `metric`, `title`, `detail`, `evidenceLabel`, `evidenceHref`, `motif`, `glyph`, `accent` |
 
 Every `id` must be unique, stable, and use lowercase letters, numbers, and
 single hyphens. Reordering records is safe. Experience
@@ -42,7 +42,10 @@ horizontal overflow at a 320 CSS-pixel viewport.
 
 Accents use six-digit hex colors. Experience `mark` must be one of
 `microsoft`, `justice`, `bhis`, or `probe`. Achievement `motif` must be one of
-`orbit`, `stack`, `prism`, or `signal`.
+`orbit`, `stack`, `prism`, or `signal`. Achievement `evidenceLabel` names the
+specific proof a reviewer will open, and `evidenceHref` is that card's single
+destination. When the public résumé is the evidence target, import and reuse
+`resumeHref` from `identity.js` instead of repeating its path.
 
 Achievement `instrument` is optional. Without one, the existing static motif
 is used; with one, keep the model path and rotation beside the achievement:
@@ -53,6 +56,8 @@ is used; with one, keep the model path and rotation beside the achievement:
   metric: '42',
   title: 'Outcome title',
   detail: 'Evidence summary',
+  evidenceLabel: 'Outcome evidence in résumé',
+  evidenceHref: resumeHref,
   motif: 'signal',
   glyph: '⌁',
   accent: '#d1a35f',

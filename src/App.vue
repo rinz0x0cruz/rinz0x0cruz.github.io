@@ -37,6 +37,21 @@ const languageSwitchScrollable = profile.languages.length > 4
 const achievementInstruments = profile.achievements.map(({ instrument }) => instrument)
 const achievementColumns = Math.min(profile.achievements.length, 5)
 const activeQuoteIndex = ref(0)
+const profileLinks = new Map(profile.links.map((link) => [link.id, link]))
+const reviewLinks = [
+  profileLinks.get('resume'),
+  { ...profileLinks.get('blog'), label: 'Field notes' },
+  {
+    ...profileLinks.get('linkedin'),
+    detail: 'Experience + professional profile',
+  },
+  {
+    ...profileLinks.get('email'),
+    detail: 'Open your default mail app',
+    external: false,
+    href: profileLinks.get('email').fallbackHref,
+  },
+]
 
 // Split into words of letters so each character can drop on its own delay while
 // words stay unbreakable, keeping narrow layouts wrapping between words.
@@ -47,9 +62,9 @@ const activeQuoteWords = computed(() => {
   ))
 })
 const dossierOpen = ref(false)
-const dossierToggle = ref(null)
 const profileDossier = ref(null)
 const experienceRail = ref(null)
+let dossierOpener = null
 
 // Three cards borrow a photograph of a place. Attribution lives here rather
 // than under each picture, where it crowded the caption off the card.
@@ -602,14 +617,15 @@ function closeDossier() {
   if (!dossierOpen.value) return
 
   dossierOpen.value = false
-  dossierToggle.value?.focus()
+  dossierOpener?.focus()
 }
 
-async function toggleDossier() {
+async function toggleDossier(event) {
   const opening = !dossierOpen.value
   dossierOpen.value = opening
   if (!opening) return
 
+  dossierOpener = event.currentTarget
   await nextTick()
   pageGlide.stop()
   profileDossier.value?.scrollIntoView({
@@ -754,10 +770,11 @@ onBeforeUnmount(() => {
         type="button"
         aria-controls="profile-dossier"
         :aria-expanded="dossierOpen"
-        :aria-label="dossierOpen ? 'Close profile links' : 'Open profile links'"
+        :aria-label="dossierOpen ? 'Close profile links from navigation' : 'Open profile links from navigation'"
         @click="toggleDossier"
+        @keydown.esc="closeDossier"
       >
-        {{ dossierOpen ? 'Close links' : 'Open links' }}
+        {{ dossierOpen ? 'Close links' : 'Profile links' }}
       </button>
     </header>
 
@@ -882,15 +899,14 @@ onBeforeUnmount(() => {
         </div>
 
         <button
-          ref="dossierToggle"
           class="credential-card__turn"
           type="button"
           aria-controls="profile-dossier"
           :aria-expanded="dossierOpen"
-          :aria-label="dossierOpen ? 'Close profile links' : 'Open profile links'"
+          :aria-label="dossierOpen ? 'Close profile links from profile card' : 'Open profile links from profile card'"
           @click="toggleDossier"
         >
-          <span>{{ dossierOpen ? 'Close links' : 'Open links' }}</span>
+          <span>{{ dossierOpen ? 'Close links' : 'Open profile links' }}</span>
         </button>
 
         <HireHint v-if="!dossierOpen" />
@@ -943,7 +959,7 @@ onBeforeUnmount(() => {
       <div class="achievement-deck__inner">
         <header class="achievement-deck__header">
           <div>
-            <p>Evidence / {{ String(profile.achievements.length).padStart(2, '0') }}</p>
+            <p>Outcome records / {{ String(profile.achievements.length).padStart(2, '0') }}</p>
             <h2 id="achievement-deck-title">Selected outcomes</h2>
           </div>
           <p>Research · controls · detection · response</p>
@@ -971,10 +987,13 @@ onBeforeUnmount(() => {
             :instruments="achievementInstruments"
             @resolve="instrumentStatuses = $event"
           >
-            <article
+            <a
               v-for="(achievement, index) in profile.achievements"
               :key="achievement.id"
               class="achievement-card"
+              :href="achievement.evidenceHref"
+              target="_blank"
+              :aria-label="`${achievement.evidenceLabel}: ${achievement.title}`"
               :style="{ '--tile-accent': achievement.accent }"
             >
               <span class="achievement-card__effects" aria-hidden="true">
@@ -1006,7 +1025,7 @@ onBeforeUnmount(() => {
 
               <header class="achievement-card__topline">
                 <strong aria-hidden="true">{{ achievement.glyph }}</strong>
-                <small>{{ String(index + 1).padStart(2, '0') }}</small>
+                <small>Résumé / {{ String(index + 1).padStart(2, '0') }}</small>
               </header>
 
               <div
@@ -1023,7 +1042,7 @@ onBeforeUnmount(() => {
                 <h3>{{ achievement.title }}</h3>
                 <small>{{ achievement.detail }}</small>
               </div>
-            </article>
+            </a>
           </AchievementInstrument>
         </div>
       </div>
@@ -1487,7 +1506,8 @@ onBeforeUnmount(() => {
                   <div><dt>Code</dt><dd>{{ activeCertificationRecord.code }}</dd></div>
                 </dl>
                 <p class="certification-focus__detail">{{ activeCertificationRecord.detail }}</p>
-                <ul>
+                <p class="certification-focus__references">Credential references</p>
+                <ul :aria-label="`Credential references for ${activeCertificationRecord.issuer} ${activeCertificationRecord.name}`">
                   <li v-for="link in activeCertificationRecord.links" :key="link.href">
                     <a :href="link.href" rel="external">{{ link.label }} <span aria-hidden="true">↗</span></a>
                   </li>
@@ -1497,6 +1517,28 @@ onBeforeUnmount(() => {
           </div>
         </section>
       </div>
+    </section>
+
+    <section class="review-path" aria-labelledby="review-path-title">
+      <div class="review-path__heading">
+        <h2 id="review-path-title">Continue reviewing</h2>
+        <p>Open the career record, inspect the methods, or start a conversation.</p>
+      </div>
+      <nav aria-label="Continue reviewing">
+        <a
+          v-for="link in reviewLinks"
+          :key="link.id"
+          :href="link.href"
+          :target="link.external ? '_blank' : undefined"
+          :rel="link.external ? 'noreferrer' : undefined"
+        >
+          <span>
+            <strong>{{ link.label }}</strong>
+            <small>{{ link.detail }}</small>
+          </span>
+          <b aria-hidden="true">↗</b>
+        </a>
+      </nav>
     </section>
   </main>
 

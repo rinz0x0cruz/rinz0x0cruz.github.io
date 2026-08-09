@@ -1,9 +1,13 @@
+import { resumeHref } from './identity.js'
+
 export default [
   {
     id: 'incidents-cves-triaged',
     metric: '100+',
     title: 'Incidents + CVEs triaged',
     detail: 'Exploitability · root cause · coverage gaps',
+    evidenceLabel: 'CVE triage in résumé',
+    evidenceHref: resumeHref,
     motif: 'orbit',
     glyph: '◇',
     accent: '#d1a35f',
@@ -17,6 +21,8 @@ export default [
     metric: 'GA',
     title: 'Remote Registry config',
     detail: 'Windows 7–11 · Server 2016+',
+    evidenceLabel: 'Control launch in résumé',
+    evidenceHref: resumeHref,
     motif: 'stack',
     glyph: '⌗',
     accent: '#7d8fa2',
@@ -30,6 +36,8 @@ export default [
     metric: '47%',
     title: 'False positives reduced',
     detail: 'Across 10+ security products',
+    evidenceLabel: 'Quality result in résumé',
+    evidenceHref: resumeHref,
     motif: 'prism',
     glyph: '△',
     accent: '#c0604c',
@@ -40,9 +48,11 @@ export default [
   },
   {
     id: 'storm-2230-hunt-report',
-    metric: '5D',
+    metric: '5 days',
     title: 'STORM-2230 hunt report',
     detail: 'Ransomware · endpoint + identity KQL',
+    evidenceLabel: 'Hunt report in résumé',
+    evidenceHref: resumeHref,
     motif: 'signal',
     glyph: '⌁',
     accent: '#a7a39b',

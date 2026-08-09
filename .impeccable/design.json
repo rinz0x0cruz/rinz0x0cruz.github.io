@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-08T10:24:18Z",
+  "title": "Design System: Rinzler Portfolio",
+  "extensions": {
+    "colorMeta": {
+      "burnished-brass": {
+        "displayName": "Burnished Brass",
+        "role": "primary",
+        "canonical": "#d1a35f",
+        "tonalRamp": [
+          "oklch(15% 0.035 75)",
+          "oklch(27% 0.05 75)",
+          "oklch(39% 0.065 75)",
+          "oklch(51% 0.08 75)",
+          "oklch(63% 0.095 75)",
+          "oklch(75% 0.1 75)",
+          "oklch(87% 0.06 75)",
+          "oklch(95% 0.025 75)"
+        ]
+      },
+      "soot-black": {
+        "displayName": "Soot Black",
+        "role": "neutral",
+        "canonical": "#000000",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(27% 0 0)",
+          "oklch(39% 0 0)",
+          "oklch(51% 0 0)",
+          "oklch(63% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "iron-border": {
+        "displayName": "Iron Border",
+        "role": "neutral",
+        "canonical": "#31302d",
+        "tonalRamp": [
+          "oklch(15% 0.006 75)",
+          "oklch(27% 0.006 75)",
+          "oklch(39% 0.006 75)",
+          "oklch(51% 0.006 75)",
+          "oklch(63% 0.006 75)",
+          "oklch(75% 0.006 75)",
+          "oklch(87% 0.005 75)",
+          "oklch(95% 0.003 75)"
+        ]
+      },
+      "smoked-surface": {
+        "displayName": "Smoked Surface",
+        "role": "neutral",
+        "canonical": "rgba(8, 8, 8, 0.88)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(27% 0 0)",
+          "oklch(39% 0 0)",
+          "oklch(51% 0 0)",
+          "oklch(63% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "warm-ivory": {
+        "displayName": "Warm Ivory",
+        "role": "neutral",
+        "canonical": "#f0ede7",
+        "tonalRamp": [
+          "oklch(15% 0.01 75)",
+          "oklch(27% 0.01 75)",
+          "oklch(39% 0.01 75)",
+          "oklch(51% 0.01 75)",
+          "oklch(63% 0.01 75)",
+          "oklch(75% 0.01 75)",
+          "oklch(87% 0.009 75)",
+          "oklch(95% 0.007 75)"
+        ]
+      },
+      "quiet-stone": {
+        "displayName": "Quiet Stone",
+        "role": "neutral",
+        "canonical": "#a7a39b",
+        "tonalRamp": [
+          "oklch(15% 0.009 75)",
+          "oklch(27% 0.009 75)",
+          "oklch(39% 0.009 75)",
+          "oklch(51% 0.009 75)",
+          "oklch(63% 0.009 75)",
+          "oklch(75% 0.009 75)",
+          "oklch(87% 0.007 75)",
+          "oklch(95% 0.004 75)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Identity names and the largest typographic moments."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section names and major instrument headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Evidence titles and object names inside bounded surfaces."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Explanatory copy, details, and supporting evidence."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Navigation, actions, and categorical labels."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Dates, counts, measurements, and technical readouts."
+      },
+      "pixel": {
+        "displayName": "Pixel",
+        "purpose": "Quotes, stamps, and machine-authored marks."
+      },
+      "pixel-highlight": {
+        "displayName": "Pixel Highlight",
+        "purpose": "Aligned highlight-cell overlay paired only with Mackie Pixel."
+      },
+      "handwritten": {
+        "displayName": "Handwritten",
+        "purpose": "Personal notes and reflections only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "identity-ambient",
+        "value": "0 2rem 6rem rgba(0, 0, 0, 0.58), inset 0 1px rgba(255, 255, 255, 0.04)",
+        "purpose": "Holds the primary identity object above the ambient scene."
+      },
+      {
+        "name": "chapter-rest",
+        "value": "0 16px 34px rgba(0, 0, 0, 0.55), inset 0 1px rgba(255, 255, 255, 0.06)",
+        "purpose": "Gives career chapters a handled plate thickness."
+      },
+      {
+        "name": "chapter-response",
+        "value": "0 24px 48px rgba(0, 0, 0, 0.62), inset 0 1px rgba(255, 255, 255, 0.09)",
+        "purpose": "Lifts the career chapter being inspected."
+      },
+      {
+        "name": "window-structural",
+        "value": "inset 0 1px rgba(255, 255, 255, 0.05), 0 18px 40px rgba(0, 0, 0, 0.45)",
+        "purpose": "Frames bounded instruments without making them float independently."
+      },
+      {
+        "name": "achievement-metal",
+        "value": "0 0.45rem 0 #050606, 0 1.25rem 2.2rem rgba(0, 0, 0, 0.48), inset 1px 1px rgba(255, 255, 255, 0.06), inset -1px -1px rgba(0, 0, 0, 0.82), inset 0 0 0 0.42rem #0d0d0c, inset 0 0 0 calc(0.42rem + 1px) #292824",
+        "purpose": "Builds the achievement tile's metal edge and low base."
+      },
+      {
+        "name": "note-paper",
+        "value": "0 0.9rem 1.6rem rgba(0, 0, 0, 0.55), inset 0 1px rgba(255, 255, 255, 0.3)",
+        "purpose": "Separates the personal note as a light paper object."
+      },
+      {
+        "name": "project-stamp-alpha",
+        "value": "drop-shadow(0 calc(1px + var(--pop, 0px) * 0.4) calc(3px + var(--pop, 0px) * 0.7) rgba(0, 0, 0, 0.55))",
+        "purpose": "Follows the perforated stamp silhouette during lift."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "160ms ease",
+        "purpose": "Navigation color and compact state changes."
+      },
+      {
+        "name": "state-standard",
+        "value": "220ms ease",
+        "purpose": "Borders, colors, and focus-adjacent responses."
+      },
+      {
+        "name": "object-response",
+        "value": "320ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Short lifts and object settling."
+      },
+      {
+        "name": "panel-reveal",
+        "value": "520ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Profile links drawer and measured reveal travel."
+      },
+      {
+        "name": "chapter-turn",
+        "value": "640ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Career chapter face turns."
+      },
+      {
+        "name": "identity-float",
+        "value": "10s ease-in-out infinite",
+        "purpose": "Low-amplitude ambient identity drift after critical content settles."
+      },
+      {
+        "name": "reduced-motion-fallback",
+        "value": "none",
+        "purpose": "Shows every component in its complete final state without transitional motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrowest-adjustment",
+        "value": "350px"
+      },
+      {
+        "name": "compact-achievements",
+        "value": "480px"
+      },
+      {
+        "name": "paired-project-stamps",
+        "value": "560px"
+      },
+      {
+        "name": "primary-responsive",
+        "value": "700px"
+      },
+      {
+        "name": "stacked-instruments",
+        "value": "900px"
+      },
+      {
+        "name": "discipline-band",
+        "value": "1000px"
+      },
+      {
+        "name": "achievement-copy",
+        "value": "1279px"
+      },
+      {
+        "name": "ambient-hangings",
+        "value": "1360px"
+      },
+      {
+        "name": "short-viewport",
+        "value": "640px height"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Fixed Recruiter Navigation",
+      "kind": "nav",
+      "refersTo": "fixed-recruiter-nav",
+      "description": "Fixed section access with compact identity and profile-links actions.",
+      "html": "<nav class=\"ds-recruiter-nav\" aria-label=\"Portfolio sections\"><a href=\"#\">MS</a><a href=\"#\">Outcomes</a><a href=\"#\">Experience</a><button type=\"button\">Open links</button></nav>",
+      "css": ".ds-recruiter-nav { display: grid; grid-template-columns: minmax(3.25rem, auto) minmax(0, 1fr) auto; min-height: 3.25rem; border-bottom: 1px solid #2d2c29; background: #050505; color: #cbc6bd; font-family: 'Kiona', sans-serif; font-size: 0.68rem; text-transform: uppercase; } .ds-recruiter-nav a, .ds-recruiter-nav button { display: grid; min-width: 0; min-height: 3.25rem; place-items: center; padding: 0.4rem 0.9rem; border: 0; border-right: 1px solid #24231f; background: transparent; color: inherit; font: inherit; text-decoration: none; text-transform: inherit; cursor: pointer; transition: color 160ms ease, background-color 160ms ease; } .ds-recruiter-nav a:first-child { color: var(--accent, #d1a35f); font-family: 'Mackie Pixel', 'Kiona', sans-serif; } .ds-recruiter-nav a:hover, .ds-recruiter-nav button:hover { color: var(--accent, #d1a35f); background: #15130f; } .ds-recruiter-nav a:focus-visible, .ds-recruiter-nav button:focus-visible { position: relative; outline: 2px solid #e7c88e; outline-offset: -3px; }"
+    },
+    {
+      "name": "Profile Links Control",
+      "kind": "button",
+      "refersTo": "profile-links-control",
+      "description": "Compact control for opening and closing the profile links records.",
+      "html": "<button class=\"ds-profile-links-control\" type=\"button\" aria-expanded=\"false\">Open links</button>",
+      "css": ".ds-profile-links-control { min-width: 9.75rem; min-height: 2.75rem; padding: 0.55rem 0.8rem 0.48rem; border: 1px solid #615f59; border-radius: 4px; background: #0d0d0c; box-shadow: 0 0.6rem 1.5rem rgba(0, 0, 0, 0.42), inset 0 1px rgba(255, 255, 255, 0.04); color: var(--text, #f0ede7); font-family: 'Mackie Pixel', 'Kiona', sans-serif; font-size: 0.75rem; text-align: center; text-transform: uppercase; cursor: pointer; transition: background-color 180ms ease, border-color 180ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-profile-links-control:hover, .ds-profile-links-control[aria-expanded='true'] { border-color: var(--accent, #d1a35f); background: #17140f; transform: translateY(-0.12rem); } .ds-profile-links-control:focus-visible { outline: 2px solid #e7c88e; outline-offset: 3px; }"
+    },
+    {
+      "name": "Identity Evidence Card",
+      "kind": "card",
+      "refersTo": "identity-evidence-card",
+      "description": "The primary identity object and reference depth for dark evidence surfaces.",
+      "html": "<article class=\"ds-identity-card\"><p>Security Researcher</p><h3>Mohit Sharma</h3><small>Microsoft</small></article>",
+      "css": ".ds-identity-card { position: relative; display: grid; gap: 0.65rem; min-height: 12rem; align-content: center; padding: 2rem 2.5rem 1.75rem; overflow: hidden; border: 1px solid var(--border, #31302d); border-radius: 6px; background: #080808; box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.58), inset 0 1px rgba(255, 255, 255, 0.04); color: var(--text, #f0ede7); } .ds-identity-card::before { position: absolute; top: -1px; left: 2.5rem; width: 4.5rem; height: 1px; background: var(--accent, #d1a35f); content: \"\"; } .ds-identity-card p, .ds-identity-card h3, .ds-identity-card small { margin: 0; } .ds-identity-card p { color: var(--accent, #d1a35f); font-family: 'Kiona', sans-serif; font-size: 0.72rem; text-transform: uppercase; } .ds-identity-card h3 { font-family: 'Danviska', serif; font-size: 3.5rem; font-weight: 400; line-height: 1; } .ds-identity-card small { color: var(--text-muted, #a7a39b); font-family: 'Kiona', sans-serif; font-size: 1rem; }"
+    },
+    {
+      "name": "Career Chapter",
+      "kind": "card",
+      "refersTo": "chapter-card",
+      "description": "A turnable career plate with period, role, and evidence control.",
+      "html": "<article class=\"ds-chapter-card\" tabindex=\"0\"><small>Jun 2025 - Present</small><h3>Microsoft</h3><p>Security Researcher</p><button type=\"button\">What I did</button></article>",
+      "css": ".ds-chapter-card { display: grid; gap: 0.75rem; width: 19.5rem; min-height: 18rem; padding: 1.15rem; border: 1px solid #2f2e2a; border-radius: 9px; background: radial-gradient(70% 55% at 50% 0%, rgba(255, 255, 255, 0.075), transparent 72%), linear-gradient(158deg, #16150f, #0a0a09 62%); box-shadow: 0 16px 34px rgba(0, 0, 0, 0.55), inset 0 1px rgba(255, 255, 255, 0.06); color: var(--text, #f0ede7); transition: box-shadow 320ms ease; } .ds-chapter-card:hover, .ds-chapter-card:focus-within { box-shadow: 0 24px 48px rgba(0, 0, 0, 0.62), inset 0 1px rgba(255, 255, 255, 0.09); } .ds-chapter-card > small { padding-bottom: 0.5rem; border-bottom: 1px solid #2b2a26; color: #9fb0c2; font-family: 'Mackie Pixel', ui-monospace, monospace; font-size: 12px; text-transform: uppercase; } .ds-chapter-card h3, .ds-chapter-card p { margin: 0; } .ds-chapter-card h3 { font-family: 'Danviska', serif; font-size: 2rem; font-weight: 400; } .ds-chapter-card p { color: #e2ded6; font-family: 'Kiona', sans-serif; font-size: 0.86rem; } .ds-chapter-card button { align-self: end; padding: 0.5rem 0.6rem; border: 1px solid #3a382f; border-radius: 4px; background: transparent; color: #bab5ac; font-family: 'Kiona', sans-serif; font-size: 0.68rem; text-transform: uppercase; cursor: pointer; } .ds-chapter-card button:hover { border-color: var(--accent, #d1a35f); color: var(--accent, #d1a35f); } .ds-chapter-card button:focus-visible { outline: 2px solid var(--accent, #d1a35f); outline-offset: 2px; }"
+    },
+    {
+      "name": "Achievement Evidence Card",
+      "kind": "card",
+      "refersTo": "achievement-card",
+      "description": "A metal-edged outcome tile with metric-first evidence copy.",
+      "html": "<article class=\"ds-achievement-card\" tabindex=\"0\"><header><strong>01</strong><small>Evidence</small></header><b>100+</b><h3>Incidents + CVEs triaged</h3><p>Exploitability, root cause, coverage gaps</p></article>",
+      "css": ".ds-achievement-card { position: relative; display: grid; grid-template-rows: auto 1fr auto auto; gap: 0.65rem; min-height: 20rem; padding: 1.05rem 1rem 1.1rem; overflow: hidden; border: 2px solid #3c3a35; border-radius: 6px; background: linear-gradient(120deg, rgba(255, 255, 255, 0.035), transparent 28%), #080808; box-shadow: 0 0.45rem 0 #050606, 0 1.25rem 2.2rem rgba(0, 0, 0, 0.48), inset 1px 1px rgba(255, 255, 255, 0.06), inset -1px -1px rgba(0, 0, 0, 0.82); color: var(--text, #f0ede7); transition: border-color 220ms ease, box-shadow 280ms ease; } .ds-achievement-card:hover, .ds-achievement-card:focus-visible { border-color: #586163; box-shadow: 0 0.55rem 0 #050606, 0 1.55rem 2.8rem rgba(0, 0, 0, 0.58), inset 1px 1px rgba(255, 255, 255, 0.075), inset -1px -1px rgba(0, 0, 0, 0.82); outline: none; } .ds-achievement-card header { display: flex; justify-content: space-between; padding: 0.72rem 0.7rem 0.58rem; border: 1px solid #3c3a35; border-radius: 4px; background: #0d0d0c; font-family: 'Danviska', serif; } .ds-achievement-card header strong, .ds-achievement-card > b { color: var(--accent, #d1a35f); } .ds-achievement-card header small { color: #747976; font-family: 'Recursive Variable', ui-monospace, monospace; } .ds-achievement-card > b { align-self: end; font-family: 'Recursive Variable', ui-monospace, monospace; font-size: 1.9rem; } .ds-achievement-card h3, .ds-achievement-card p { margin: 0; text-align: center; } .ds-achievement-card h3 { font-family: 'Danviska', serif; font-size: 1.25rem; font-weight: 400; } .ds-achievement-card p { color: #858986; font-family: 'Recursive Variable', ui-monospace, monospace; font-size: 0.58rem; line-height: 1.45; }"
+    },
+    {
+      "name": "Project Stamp",
+      "kind": "button",
+      "refersTo": "project-stamp",
+      "description": "A perforated paper project selector that lifts and settles into selection.",
+      "html": "<button class=\"ds-project-stamp\" type=\"button\" aria-pressed=\"false\"><small>Threat intelligence</small><strong>ExploitRank</strong><span>Go / 2026</span></button>",
+      "css": ".ds-project-stamp { --pop: 0px; --perf: 4px; --step: 13px; display: grid; gap: 0.5rem; min-height: 10rem; padding: 0.75rem 0.65rem 0.65rem; border: 0; background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.42), transparent 58%), linear-gradient(168deg, #ece7dc, #d3ccbe); box-shadow: inset 0 1px rgba(255, 255, 255, 0.7), inset 0 -2px 2px rgba(60, 52, 38, 0.24); color: #1d1c19; cursor: pointer; translate: 0 0 var(--pop); filter: drop-shadow(0 calc(1px + var(--pop) * 0.4) calc(3px + var(--pop) * 0.7) rgba(0, 0, 0, 0.55)); mask-image: linear-gradient(#000 0 0), radial-gradient(circle var(--perf) at 50% 0, #000 97%, #0000), radial-gradient(circle var(--perf) at 50% 100%, #000 97%, #0000), radial-gradient(circle var(--perf) at 0 50%, #000 97%, #0000), radial-gradient(circle var(--perf) at 100% 50%, #000 97%, #0000); mask-position: 0 0, 50% 0, 50% 100%, 0 50%, 100% 50%; mask-size: 100% 100%, var(--step) 100%, var(--step) 100%, 100% var(--step), 100% var(--step); mask-repeat: no-repeat, repeat-x, repeat-x, repeat-y, repeat-y; mask-composite: subtract, add, add, add, add; transition: translate 260ms cubic-bezier(0.22, 1, 0.36, 1), filter 260ms ease; } .ds-project-stamp:hover, .ds-project-stamp:focus-visible { --pop: 16px; outline: none; } .ds-project-stamp[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--accent, #d1a35f), inset 0 1px rgba(255, 255, 255, 0.7), inset 0 -2px 2px rgba(60, 52, 38, 0.24); } .ds-project-stamp small { color: #6d6659; font-family: 'Kiona', sans-serif; font-size: 0.54rem; letter-spacing: 0.14em; text-transform: uppercase; } .ds-project-stamp strong { align-self: center; font-family: 'Danviska', serif; font-size: 1.2rem; font-weight: 400; } .ds-project-stamp span { border-top: 1px solid rgba(29, 28, 25, 0.22); padding-top: 0.3rem; color: #4d4840; font-family: 'Recursive Variable', ui-monospace, monospace; font-size: 0.58rem; }"
+    },
+    {
+      "name": "Language Switch",
+      "kind": "custom",
+      "refersTo": "language-switch",
+      "description": "A compact segmented switch for selecting one language state.",
+      "html": "<div class=\"ds-language-switch\" role=\"group\" aria-label=\"Languages\"><button type=\"button\" aria-pressed=\"true\">EN</button><button type=\"button\" aria-pressed=\"false\">HI</button><button type=\"button\" aria-pressed=\"false\">JA</button></div>",
+      "css": ".ds-language-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); min-height: 2.75rem; padding: 3px; border: 1px solid #34322d; border-radius: 4px; background: #0d0d0c; } .ds-language-switch button { min-width: 0; padding: 0.5rem 0.35rem; border: 1px solid transparent; border-radius: 3px; background: transparent; color: #89847b; font-family: 'Nirmala UI', 'Yu Mincho', 'Kiona', sans-serif; font-size: 0.78rem; cursor: pointer; transition: border-color 260ms ease, background-color 260ms ease, color 260ms ease; } .ds-language-switch button:hover, .ds-language-switch button:focus-visible { color: #ece7dd; } .ds-language-switch button[aria-pressed='true'] { border-color: #6b573b; background: #211b13; color: #ece7dd; box-shadow: inset 0 1px rgba(255, 255, 255, 0.04); } .ds-language-switch button:focus-visible { outline: 2px solid #e7c88e; outline-offset: -3px; }"
+    },
+    {
+      "name": "Certification Seal",
+      "kind": "button",
+      "refersTo": "certification-seal",
+      "description": "A round credential selector used inside the certification press.",
+      "html": "<button class=\"ds-certification-seal\" type=\"button\" aria-pressed=\"true\"><span>Credential</span><strong>CC</strong></button>",
+      "css": ".ds-certification-seal { --credential-pop: 0px; display: grid; width: 4.65rem; aspect-ratio: 1; align-content: center; place-items: center; border: 1px solid #4b4840; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #2b2924, #11100e 72%); box-shadow: 0 calc(3px + var(--credential-pop) * 0.3) calc(8px + var(--credential-pop) * 0.45) rgba(0, 0, 0, 0.58), inset 0 1px rgba(255, 255, 255, 0.12), inset 0 -3px 5px rgba(0, 0, 0, 0.45); color: #c8c2b7; cursor: pointer; translate: 0 0 var(--credential-pop); transition: translate 280ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms ease, box-shadow 280ms ease; } .ds-certification-seal:hover, .ds-certification-seal:focus-visible { --credential-pop: 12px; border-color: #8a6a40; } .ds-certification-seal[aria-pressed='true'] { --credential-pop: 18px; box-shadow: 0 calc(3px + var(--credential-pop) * 0.3) calc(8px + var(--credential-pop) * 0.45) rgba(0, 0, 0, 0.58), 0 0 0 1px rgba(209, 163, 95, 0.7), inset 0 1px rgba(255, 255, 255, 0.12), inset 0 -3px 5px rgba(0, 0, 0, 0.45); } .ds-certification-seal:focus-visible { outline: 2px solid #e7c88e; outline-offset: 2px; } .ds-certification-seal span { color: #89847b; font-family: 'Kiona', sans-serif; font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase; } .ds-certification-seal strong { margin-top: 0.2rem; color: var(--accent, #d1a35f); font-family: 'Recursive Variable', ui-monospace, monospace; font-size: 0.78rem; }"
+    },
+    {
+      "name": "Closing Review Path",
+      "kind": "nav",
+      "refersTo": "review-path",
+      "description": "An unframed closing band with four factual career-review destinations.",
+      "html": "<section class=\"ds-review-path\"><div><h3>Continue reviewing</h3><p>Open the career record, inspect the methods, or start a conversation.</p></div><nav aria-label=\"Continue reviewing\"><a href=\"#\">Résumé</a><a href=\"#\">Field notes</a><a href=\"#\">LinkedIn</a><a href=\"mailto:rinz0x0cruz@gmail.com\">Email</a></nav></section>",
+      "css": ".ds-review-path { display: grid; grid-template-columns: minmax(15rem, 0.75fr) minmax(0, 1.25fr); gap: 3rem; width: min(72rem, calc(100% - 4rem)); padding: 4.5rem 0 5rem; border-top: 1px solid #2f2e2a; color: var(--text, #f0ede7); } .ds-review-path h3, .ds-review-path p { margin: 0; } .ds-review-path h3 { font-family: 'Danviska', serif; font-size: 2.75rem; font-weight: 400; line-height: 1; } .ds-review-path p { margin-top: 0.8rem; color: var(--text-muted, #a7a39b); font-family: 'Recursive Variable', sans-serif; font-size: 0.78rem; line-height: 1.55; } .ds-review-path nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid #34322d; } .ds-review-path a { display: flex; min-height: 4.75rem; align-items: center; padding: 0.85rem 1rem; border-right: 1px solid #24231f; border-bottom: 1px solid #34322d; color: inherit; font-family: 'Kiona', sans-serif; font-size: 0.78rem; text-decoration: none; text-transform: uppercase; } .ds-review-path a:hover, .ds-review-path a:focus-visible { color: var(--accent, #d1a35f); background: #11100e; } .ds-review-path a:focus-visible { outline: 2px solid #e7c88e; outline-offset: -3px; } @media (max-width: 700px) { .ds-review-path { grid-template-columns: 1fr; gap: 1.5rem; width: calc(100% - 2rem); padding: 3.5rem 0 4rem; } .ds-review-path nav { grid-template-columns: 1fr; } .ds-review-path a { min-height: 4.5rem; border-right: 0; } }"
+    },
+    {
+      "name": "Sticky Note",
+      "kind": "button",
+      "refersTo": "sticky-note",
+      "description": "A personal two-sided note with optional physical pointer behavior.",
+      "html": "<button class=\"ds-sticky-note\" type=\"button\" aria-pressed=\"false\"><span>Colleague note</span><small>Turn over</small></button>",
+      "css": ".ds-sticky-note { display: grid; width: 12rem; aspect-ratio: 1; align-content: center; gap: 0.5rem; padding: 1.4rem 1.3rem; border: 0; border-radius: 2px; background: linear-gradient(150deg, rgba(255, 255, 255, 0.22), transparent 45%), #d8bd6a; box-shadow: 0 0.9rem 1.6rem rgba(0, 0, 0, 0.55), inset 0 1px rgba(255, 255, 255, 0.3); color: #22190a; text-align: left; rotate: -2.5deg; cursor: grab; transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-sticky-note:hover { transform: translateY(-0.2rem); } .ds-sticky-note[aria-pressed='true'] { transform: rotateY(180deg); } .ds-sticky-note:focus-visible { outline: 2px solid #22190a; outline-offset: -6px; } .ds-sticky-note span { font-family: 'Caveat Note', cursive; font-size: 1.15rem; font-weight: 600; line-height: 1.24; } .ds-sticky-note small { color: #5c4a18; font-family: 'Recursive Variable', ui-monospace, monospace; font-size: 0.56rem; letter-spacing: 0.08em; text-transform: uppercase; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Gilded Research Instrument",
+    "overview": "Rinzler Portfolio is an Experience-mode surface built around The Gilded Research Instrument. A Soot Black field carries handled evidence objects with Burnished Brass calibrations, dark metal edges, deliberate typography, and personal material details. The interface is tactile, precise, and personal: it feels operated and inspected rather than merely viewed.\n\nAtmosphere stays behind proof. Full-bleed media, quiet texture, pixel details, filigree, paper, and handwriting create presence, while fixed navigation, measured labels, explicit focus, and complete static fallbacks keep the work legible. Components are treated as handled evidence objects: structural at rest, lifted in response, and never detached from their purpose.",
+    "keyCharacteristics": [
+      "Experience mode with artifact-led first viewport composition.",
+      "Tactile, precise, personal surfaces built as handled evidence objects.",
+      "Burnished Brass calibration on a Soot Black field.",
+      "Complete keyboard, reduced-motion, reduced-data, and forced-colors states."
+    ],
+    "rules": [
+      {
+        "name": "The Brass Rarity Rule",
+        "body": "Burnished Brass is the only global accent; reserve it for focus, selection, evidence, short rules, and small measured inversions.",
+        "section": "colors"
+      },
+      {
+        "name": "The Material Color Rule",
+        "body": "Cool Instrument Steel, Project Paper, Note Gold, and Vine Green stay inside the components whose materials they describe; they do not become page themes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Voice by Function Rule",
+        "body": "Danviska names, Kiona labels and acts, Recursive explains and measures, Mackie Pixel stamps, and Caveat Note speaks personally.",
+        "section": "typography"
+      },
+      {
+        "name": "The Pixel Integrity Rule",
+        "body": "Keep Mackie Pixel on whole-pixel render sizes, pair Mackie Pixel Shine only as its aligned highlight layer, and never smooth its edges with blur.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Measure Rule",
+        "body": "Headings and primary instruments share the 72rem measure; only an interaction that needs travel may run wider.",
+        "section": "layout"
+      },
+      {
+        "name": "The Reflow, Don't Remove Rule",
+        "body": "Responsive layouts may stack, compress, or scroll, but they preserve every evidence object and its reading order.",
+        "section": "layout"
+      },
+      {
+        "name": "The Structural at Rest Rule",
+        "body": "Establish thickness with border, tonal layering, and inset light before using lift; response may deepen the ambient shadow but must preserve the object's material.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Finished Fallback Rule",
+        "body": "Motion may reveal, turn, drift, or settle an object, but the no-motion state always shows the complete final composition.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Radius by Object Rule",
+        "body": "Use 4px for controls, 6px for identity and achievement objects, 9px for chapters, and 10px for enclosing windows; do not round every layer alike.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Edge Carries Meaning Rule",
+        "body": "A border describes construction, selection, or clipping; ornamental edges stay local to the object whose material they explain.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Handled Evidence Rule",
+        "body": "Interaction should feel like inspecting, turning, selecting, or lifting a specific object; never substitute generic floating containers for the implemented material behavior.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do keep Burnished Brass scarce and attach it to focus, selection, evidence, or calibrated emphasis.",
+      "Do preserve the 72rem measure and let signature objects break it only when their interaction requires room.",
+      "Do give every hover or motion behavior an equivalent keyboard state and a complete static fallback.",
+      "Do keep photographs, drawings, fonts, and other identity assets credited according to their provenance.",
+      "Do treat controls, chapters, stamps, seals, and notes as handled evidence objects with material-specific behavior."
+    ],
+    "donts": [
+      "Don't turn component-local steel, paper, note, or vine colors into competing global themes.",
+      "Don't replace fixed utilitarian navigation with decorative portfolio chrome.",
+      "Don't flatten materially distinct surfaces into one generic container treatment.",
+      "Don't import a separate content-world metaphor; keep the visual language grounded in instruments and handled evidence objects.",
+      "Don't make ambient video, 3D instruments, pointer tilt, or scroll effects prerequisites for understanding or operation."
+    ]
+  }
+}
