@@ -36,7 +36,7 @@ export default [
     mark: 'justice',
     role: 'OSINT Investigator',
     kind: 'Volunteer',
-    team: 'Confidential investigations under OPSEC controls',
+    team: 'Confidential investigations · OPSEC',
     start: '2025-06',
     end: '2026-06',
     period: 'Jun 2025 — Jun 2026',

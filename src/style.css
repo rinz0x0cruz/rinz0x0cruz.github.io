@@ -1709,13 +1709,12 @@ h1 {
      position. Guarded: without scroll timelines this would run once against the
      document timeline and strand every card at its opening frame. */
   @supports (animation-timeline: view()) {
-    /* The strip is a contact sheet wound past a window, so a card is a negative
-       until it reaches the middle and develops: colour arrives and the card
-       comes up to full size, then drains again on the way out. This sits on the
-       faces, not the card: filter and opacity both group their descendants, and
-       on the card either one would flatten the turn. Saturation carries it
-       because it leaves luminance alone, and there is no opacity step because a
-       see-through card shows the strip behind it. */
+     /* The strip is a contact sheet wound past a window, so a card is a negative
+       until it reaches the middle and develops: colour arrives, then drains
+       again on the way out. This sits on the faces, not the card: filter and
+       opacity both group their descendants, and on the card either one would
+       flatten the turn. Saturation carries it because it leaves luminance alone,
+       and the face stays at full scale so text and borders remain crisp. */
     .chapter__face {
       animation: chapter-develop linear both;
       animation-timeline: view(inline);
@@ -1724,18 +1723,15 @@ h1 {
 
     @keyframes chapter-develop {
       0% {
-        scale: 0.94;
         filter: saturate(0);
       }
 
       42%,
       58% {
-        scale: 1;
         filter: saturate(1);
       }
 
       100% {
-        scale: 0.94;
         filter: saturate(0);
       }
     }
@@ -3049,6 +3045,8 @@ h1 {
     inset -1px -1px rgba(0, 0, 0, 0.82),
     inset 0 0 0 0.42rem #0d0d0c,
     inset 0 0 0 calc(0.42rem + 1px) #292824;
+  color: inherit;
+  text-decoration: none;
   transition: border-color 220ms ease, box-shadow 280ms ease;
 }
 
@@ -3324,7 +3322,12 @@ h1 {
   box-shadow:
     inset 0 0 0 0.3rem #090909,
     inset 0 0 0 calc(0.3rem + 1px) #292824;
+  color: inherit;
   text-align: center;
+  text-decoration: none;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease;
 }
 
 .achievement-card__copy::before {
@@ -3374,6 +3377,32 @@ h1 {
   font-size: 0.58rem;
   font-variation-settings: 'MONO' 1, 'CASL' 0, 'wght' 440;
   line-height: 1.45;
+}
+
+.achievement-card__evidence {
+  display: block;
+  min-height: 2.7em;
+  margin-top: 0.72rem;
+  padding-top: 0.62rem;
+  border-top: 1px solid #34322d;
+  color: #c9c3b9;
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.64rem;
+  line-height: 1.35;
+  text-decoration: underline;
+  text-decoration-color: rgba(209, 163, 95, 0.62);
+  text-underline-offset: 0.22em;
+  text-transform: uppercase;
+}
+
+.achievement-card__copy:hover {
+  border-color: var(--tile-accent);
+  background: #11100e;
+}
+
+.achievement-card__copy:focus-visible {
+  outline: 2px solid #e7c88e;
+  outline-offset: 3px;
 }
 
 @media (max-width: 1279px) {
@@ -4373,13 +4402,144 @@ h1 {
   line-height: 1.5;
 }
 
+.certification-focus__references {
+  margin: 1rem 0 0;
+  color: #858078;
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.64rem;
+  font-variation-settings: 'MONO' 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .certification-focus ul {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
-  margin-top: 1rem;
+  margin-top: 0.45rem;
   padding: 0;
   list-style: none;
+}
+
+.review-path {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.75fr) minmax(0, 1.25fr);
+  gap: 3rem;
+  width: min(72rem, calc(100% - 4rem));
+  margin-inline: auto;
+  padding-block: 4.5rem 5rem;
+  border-top: 1px solid #2f2e2a;
+  color: var(--text);
+}
+
+.review-path__heading h2,
+.review-path__heading p {
+  margin: 0;
+}
+
+.review-path__heading h2 {
+  font-family: 'Danviska', serif;
+  font-size: 2.75rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.review-path__heading p {
+  max-width: 34rem;
+  margin-top: 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.review-path nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid #34322d;
+}
+
+.review-path a {
+  display: flex;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 4.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-right: 1px solid #24231f;
+  border-bottom: 1px solid #34322d;
+  color: var(--text);
+  text-decoration: none;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+
+.review-path a:nth-child(2n) {
+  border-right: 0;
+}
+
+.review-path a:hover,
+.review-path a:focus-visible {
+  color: var(--accent);
+  background: #11100e;
+}
+
+.review-path a:focus-visible {
+  outline: 2px solid #e7c88e;
+  outline-offset: -3px;
+}
+
+.review-path a > span {
+  min-width: 0;
+}
+
+.review-path strong,
+.review-path small {
+  display: block;
+}
+
+.review-path strong {
+  font-family: 'Kiona', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.review-path small {
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.review-path b {
+  color: var(--accent);
+  font-family: 'Recursive Variable', ui-monospace, monospace;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+@media (max-width: 700px) {
+  .review-path {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    width: calc(100% - 2rem);
+    padding-block: 3.5rem 4rem;
+  }
+
+  .review-path__heading h2 {
+    font-size: 2rem;
+  }
+
+  .review-path nav {
+    grid-template-columns: 1fr;
+  }
+
+  .review-path a,
+  .review-path a:nth-child(2n) {
+    min-height: 4.5rem;
+    border-right: 0;
+  }
 }
 
 @keyframes language-letter-land {

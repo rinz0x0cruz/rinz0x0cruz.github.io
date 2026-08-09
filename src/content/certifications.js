@@ -8,8 +8,8 @@ export default [
     detail: 'Foundational security, access control, networks, incident response, and operations.',
     accent: '#d1a35f',
     links: [
-      { label: 'Issuer details', href: 'https://www.isc2.org/certifications/cc' },
-      { label: 'Digital badges', href: 'https://www.isc2.org/certifications/digital-badges' },
+      { label: 'Certification page', href: 'https://www.isc2.org/certifications/cc' },
+      { label: 'Badge program', href: 'https://www.isc2.org/certifications/digital-badges' },
     ],
   },
   {
@@ -22,7 +22,7 @@ export default [
     accent: '#7d8fa2',
     links: [
       {
-        label: 'Issuer details',
+        label: 'Certification page',
         href: 'https://learn.microsoft.com/en-us/credentials/certifications/azure-cosmos-db-developer-specialty/',
       },
     ],
@@ -37,7 +37,7 @@ export default [
     accent: '#c66a57',
     links: [
       {
-        label: 'Lead Auditor',
+        label: 'Certification program',
         href: 'https://pecb.com/en/education-and-certification-for-individuals/iso-iec-27001/iso-iec-27001-lead-auditor',
       },
       { label: 'ISO standard', href: 'https://www.iso.org/standard/27001' },
@@ -53,7 +53,7 @@ export default [
     accent: '#a7a39b',
     links: [
       {
-        label: 'Lead Auditor',
+        label: 'Certification program',
         href: 'https://pecb.com/en/education-and-certification-for-individuals/iso-iec-42001/iso-iec-42001-lead-auditor',
       },
       { label: 'ISO standard', href: 'https://www.iso.org/standard/81230.html' },
