@@ -279,11 +279,11 @@ The component philosophy is handled evidence objects: each recurring component h
 
 ### Fixed Recruiter Navigation
 
-A 3.25rem fixed dark bar uses Kiona labels, hairline dividers, one short brass calibration, horizontally scrollable section links, and compact identity and profile-links controls. Hover and expanded states warm the background; focus uses a high-contrast inset outline.
+A 3.25rem fixed dark bar uses Kiona labels, hairline dividers, one short brass calibration, horizontally scrollable section links, and compact identity and profile-links controls. Section and profile labels hold a 12px floor. The section occupying the viewport receives `aria-current`, a warm surface, and a brass underline; when the strip overflows, one-pixel brass edge cues identify hidden directions and the current destination centers automatically. Hover and expanded states warm the background; focus uses a high-contrast inset outline.
 
 ### Profile Links Control
 
-The compact pixel-labeled control sits above the identity object and opens a 6px-radius record drawer. Link records use dark metal cells, numeric data labels, a short brass edge mark, lift on hover, and an explicit focus outline; Escape closes the panel and returns focus.
+The compact pixel-labeled control sits above the identity object and opens a 6px-radius record drawer. Records balance across no more than two columns; the universal Email record spans the row, exposes its literal address, opens the default mail client, and provides a separate Copy action. Short viewports turn the records into one keyboard-reachable horizontal strip. Dark metal cells use numeric data labels, a short brass edge mark, lift on hover, and an explicit focus outline; Escape closes the panel and returns focus.
 
 ### Identity Evidence Card
 
@@ -291,7 +291,7 @@ The 6px-radius identity object combines a framed interactive portrait, name, rol
 
 ### Career Chapter
 
-Each 9px-radius chapter is a fixed-width handled plate with aligned media, period stamp, role information, and a 4px-radius turn control. Turning reveals outcomes, notable work, and a handwritten reflection; the hidden face leaves the tab order, and pointer tilt never replaces keyboard operation.
+Each 9px-radius chapter is a fixed-width handled plate with aligned media, period stamp, role information, and a 4px-radius turn control. The rail's previous/next controls hold a 44px target in pointer and touch contexts. Turning reveals outcomes, notable work, and a handwritten reflection; company and role remain inside the outcome panel so the evidence face never loses its identity. The hidden face leaves the tab order, and pointer tilt never replaces keyboard operation.
 
 ### Achievement Card and Window
 
@@ -299,7 +299,7 @@ The achievement window carries metal rails and localized filigree around equal e
 
 ### Project Stamp
 
-Projects appear as light paper stamps inside one 10px-radius instrument. Perforated edges, issuer label, central mark, project name, field, language, and year make each stamp self-contained; hover lifts the paper, while selection returns it to the page with a brass inset.
+Projects appear as light paper stamps inside one 10px-radius instrument. The default leaf features ExploitRank, Malscope, and Quorum because each has public, security-relevant evidence; one `All projects` control reveals the remaining records inline. Arrange and Shuffle stay secondary and appear only in that expanded state. Expanded desktop collections scroll inside the fixed album cover when additional rows exceed its leaf; narrower layouts retain auto-height reflow. Perforated edges, issuer label, central mark, project name, field, language, and year make each stamp self-contained; hover lifts the paper, while selection returns it to the page with a brass inset.
 
 ### Language Switch
 

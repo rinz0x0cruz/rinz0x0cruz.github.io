@@ -13,6 +13,7 @@ import StickyNote from './components/StickyNote.vue'
 import TarotHanging from './components/TarotHanging.vue'
 import { scheduleIdleEnhancement } from './loading.js'
 import { glide, impulseFor } from './motion.js'
+import { featuredProjectIds } from './content/projects.js'
 import profile from './profile.js'
 
 const achievementEntrancePlaybackRate = 2.4
@@ -20,20 +21,27 @@ const achievementEntrancePlaybackRate = 2.4
 document.title = `${profile.name} — ${profile.position}`
 
 const featuredAchievement = profile.achievements[0]
+const portfolioSections = Object.freeze([
+  { id: 'outcomes', label: 'Outcomes' },
+  { id: 'experience', label: 'Experience' },
+  { id: 'projects', label: 'Projects' },
+  { id: 'languages', label: 'Languages' },
+  { id: 'credentials', label: 'Credentials' },
+])
 const quoteOptions = profile.quotes
 const disciplineColumns = Math.min(profile.disciplines.length, 4)
 const disciplineRows = Math.ceil(profile.disciplines.length / disciplineColumns)
 const identityCardMinHeight = `${21 + (disciplineRows - 1) * 6}rem`
-const profileLinkColumns = profile.links.length <= 5
-  ? profile.links.length
-  : Math.ceil(profile.links.length / 2)
-const profileLinkRows = Math.ceil(profile.links.length / profileLinkColumns)
-const profileLinkMobileRows = Math.ceil(profile.links.length / 3)
+const profileLinkColumns = Math.min(profile.links.length, 2)
+const profileLinkFullWidthCount = profile.links.filter(({ copyValue }) => copyValue).length
+const profileLinkStandardCount = profile.links.length - profileLinkFullWidthCount
+const profileLinkRows = Math.ceil(profileLinkStandardCount / profileLinkColumns) + profileLinkFullWidthCount
+const profileLinkMobileColumns = profileLinkColumns
+const profileLinkMobileRows = profileLinkRows
 const profileDrawerHeight = `${profileLinkRows * 4.75 + 0.5}rem`
 const profileDrawerMobileHeight = `${profileLinkMobileRows * 4.75 + 0.5}rem`
 const profileDrawerSpace = `${profileLinkRows * 4.75 + 2.75}rem`
 const profileDrawerMobileSpace = `${profileLinkMobileRows * 4.75 + 2}rem`
-const profileLinksScrollable = profile.links.length > 5
 const languageSwitchScrollable = profile.languages.length > 4
 const achievementInstruments = profile.achievements.map(({ instrument }) => instrument)
 const achievementColumns = Math.min(profile.achievements.length, 5)
@@ -49,8 +57,6 @@ const reviewLinks = [
   {
     ...profileLinks.get('email'),
     detail: 'Open your default mail app',
-    external: false,
-    href: profileLinks.get('email').fallbackHref,
   },
 ]
 
@@ -64,8 +70,110 @@ const activeQuoteWords = computed(() => {
 })
 const dossierOpen = ref(false)
 const profileDossier = ref(null)
+const emailCopyStatus = ref('idle')
+const sectionNav = ref(null)
+const activeSection = ref(null)
+const sectionNavCanScrollBack = ref(false)
+const sectionNavCanScrollForward = ref(false)
 const experienceRail = ref(null)
 let dossierOpener = null
+let sectionSpyFrame = 0
+
+async function copyEmailAddress(event) {
+  const address = profileLinks.get('email')?.copyValue
+  if (!address) return
+  const addressText = event.currentTarget.closest('li')?.querySelector('em')
+
+  try {
+    await navigator.clipboard.writeText(address)
+    emailCopyStatus.value = 'copied'
+  } catch {
+    const selection = window.getSelection()
+    if (addressText && selection) {
+      const range = document.createRange()
+      range.selectNodeContents(addressText)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+    emailCopyStatus.value = 'selected'
+  }
+}
+
+function syncSectionNavOverflow() {
+  const navigation = sectionNav.value
+  if (!navigation) return
+
+  const maximum = Math.max(0, navigation.scrollWidth - navigation.clientWidth)
+  sectionNavCanScrollBack.value = navigation.scrollLeft > 1
+  sectionNavCanScrollForward.value = navigation.scrollLeft < maximum - 1
+}
+
+function centerSectionLink(id) {
+  const navigation = sectionNav.value
+  const link = navigation?.querySelector(`a[href="#${id}"]`)
+  if (!navigation || !link) return
+
+  const maximum = Math.max(0, navigation.scrollWidth - navigation.clientWidth)
+  const target = Math.min(maximum, Math.max(0, link.offsetLeft + link.offsetWidth / 2 - navigation.clientWidth / 2))
+  sectionNavCanScrollBack.value = target > 1
+  sectionNavCanScrollForward.value = target < maximum - 1
+  navigation.scrollTo({
+    left: target,
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+  })
+  requestAnimationFrame(syncSectionNavOverflow)
+}
+
+function syncActiveSection() {
+  sectionSpyFrame = 0
+  const navigationBottom = document.querySelector('.recruiter-nav')?.getBoundingClientRect().bottom ?? 0
+  const candidates = portfolioSections.map(({ id }) => {
+    const bounds = document.getElementById(id)?.getBoundingClientRect()
+    const visible = bounds
+      ? Math.max(0, Math.min(bounds.bottom, innerHeight) - Math.max(bounds.top, navigationBottom))
+      : 0
+    return { id, bounds, visible }
+  }).filter(({ visible }) => visible > 0)
+
+  if (!candidates.length) return
+  candidates.sort((first, second) => second.visible - first.visible || Math.abs(first.bounds.top) - Math.abs(second.bounds.top))
+  const next = candidates[0].id
+  if (next === activeSection.value) return
+
+  activeSection.value = next
+  void nextTick(() => centerSectionLink(next))
+}
+
+function scheduleSectionSync() {
+  if (sectionSpyFrame) return
+  sectionSpyFrame = requestAnimationFrame(syncActiveSection)
+}
+
+function syncSectionNavLayout() {
+  syncSectionNavOverflow()
+  if (activeSection.value) centerSectionLink(activeSection.value)
+  scheduleSectionSync()
+}
+
+function selectSection(id) {
+  activeSection.value = id
+  centerSectionLink(id)
+}
+
+onMounted(() => {
+  window.addEventListener('scroll', scheduleSectionSync, { passive: true })
+  window.addEventListener('resize', syncSectionNavLayout)
+  void nextTick(() => {
+    syncSectionNavOverflow()
+    scheduleSectionSync()
+  })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', scheduleSectionSync)
+  window.removeEventListener('resize', syncSectionNavLayout)
+  if (sectionSpyFrame) cancelAnimationFrame(sectionSpyFrame)
+})
 
 // Three cards borrow a photograph of a place. Attribution lives here rather
 // than under each picture, where it crowded the caption off the card.
@@ -311,23 +419,57 @@ function turn(id) {
 
 // which stamp is being held, how the album is arranged, and the loose lean each
 // stamp takes when the collection is tipped out rather than laid in rows
-const focused = ref(profile.projects[0]?.id ?? null)
-const albumSort = ref('field')
+const featuredProjectIdSet = new Set(featuredProjectIds)
+const featuredProjects = featuredProjectIds
+  .map((id) => {
+    const project = profile.projects.find((record) => record.id === id)
+    if (!project) throw new Error(`Featured project is missing: ${id}`)
+    return project
+  })
+const focused = ref(featuredProjects[0]?.id ?? null)
+const additionalProjectCount = profile.projects.length - featuredProjects.length
+const allProjectsOpen = ref(false)
+const albumSort = ref('featured')
 const albumScatter = ref(false)
 const scatter = ref({})
+const projectStamps = ref([])
 
 const focusedProject = computed(() =>
   profile.projects.find((project) => project.id === focused.value) ?? null,
 )
 
 const arrangedProjects = computed(() => {
+  if (!allProjectsOpen.value) return featuredProjects
   if (albumScatter.value) return scatter.value.order ?? profile.projects
   const key = albumSort.value
+  if (key === 'featured') {
+    return [
+      ...featuredProjects,
+      ...profile.projects.filter(({ id }) => !featuredProjectIdSet.has(id)),
+    ]
+  }
   return [...profile.projects].sort((a, b) => a[key].localeCompare(b[key]))
 })
 
 function holdStamp(id) {
   focused.value = id
+}
+
+async function toggleAllProjects(event) {
+  const opening = !allProjectsOpen.value
+  allProjectsOpen.value = opening
+  albumScatter.value = false
+  if (!opening && !featuredProjectIdSet.has(focused.value)) {
+    focused.value = featuredProjects[0]?.id ?? null
+  }
+
+  await nextTick()
+  if (opening) {
+    const firstAdditional = profile.projects.find(({ id }) => !featuredProjectIdSet.has(id))
+    projectStamps.value.find(({ dataset }) => dataset.projectId === firstAdditional?.id)?.focus()
+  } else {
+    event.currentTarget.focus()
+  }
 }
 
 function shuffleAlbum() {
@@ -598,6 +740,7 @@ function handleLandscapeVideoReady() {
 
 function syncPageState() {
   pageVisible.value = !document.hidden
+  if (!document.hidden) scheduleSectionSync()
   if (document.hidden || reducedMotionMedia?.matches) stopQuoteRotation()
   else startQuoteRotation()
   achievementInView.value = achievementIntersecting && !document.hidden && !reducedMotionMedia?.matches
@@ -758,13 +901,28 @@ onBeforeUnmount(() => {
         </span>
       </a>
 
-      <nav class="recruiter-nav__sections" aria-label="Portfolio sections">
-        <a href="#outcomes">Outcomes</a>
-        <a href="#experience">Experience</a>
-        <a href="#projects">Projects</a>
-        <a href="#languages">Languages</a>
-        <a href="#credentials">Credentials</a>
-      </nav>
+      <div
+        class="recruiter-nav__section-frame"
+        :data-can-scroll-back="sectionNavCanScrollBack"
+        :data-can-scroll-forward="sectionNavCanScrollForward"
+      >
+        <nav
+          ref="sectionNav"
+          class="recruiter-nav__sections"
+          aria-label="Portfolio sections"
+          @scroll.passive="syncSectionNavOverflow"
+        >
+          <a
+            v-for="section in portfolioSections"
+            :key="section.id"
+            :href="`#${section.id}`"
+            :aria-current="activeSection === section.id ? 'location' : undefined"
+            @click="selectSection(section.id)"
+          >
+            {{ section.label }}
+          </a>
+        </nav>
+      </div>
 
       <button
         class="recruiter-nav__links"
@@ -924,11 +1082,12 @@ onBeforeUnmount(() => {
         <section
           ref="profileDossier"
           id="profile-dossier"
-          :class="['credential-card__drawer', { 'credential-card__drawer--scrolling': profileLinksScrollable }]"
+          class="credential-card__drawer"
           :style="{
             '--profile-link-count': profile.links.length,
             '--profile-link-columns': profileLinkColumns,
             '--profile-link-rows': profileLinkRows,
+            '--profile-link-mobile-columns': profileLinkMobileColumns,
             '--profile-link-mobile-rows': profileLinkMobileRows,
           }"
           aria-label="Profile links panel"
@@ -943,6 +1102,7 @@ onBeforeUnmount(() => {
               <li
                 v-for="(link, index) in profile.links"
                 :key="link.id"
+                :class="{ 'credential-card__record--copyable': link.copyValue }"
               >
                 <a
                   :href="link.href"
@@ -955,8 +1115,19 @@ onBeforeUnmount(() => {
                     <strong>{{ link.label }}</strong>
                     <em>{{ link.detail }}</em>
                   </span>
-                  <b aria-hidden="true">↗</b>
+                  <b aria-hidden="true">{{ link.external ? '↗' : '→' }}</b>
                 </a>
+                <button
+                  v-if="link.copyValue"
+                  type="button"
+                  class="credential-card__copy"
+                  :aria-label="`Copy ${link.detail}`"
+                  aria-live="polite"
+                  :tabindex="dossierOpen ? 0 : -1"
+                  @click="copyEmailAddress"
+                >
+                  {{ emailCopyStatus === 'copied' ? 'Copied' : emailCopyStatus === 'selected' ? 'Address selected' : 'Copy' }}
+                </button>
               </li>
             </ol>
           </nav>
@@ -1230,6 +1401,10 @@ onBeforeUnmount(() => {
               :inert="!turned[role.id] || undefined"
             >
               <article class="chapter__outcome">
+                <header class="chapter__evidence-context">
+                  <strong>{{ role.company }}</strong>
+                  <span>{{ role.role }}</span>
+                </header>
                 <p>{{ role.outcome }}</p>
               </article>
 
@@ -1298,19 +1473,32 @@ onBeforeUnmount(() => {
           <h2 id="album-title">What I've built</h2>
         </div>
 
-        <div class="album__controls">
-          <label class="album__sort">
-            <span>Arrange by</span>
-            <select v-model="albumSort" @change="albumScatter = false">
-              <option value="field">Field</option>
-              <option value="language">Language</option>
-              <option value="name">Name</option>
-            </select>
-          </label>
-          <button type="button" class="album__shuffle" @click="shuffleAlbum">
-            <span aria-hidden="true">⤫</span>
-            {{ albumScatter ? 'Reshuffle' : 'Shuffle' }}
+        <div class="album__head-actions">
+          <button
+            type="button"
+            class="album__all-projects"
+            aria-controls="project-stamps"
+            :aria-expanded="allProjectsOpen"
+            @click="toggleAllProjects"
+          >
+            {{ allProjectsOpen ? 'Featured projects' : 'All projects' }}
+            <small>{{ allProjectsOpen ? 'Collapse' : `+${additionalProjectCount}` }}</small>
           </button>
+          <div v-if="allProjectsOpen" class="album__controls">
+            <label class="album__sort">
+              <span>Arrange by</span>
+              <select v-model="albumSort" @change="albumScatter = false">
+                <option value="featured">Featured</option>
+                <option value="field">Field</option>
+                <option value="language">Language</option>
+                <option value="name">Name</option>
+              </select>
+            </label>
+            <button type="button" class="album__shuffle" @click="shuffleAlbum">
+              <span aria-hidden="true">⤫</span>
+              {{ albumScatter ? 'Reshuffle' : 'Shuffle' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1347,7 +1535,14 @@ onBeforeUnmount(() => {
           <p v-else class="album__prompt">Select a project stamp to inspect its workflow</p>
         </div>
 
-        <ul class="album__field" :class="{ 'album__field--loose': albumScatter }">
+        <ul
+          id="project-stamps"
+          class="album__field"
+          :class="{
+            'album__field--expanded': allProjectsOpen,
+            'album__field--loose': albumScatter,
+          }"
+        >
           <li
             v-for="(project, index) in arrangedProjects"
             :key="project.id"
@@ -1359,7 +1554,9 @@ onBeforeUnmount(() => {
           >
             <button
               type="button"
+              ref="projectStamps"
               class="stamp"
+              :data-project-id="project.id"
               :class="{ 'stamp--held': focused === project.id }"
               :style="{
                 '--tilt-x': stampTilt[project.id]?.ax ?? 0,
@@ -1546,7 +1743,7 @@ onBeforeUnmount(() => {
             <strong>{{ link.label }}</strong>
             <small>{{ link.detail }}</small>
           </span>
-          <b aria-hidden="true">↗</b>
+          <b aria-hidden="true">{{ link.external ? '↗' : '→' }}</b>
         </a>
       </nav>
     </section>

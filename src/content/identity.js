@@ -56,10 +56,10 @@ export default {
     {
       id: 'email',
       label: 'Email',
-      detail: 'Start a conversation',
-      href: 'https://mail.google.com/mail/?view=cm&fs=1&to=rinz0x0cruz%40gmail.com',
-      fallbackHref: 'mailto:rinz0x0cruz@gmail.com',
-      external: true,
+      detail: 'rinz0x0cruz@gmail.com',
+      href: 'mailto:rinz0x0cruz@gmail.com',
+      copyValue: 'rinz0x0cruz@gmail.com',
+      external: false,
     },
   ],
   portrait: {

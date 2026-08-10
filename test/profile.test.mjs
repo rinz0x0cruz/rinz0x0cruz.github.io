@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import profile from '../src/profile.js'
 import { defineCollection } from '../src/content/define.js'
+import { featuredProjectIds } from '../src/content/projects.js'
 import {
   clampRect,
   isBoundedRect,
@@ -180,4 +181,14 @@ test('security.txt publishes a current canonical disclosure contact', async () =
   assert.ok(Number.isFinite(expires))
   assert.ok(expires > Date.now(), 'security.txt must not be expired')
   assert.ok(expires - Date.now() <= 366 * 24 * 60 * 60_000, 'security.txt expiry must stay within one year')
+})
+
+test('featured projects resolve to three evidence-backed records', () => {
+  assert.equal(featuredProjectIds.length, 3)
+  assert.equal(new Set(featuredProjectIds).size, featuredProjectIds.length)
+  for (const id of featuredProjectIds) {
+    const project = profile.projects.find((record) => record.id === id)
+    assert.ok(project, `missing featured project: ${id}`)
+    assert.ok(project.links?.length, `${id} must expose public evidence`)
+  }
 })

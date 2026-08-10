@@ -1,3 +1,5 @@
+export const featuredProjectIds = Object.freeze(['exploitrank', 'malscope', 'quorum'])
+
 export default [
   {
     id: 'exploitrank',

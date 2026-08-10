@@ -7,7 +7,7 @@ content-management system.
 
 | Feature | File | Required fields |
 | --- | --- | --- |
-| Identity, quotes, links | `identity.js` | Links: `id`, `label`, `detail`, `href` |
+| Identity, quotes, links | `identity.js` | Links: `id`, `label`, `detail`, `href`; optional `copyValue` |
 | Skills / disciplines | `skills.js` | `id`, `abbr`, `name`, `detail` |
 | Job experience | `experience.js` | `id`, `company`, `mark`, `role`, `kind`, `start`, `period`, `place`, `outcome`; non-empty `notable` |
 | Languages | `languages.js` | `id`, `name`, `native`, `lang`, `level`, `detail`, `accent` |
@@ -20,9 +20,18 @@ single hyphens. Reordering records is safe. Experience
 is displayed in file order, newest first. Projects can be sorted in the UI.
 Languages and certifications keep the first record selected initially.
 
+Contact links use provider-neutral protocols such as `mailto:`. Set
+`copyValue` only when the literal value is also safe to display as link detail;
+the profile drawer then exposes a separate Copy action and manual-selection
+fallback.
+
 Project `links` are optional `{ label, href }` records. Destinations must be
 unique HTTPS URLs on `github.com` or `rinz0x0cruz.github.io`; private projects
 use `note` instead of inventing a public source.
+
+The default album leaf is defined once by `featuredProjectIds` in `projects.js`.
+Keep exactly three unique IDs there, and only feature records with public
+evidence links. Every other project remains available through `All projects`.
 
 Images referenced by a content record belong under `public/` and use a
 root-relative URL such as `/experience/example.webp`. Supply intrinsic `w` and
