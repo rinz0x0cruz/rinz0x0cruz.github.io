@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { openAllProjects } from './project-album.js'
 
 test('portfolio core experience remains usable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
@@ -8,8 +9,9 @@ test('portfolio core experience remains usable', async ({ page }) => {
   await expect(page.locator('.album__name')).toBeAttached()
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0)
 
-  // click() scrolls the stamp into view itself; asking first only bought a second
-  // wait for the element to hold still, which is what timed out on a cold runner.
+  await openAllProjects(page)
+
+  // Jobscope is intentionally secondary, but remains reachable in every engine.
   const project = page.locator('.stamp', { hasText: 'jobscope' })
   await project.click()
   await expect(page.locator('.album__name')).toHaveText('jobscope')

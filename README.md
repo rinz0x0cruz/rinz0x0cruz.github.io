@@ -25,7 +25,7 @@ third-party runtime service.
 ## Features
 
 - Identity-first hero with an interactive portrait, availability state, rotating field notes, and security-discipline band.
-- Expandable profile links for the résumé preview, GitHub, LinkedIn, and Gmail compose.
+- Expandable profile links for the résumé preview, GitHub, LinkedIn, and universal email with a copyable address.
 - Verified outcome cards with lazy-loaded Three.js instruments and static fallbacks.
 - Independently lazy Helios, Sun, and Moon reliefs with pointer-driven depth and exact static artwork fallbacks.
 - Keyboard-, wheel-, and drag-accessible career rail with reversible evidence cards.
